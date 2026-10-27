@@ -13,6 +13,7 @@ Read-only: uses the GitHub API with the token embedded in the origin URL.
 Never prints the token. Never prints learner content.
 """
 import json
+import os
 import re
 import subprocess
 import sys

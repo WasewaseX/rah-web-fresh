@@ -33,7 +33,9 @@ Reading guide:
 
 ## Part A — the ten critical fixes
 
-### A-1 · P0 · Finish the GitHub privacy purge — `SUPERSEDED (Task 97): fresh-repo migration chosen by the account holder` + `DONE (Task 95)` (everything around it)
+### A-1 · P0 · Finish the GitHub privacy purge — `DONE (Task 99): fresh repo LIVE, old repo ARCHIVED`
+- **Task 99 execution (2026-10-27)**: `WasewaseX/rah-web-fresh` created (public, empty) and seeded with a SINGLE ORPHAN ROOT COMMIT (`9db1d29`) of the hardened tree; `PRIVACY-PURGE-REQUEST.md` removed from the tree; `scripts/privacy-sweep.py` retargeted (default = new repo, `RAH_SWEEP_REPO` override keeps the old-repo closure path); `scripts/drill-phase34.sh` URL updated; old repo `WasewaseX/rah-web` ARCHIVED read-only (NOT deleted — deletion is the account holder's ~30-day step and is what actually kills the dangling objects). Evidence pair: BEFORE 15/16 pre-scrub SHAs DANGLING-RETRIEVABLE on the old repo; AFTER **0/16 probed on the fresh repo** + first CI run on the fresh repo green (postgres:17 service). Full record: `FRESH-REPO-MIGRATION.md` (EXECUTED header).
+- **Residual (honest)**: third-party caches that may have scraped the old repo remain unverifiable by anyone (unchanged from the Support-route fine print); the old repo's archived content stays readable until deletion — the daily sweep with `RAH_SWEEP_REPO=WasewaseX/rah-web` keeps recording it until then.
 - **Task 97 decision (account holder, verbatim)**: "its okay we will just make a fresh repo but later" — the Support-purge route is replaced by a **fresh repository migration**, planned end-to-end in `FRESH-REPO-MIGRATION.md` (orphan-history start so no pre-scrub object ever re-ships, 8-step checklist, closure criteria, 30-day archive-then-delete of the old repo). `PRIVACY-PURGE-REQUEST.md` stays in the tree as the fallback route; the daily sweep + alert layer keep monitoring until migration closes the exposure (still 15/16 dangling + blob served as of 2026-10-25).
 - **Outcome**: old commit objects stop being anonymously retrievable; the
   cached db blob is evicted; the daily sweep returns 0/16 clean twice.
@@ -71,7 +73,8 @@ Reading guide:
 - **Survival layer (the recycle class is real: recycle #8 killed the Task-74 PG env)**: `scripts/pg-survival.sh` (ensure = start-or-restore with CRITICAL alert; dump = daily pg_dump with Session/LoginCode ROWS excluded (REG-2 port) + sidecar counts JSON → db/backups (keep 14) + upload/rah-backups + vault; verify = weekly restore drill). Wired into ensure-server (boot), watchdog (daily dump + weekly drill), vault-sync (dump ships). **Recycle drill PROVEN live**: PG stopped + data dir wiped → ensure restored from the upload dump → app green (xp intact, tripwire intact) with the CRITICAL alert recorded.
 - **Freshness chain extended**: `freshness-check.py` now has a PG branch — LIVE = PostgreSQL primary, snapshot legs = the dump sidecars (4-way MATCH verified: LIVE=SYNC=VAULT=UPLOAD xp=483).
 
-### A-4 · P0 · Make pilot measurements survive recycling — `DONE (Task 95)`
+### A-4 · P0 · Make pilot measurements survive recycling — `DONE (Task 95)` + artifact-hardening addendum `DONE (Task 99)`
+- **Task 99 addendum (the reviewer's "build once, deploy a preserved artifact")**: recycles #8/#9 (two consecutive days) wiped `.next/BUILD_ID` and reset `.env` — the recovery was an in-place rebuild. Now: `build-prod.sh` preserves the standalone artifact (sha256 manifest, atomic `-latest` on the proven upload mount; ~102 MB tgz stays off git — GitHub's 100 MB limit), `ensure-server.sh` restores it sha-verified when BUILD_ID is missing (BUILD_ID rebuilt from the manifest — drill-caught), and the `.env` survival guard restores the preserved PG configuration with a loud WARN. **LIVE DRILLS PASSED**: `.next` wiped → artifact restore → prod standalone healthy → drift OK in ~40 s (vs ~7 min rebuild); sabotaged `.env` → detected + restored + alerted. PG snapshot cadence moved from daily-watchdog to every healthy boot/revive (shrinks the loss window; recycle #9 cost ~8 XP honestly recorded).
 - **Outcome**: the weekly pilot series can no longer be destroyed by an
   environment recycle (it was lost in recycles #6 AND #7 — the reviewer
   flagged the exact gap).
@@ -235,7 +238,7 @@ Reading guide:
 |---|---|---|---|---|
 | E-1 | LLM API (structured outputs + tool calling) | improve evals, cost controls, retries, deterministic validation; NO new provider | eval suite for coach/writing/quiz outputs; cost log per day | `READY` |
 | E-2 | Azure AI Speech pronunciation assessment | **DE-ESCALATED (Task 97, $0 directive; Task 98 confirms)**: reference-comparison harness only (`azure-pron-validate.ts`); never required for operation; there is NO production phoneme path — the word-level measured tier is the production measurement | PRONUNCIATION-VALIDATION.md gates + the degradation pins | `REFERENCE-ONLY (dormant without a key)` |
-| E-3 | Transactional email | **CONFIGURED (Task 97)**: Resend SMTP bridge via the existing nodemailer contract; key server-side only; tests mocked by default; free tier, no overages | battery 7/0/1 on PG + transport verify OK; one live send when MAIL_TEST_TO exists | `DONE (Task 97)` (final live-send check pending the address) |
+| E-3 | Transactional email | **CONFIGURED (Task 97)**: Resend SMTP bridge via the existing nodemailer contract; key server-side only; tests mocked by default; free tier, no overages. **Task 99: the one live-send check is STAGED** — `.env` carries the full SMTP bridge config (survived recycle #9 via the env guard); the single remaining step is the account holder running `MAIL_TEST_TO=<your-address> bun scripts/test-email-delivery.ts` (one real email to your own inbox; free-tier 100/day untouched otherwise) | battery 7/0/1 on PG + transport verify OK; one live send when MAIL_TEST_TO exists | `CONFIGURED — live-send check awaits the address (account holder)` |
 
 ---
 

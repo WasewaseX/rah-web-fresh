@@ -413,3 +413,60 @@ Both were handled in one batch.
 ### Gates (this wave)
 
 tripwire xp=483 from PG · restore drill PASS · freshness 4-way MATCH · drift OK (build == intended) · chunk 200 + 401 gate · boot regression ALL PASS on PG · db-snapshot engine gate · tsc 0 · eslint 0 · secrets sweep clean (key only in .env) · bash -n on touched scripts · standing rule recorded verbatim
+
+## 20. Task 99 — recycle #9 absorbed in minutes, the P1 artifact hardening proven live, and the privacy P0 CLOSED with the fresh repo (2026-10-27, evidence-first)
+
+The external Oct-27 progress report (quoted by the account holder) named the
+priorities; this wave executed them in order.
+
+1. **Recycle #9 (Oct 27 07:06) re-ran the Task 98 outage class** — BUILD_ID
+   wiped, `.env` reset to the platform's 50-byte SQLite default, PG data dir
+   gone, dev fallback. Recovery: pgserver wheel reinstalled, `pg-survival.sh
+   ensure` restored from the upload dump (third live restore drill, CRITICAL
+   alert as designed), prod rebuilt and flipped. **Honest loss: ~8 XP** the
+   learner earned 11:49–11:54 Oct 26 was in no dump — fixed below.
+2. **P1 deployment-artifact hardening — implemented + PROVEN by live drills**
+   (the report's "the last artifact-recovery step still needs proof"):
+   `build-prod.sh` preserves the standalone build as a sha256-manifested
+   `-latest` tgz on the proven upload mount (102 MB — stays off git, GitHub's
+   100 MB limit); `ensure-server.sh` restores it sha-verified when BUILD_ID
+   is missing. Two drill-caught requirements recorded: `mkdir -p .next`
+   before `tar -C .next` (silent chdir failure), and BUILD_ID must be rebuilt
+   from the manifest (it is not inside the standalone subtree). **DRILL:
+   `.next` fully wiped → artifact restore → prod standalone healthy → drift
+   OK in ~40 s** (vs ~7 min rebuild). The `.env` survival guard restores the
+   preserved PG config with a loud WARN — **DRILL: sabotaged `.env`
+   detected + restored + alerted**. PG snapshot cadence: every healthy boot
+   and revive (was daily).
+3. **P0 privacy exposure CLOSED (the migration, executed)**: before-evidence
+   sweep 15/16 pre-scrub SHAs DANGLING-RETRIEVABLE on the old repo;
+   `WasewaseX/rah-web-fresh` created (public, empty) and seeded with a
+   single ORPHAN ROOT COMMIT `9db1d29` of the hardened tree;
+   `PRIVACY-PURGE-REQUEST.md` removed; sweep retargeted
+   (`RAH_SWEEP_REPO` override keeps the old-repo closure path);
+   old repo **ARCHIVED read-only — deletion stays the account holder's
+   ~30-day step** (it is what actually kills the dangling objects).
+   After-evidence: **0/16 probed on the fresh repo**, first CI run on the
+   fresh repo green (postgres:17 service), vault private, zero learner-data
+   paths tracked. Full record in `FRESH-REPO-MIGRATION.md`.
+4. **CI runner warnings**: `actions/checkout` v4 → v5 (node20-runtime
+   deprecation class) on the fresh repo's workflow; verified by the next
+   run's conclusion.
+5. **Feature gate LIFTED (P0 closed)**: the shadowing loop (F-5, the
+   report's "best next product feature") is unblocked with its full
+   contract already in `ELSA-PLAN.md` — word-level `measured:asr-alignment`
+   only, no phoneme claims, 10 tests per the house rule. Implementation is
+   the next wave's first item.
+6. **Resend end-to-end: STAGED, one human step remains** — the config
+   survived recycle #9 via the env guard; the single live-send check awaits
+   the account holder's `MAIL_TEST_TO` address (`bun
+   scripts/test-email-delivery.ts`; one email, free tier untouched
+   otherwise). Automated tests stay mocked per the $0 rule.
+7. **Pilot evidence (honest)**: 18 reviews over 3 distinct days, xp=483 /
+   streak=6 after the restore; SpeakSessions in the PG era: 0 (the
+   instrumentation waits for use). The four-consecutive-week acceptance
+   clock is a human-time gate — automation cannot substitute for it.
+
+### Gates (this wave)
+
+before/after sweep evidence (15/16 → 0/16) · orphan root 9db1d29 on rah-web-fresh · first fresh-repo CI green · old repo archived:true verified via API · artifact drill PASSED (~40 s recovery) · env-guard drill PASSED · third PG restore drill PASSED · tripwire xp=483 from PG · tsc 0 · eslint 0 · secrets sweep clean (key only in gitignored .env + upload copy) · bash -n on all touched scripts

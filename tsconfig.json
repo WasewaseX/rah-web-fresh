@@ -1,0 +1,60 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "noImplicitAny": false,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    ".next-battery/types/**/*.ts",
+    ".next-battery/dev/types/**/*.ts",
+    ".next-isolation/types/**/*.ts",
+    ".next-isolation/dev/types/**/*.ts",
+    ".next-mobile/types/**/*.ts",
+    ".next-mobile/dev/types/**/*.ts",
+    ".next/dev/dev/types/**/*.ts",
+    ".next-teach/types/**/*.ts",
+    ".next-teach/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "rah-repo",
+    "rah-web-export",
+    "examples",
+    "download",
+    "skills",
+    "tests",
+    "upload",
+    "scripts/pg-validate.ts",
+    "prisma/pg-client"
+  ]
+}

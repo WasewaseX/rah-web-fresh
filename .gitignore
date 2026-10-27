@@ -1,0 +1,147 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+local-*
+.claude
+.z-ai-config
+*.log
+dev.log
+dev.out.log
+test
+prompt
+
+server.log
+# Skills directory
+/skills/
+# env secrets - never commit
+.env
+.env.local
+.env*.local
+
+# runtime data - not for the public repo
+db/custom.db
+db/custom.db-wal
+db/custom.db-shm
+
+# REG-2 doctrine (2026-10-22): the PUBLIC repo carries ZERO learner data.
+# Snapshots (backups/, db/sync/) go to the PRIVATE vault repo only.
+backups/
+db/sync/
+backups/.last-autosnap
+backups/.vacuum-*
+backups/.tmp-*
+/rah-web-export/
+/rah-repo/
+
+# external research artifacts (root-owned, unreadable at build time - Turbopack dies on these)
+/research/
+/shots/
+# local deliverables & screenshots - not repo content
+/download/
+/agent-ctx/
+/rah/
+/rah-run/
+/tool-results/
+scripts/*.json
+# Duolingo RE data artifacts (re-downloadable; see DUOLINGO-RE.md §1)
+scripts/duolingo-reference/traces.csv.gz
+scripts/duolingo-reference/traces.part
+scripts/duolingo-reference/sample.csv
+scripts/duolingo-reference/chunk.bin
+scripts/duolingo-reference/parity_fixture.json
+scripts/duolingo-reference/parity_ref_out.json
+scripts/duolingo-reference/dl.log
+scripts/duolingo-reference/dl2.log
+data/coach-workspace/
+
+# isolated-battery stack (Task 52) + isolation battery dist (Task 63)
+.next-battery/
+.next-isolation/
+.next-mobile/
+.next-teach/
+db/battery-isolated.db*
+db/battery-isolation.db*
+db/battery-mobile.db*
+db/battery-teach.db*
+
+# deploy-pipeline artifacts - never commit or package these (Task 60)
+db/admin-token
+db/*.stats.json
+db/*.snapshot-*.tmp
+scripts/out/*.db
+db/post-pull-stats.json
+
+# data-guard runtime artifacts (Task 57)
+db/backups/
+db/boot-guard.log
+db/.guard.lock
+upload/rah-backups/
+
+# private-vault sync working clone (Task 62)
+db/vault-work/
+
+# Task 67 hygiene: test-artifact outputs (synthetic TTS/ASR clips, CI JSON dumps) stay local
+scripts/out/
+
+# Task 74: generated PG client (sandbox-only; the app client stays sqlite)
+prisma/pg-client/
+
+# Task 76: pilot series derives from learner data - local only, regenerable
+db/pilot/
+db/privacy-sweep.log
+
+# REG-2: drill working copies of the learner db stay LOCAL (never in the public repo)
+db/drill-safety/*.db
+db/drill-safety/*.sqlite
+db/drill-safety/*
+
+# Task 90: runtime single-flight locks (never state, never committed)
+db/.optimize.lock
+db/.boot-guard.lock
+scripts/.perf-baseline.json
+drill-clone/
+pron-validation-clips/
+db/.sweep-state
+scripts/out/
+prisma/migrations.sqlite.bak.20261025-095733/
+prisma/schema.prisma.bak.*
+.env.bak.*

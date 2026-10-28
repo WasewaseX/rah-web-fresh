@@ -49,8 +49,20 @@ LOG="db/vault-sync.log"
 log() { echo "[vault-sync] $(date -Is) $*" >> "$LOG"; echo "[vault-sync] $*"; }
 
 # ---- resolve + assert the target remote (the safety core) ------------------
+# Task 100: the fresh-repo migration (origin -> rah-web-fresh.git) broke the
+# old heuristic (string-swap "rah-web.git" -> "vault.git" on the origin URL),
+# so every push silently ABORTED at the assertion below while the backup chain
+# looked "configured". Resolution order now: the dedicated `vault` git remote
+# (present since the migration) -> the origin-swap heuristic -> hard default.
 ORIGIN_URL="$(git remote get-url origin 2>/dev/null || echo "")"
-VAULT_URL="${VAULT_URL:-$(printf '%s' "$ORIGIN_URL" | sed -e 's#/rah-web\.git#/vault.git#' -e 's#/rah-web$#/vault#')}"
+VAULT_URL="${VAULT_URL:-$(git remote get-url vault 2>/dev/null || true)}"
+if [ -z "$VAULT_URL" ]; then
+  VAULT_URL="$(printf '%s' "$ORIGIN_URL" | sed -e 's#/rah-web-fresh\.git#/vault.git#' -e 's#/rah-web\.git#/vault.git#' -e 's#/rah-web-fresh$#/vault#' -e 's#/rah-web$#/vault#')"
+fi
+case "$VAULT_URL" in
+  *WasewaseX/vault*) : ;;
+  *) VAULT_URL="https://github.com/WasewaseX/vault.git" ;;
+esac
 case "$VAULT_URL" in
   *WasewaseX/vault*) : ;;
   *) log "ABORT: derived vault URL is not the private vault repo: '$VAULT_URL'"; exit 1 ;;
@@ -173,6 +185,17 @@ if [ -s "db/backups/pg-rah-latest.dump" ]; then
   mkdir -p "$DEST/backups"
   cp -f db/backups/pg-rah-latest.dump "$DEST/backups/pg-rah-latest.dump" 2>/dev/null || true
   cp -f db/backups/pg-rah-latest.json "$DEST/backups/pg-rah-latest.json" 2>/dev/null || true
+fi
+
+# ---- Task 100: REDACTED env rides the same push -----------------------------
+# Recycle #10 wiped even the "proven-surviving" upload mount, taking .env with
+# it. The vault copy carries the non-secret shape (PG URL + SMTP host/port/
+# user/from) with SMTP_PASS stripped - secrets never leave this machine, but a
+# future recycle can restore the PostgreSQL configuration from the vault clone
+# instead of reconstructing it. The key itself is re-armed from the holder's
+# record (login degrades gracefully to the mailer's fallback paths meanwhile).
+if [ -s ".env" ]; then
+  grep -v '^SMTP_PASS=' .env > "$DEST/env-rah-latest.redacted" 2>/dev/null || true
 fi
 
 # ---- freshest snapshot: ALWAYS rebuild it, ship it always -------------------

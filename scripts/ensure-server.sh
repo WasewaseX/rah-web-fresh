@@ -30,6 +30,17 @@ if [ -f "$ENV_BACKUP" ] && grep -q '^DATABASE_URL=postgresql://' "$ENV_BACKUP" 2
     cp "$ENV_BACKUP" .env && chmod 600 .env
     bash scripts/alert.sh WARN ensure-server ".env was reset by the workspace - restored the preserved PostgreSQL configuration" || true
   fi
+else
+  # Task 100: the mount itself can come back EMPTY (recycle #10 proved it -
+  # upload/rah-backups survived with stale Oct-23 files but lost everything
+  # newer). Never let that revert the tree to SQLite: reconstruct the minimal
+  # non-secret PG configuration instead (SMTP key re-armed from the holder's
+  # record; login keeps working via the mailer's own fallback paths).
+  if [ ! -f .env ] || ! grep -q '^DATABASE_URL=postgresql://' .env 2>/dev/null; then
+    echo "$(date -Is) .env + preserved copy both gone - reconstructing minimal PG configuration"
+    printf 'DATABASE_URL=postgresql://postgres@127.0.0.1:5433/rah\n' > .env && chmod 600 .env
+    bash scripts/alert.sh WARN ensure-server ".env reconstructed PG-only (preserved copy lost) - SMTP key must be re-armed" || true
+  fi
 fi
 set -a; . ./.env 2>/dev/null; set +a
 if grep -q '^DATABASE_URL=postgresql://' .env 2>/dev/null; then

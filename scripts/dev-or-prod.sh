@@ -14,7 +14,33 @@ cd /home/z/my-project || exit 1
 # fallback below silently served SQLite on a PostgreSQL-era tree (dotenv
 # semantics: process env wins). Source it once here, before any branch;
 # the prod branch re-sources it (idempotent).
+#
+# Task 100 (2026-10-29 recycle, live incident): the platform boots
+# `bun run dev` -> THIS script, so ensure-server.sh's Task 99 env guard never
+# ran; .env was reset to the 50-byte SQLite default, PG was gone, and the
+# learner saw "Network hiccup" on every login. This road now carries the same
+# survival guard AND starts PG before the app needs it:
+#   restore order: mount copy (full, incl. SMTP) -> minimal PG-only
+#   reconstruction (non-secret URL only; mail degraded until the key is
+#   re-armed from the holder's record). Deliberate engine flips still go
+#   through pg-cutover.sh - a correct .env is never overwritten here.
+ENV_BACKUP="upload/rah-backups/env-rah-latest"
+if [ ! -f .env ] || ! grep -q '^DATABASE_URL=postgresql://' .env 2>/dev/null; then
+  if [ -f "$ENV_BACKUP" ] && grep -q '^DATABASE_URL=postgresql://' "$ENV_BACKUP" 2>/dev/null; then
+    echo "$(date -Is) .env missing or non-PG - restoring the preserved PostgreSQL configuration (recycle signature)"
+    cp "$ENV_BACKUP" .env && chmod 600 .env
+    bash scripts/alert.sh WARN dev-or-prod ".env was reset by the workspace - restored the preserved PostgreSQL configuration" || true
+  else
+    echo "$(date -Is) .env non-PG and no preserved copy - reconstructing minimal PG configuration (SMTP key must be re-armed)"
+    printf 'DATABASE_URL=postgresql://postgres@127.0.0.1:5433/rah\n' > .env && chmod 600 .env
+    bash scripts/alert.sh WARN dev-or-prod ".env reconstructed PG-only from the tracked fallback - SMTP key lost with the recycle" || true
+  fi
+fi
 set -a; . ./.env 2>/dev/null; set +a
+if grep -q '^DATABASE_URL=postgresql://' .env 2>/dev/null; then
+  mkdir -p upload/rah-backups && cp .env "$ENV_BACKUP" && chmod 600 "$ENV_BACKUP"
+  bash scripts/pg-survival.sh ensure || true   # dead PG = the login "Network hiccup" class
+fi
 
 if [ "${RAH_PROD:-1}" != "0" ] && [ -f .next/standalone/server.js ] && [ -f .next/BUILD_ID ]; then
   set -a; . ./.env 2>/dev/null; set +a

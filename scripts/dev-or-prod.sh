@@ -39,6 +39,7 @@ fi
 set -a; . ./.env 2>/dev/null; set +a
 if grep -q '^DATABASE_URL=postgresql://' .env 2>/dev/null; then
   mkdir -p upload/rah-backups && cp .env "$ENV_BACKUP" && chmod 600 "$ENV_BACKUP"
+  bash scripts/pg-wheel-ensure.sh || true   # Task 101: recycle #11 - the WHEEL dies too; without it ensure cannot restore PG
   bash scripts/pg-survival.sh ensure || true   # dead PG = the login "Network hiccup" class
 fi
 

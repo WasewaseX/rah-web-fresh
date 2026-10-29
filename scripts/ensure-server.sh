@@ -72,6 +72,7 @@ if [ -f "$SCHEMA" ] && [ -d node_modules/.prisma/client ]; then
 fi
 
 bash scripts/db-guard.sh boot || true   # Task 86 wiring: snapshot-if-used BEFORE any schema work / restore-if-fresh
+bash scripts/pg-wheel-ensure.sh || true    # Task 101: recycle #11 - the pgserver WHEEL dies with /home/z/rah-pg; reinstall before ensure needs it
 bash scripts/pg-survival.sh ensure || true  # Task 97: PG survival - start-or-restore BEFORE the app needs it (no-op when .env is SQLite)
 bash scripts/db-restore.sh || true
 bash scripts/db-migrate-safe.sh || echo "(migrate skipped/failed - see /tmp/db-migrate.log)"
@@ -113,6 +114,24 @@ sleep 2
 # preserved build artifact exists, restore it instead of rebuilding in
 # place (or worse, letting the boot fall back to dev). The tgz is verified
 # against its sha256 manifest before it is trusted.
+#
+# Task 101: RELEASE FALLBACK - the mount can come back stale/empty (recycle
+# #10), so the holder approved a second offsite home: a release asset on the
+# active repo (rah-web-fresh, tag build-latest). If BUILD_ID AND the mount
+# tgz are both missing, fetch the artifact from the release first; the
+# sha256-manifest block below still gates extraction, so an untrusted or
+# truncated download can never boot.
+if [ ! -s .next/BUILD_ID ] && [ ! -f upload/rah-backups/rah-build-latest.tgz ]; then
+  REL_BASE="https://github.com/WasewaseX/rah-web-fresh/releases/download/build-latest"
+  echo "$(date -Is) no local artifact - trying the release asset fallback ($REL_BASE)"
+  if curl -sfL --max-time 600 "$REL_BASE/rah-build-latest.tgz" -o upload/rah-backups/rah-build-latest.tgz \
+     && curl -sfL --max-time 60 "$REL_BASE/rah-build-latest.json" -o upload/rah-backups/rah-build-latest.json; then
+    echo "$(date -Is) artifact fetched from the release asset"
+  else
+    echo "$(date -Is) release fallback failed - rebuild path"
+    rm -f upload/rah-backups/rah-build-latest.tgz upload/rah-backups/rah-build-latest.json
+  fi
+fi
 if [ ! -s .next/BUILD_ID ] && [ -f upload/rah-backups/rah-build-latest.tgz ]; then
   WANT_SHA=$(python3 -c "import json;print(json.load(open('upload/rah-backups/rah-build-latest.json'))['sha256'])" 2>/dev/null)
   GOT_SHA=$(sha256sum upload/rah-backups/rah-build-latest.tgz 2>/dev/null | cut -d' ' -f1)

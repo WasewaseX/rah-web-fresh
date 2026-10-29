@@ -15,7 +15,32 @@ export async function POST(req: Request) {
 
   // The plaintext code came back from issueLoginCode's memory; the DB only
   // ever saw its sha256 hash. Mail it immediately and let it go.
-  const mail = await sendLoginCode(String(email).trim().toLowerCase(), issued.code!);
+  //
+  // Task 101: SMTP failures MUST NOT crash this route. sendLoginCode re-throws
+  // provider rejections (2026-10-29 live: Resend sandbox 550 "You can only
+  // send testing emails to your own email address"), and an unhandled throw
+  // returns an HTML/empty 500 - the client's r.json() then throws and the
+  // learner sees the useless "Network hiccup" instead of the real reason.
+  // The ledger (MailLog) still records the failure before the throw.
+  let mail;
+  try {
+    mail = await sendLoginCode(String(email).trim().toLowerCase(), issued.code!);
+  } catch (e) {
+    const detail = String((e as Error).message ?? e).replace(/\s+/g, " ").slice(0, 160);
+    console.log(`[request-code] SMTP send failed for ${email}: ${detail}`);
+    return NextResponse.json(
+      { error: `The sign-in email could not be sent. Mail provider said: ${detail}` },
+      { status: 503 },
+    );
+  }
+  if (mail.via === "smtp" && !mail.delivered) {
+    // Idempotent replay of a failed send (or a provider answer nodemailer
+    // resolved without throwing): same honesty rule - say so, with status.
+    return NextResponse.json(
+      { error: "The sign-in email could not be delivered. The mail provider rejected the send - see the deployment's MailLog for the exact reason." },
+      { status: 503 },
+    );
+  }
   return NextResponse.json({
     ok: true,
     email: String(email).trim().toLowerCase(),

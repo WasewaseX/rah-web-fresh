@@ -24,6 +24,7 @@ import {
   MessageCircle,
   BookMarked,
   Volume2,
+  Settings as SettingsIcon,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Chip } from "./ui";
@@ -59,6 +60,7 @@ const NextTutor = dynamic(() => import("./next/tutor"), { ssr: false, loading: V
 const NextGrammar = dynamic(() => import("./next/grammar"), { ssr: false, loading: ViewFallback });
 const NextSound = dynamic(() => import("./next/sound"), { ssr: false, loading: ViewFallback });
 const NextCheckpoint = dynamic(() => import("./next/checkpoint"), { ssr: false, loading: ViewFallback });
+const NextSettings = dynamic(() => import("./next/aisettings"), { ssr: false, loading: ViewFallback });
 import { applyTheme } from "@/lib/theme-bus";
 import { installOfflineSync, flush } from "@/lib/offline";
 
@@ -129,7 +131,7 @@ export const VIEWS = [
   { id: "progress", label: "Progress", icon: BarChart3 },
 ] as const;
 
-export type ViewId = (typeof VIEWS)[number]["id"] | "checkpoint";
+export type ViewId = (typeof VIEWS)[number]["id"] | "checkpoint" | "settings";
 
 // Task 104: the recovered generation navigates by STRAND names — "today",
 // "writing", "listening", "reading" (the bootstrap plan's view ids) — while
@@ -145,7 +147,7 @@ const VIEW_ALIASES: Record<string, ViewId> = {
 function normalizeView(raw: string): ViewId {
   const alias = VIEW_ALIASES[raw];
   if (alias) return alias;
-  if (VIEWS.some((v) => v.id === raw) || raw === "checkpoint") return raw as ViewId;
+  if (VIEWS.some((v) => v.id === raw) || raw === "checkpoint" || raw === "settings") return raw as ViewId;
   return "home";
 }
 
@@ -169,6 +171,7 @@ const LAZY_IMPORTS: Partial<Record<ViewId, () => Promise<unknown>>> = {
   grammar: () => import("./next/grammar"),
   sound: () => import("./next/sound"),
   checkpoint: () => import("./next/checkpoint"),
+  settings: () => import("./next/aisettings"),
 };
 let idlePrefetchDone = false;
 function prefetchView(id: ViewId) {
@@ -356,6 +359,16 @@ export default function RahApp() {
         </nav>
         <div className="mt-auto space-y-2">
           <button
+            onClick={() => go("settings")}
+            className="flex w-full items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.03] px-4 py-3 text-left transition-colors hover:border-white/[0.16]"
+          >
+            <SettingsIcon className="h-4 w-4 text-[#8b96a9]" />
+            <div>
+              <div className="text-xs font-bold text-[#dbe3f0]">AI engine</div>
+              <p className="text-[11px] text-[#8b96a9]">Built-in engine or your own API — your choice.</p>
+            </div>
+          </button>
+          <button
             onClick={() => setCoachOpen(true)}
             className="w-full rounded-2xl border border-[var(--rah-primary)]/20 bg-gradient-to-br from-[#16233e] to-[#131b2c] p-4 text-left transition-colors hover:border-[var(--rah-primary)]/45"
           >
@@ -385,6 +398,13 @@ export default function RahApp() {
             <Chip tone="amber">
               <Flame className="h-3 w-3" /> {state.learner.streak}
             </Chip>
+            <button
+              onClick={() => go("settings")}
+              aria-label="AI engine settings"
+              className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.03] text-[#8b96a9]"
+            >
+              <SettingsIcon className="h-4 w-4" />
+            </button>
           </div>
         )}
       </header>
@@ -481,6 +501,11 @@ export default function RahApp() {
             {view === "checkpoint" && (
               <div className="rah-next">
                 <NextCheckpoint boot={boot} onDone={() => void refresh()} />
+              </div>
+            )}
+            {view === "settings" && (
+              <div className="rah-next">
+                <NextSettings boot={boot} onDone={() => void refresh()} />
               </div>
             )}
             {view === "arcade" && <ArcadeView state={state} onChange={refresh} />}

@@ -34,6 +34,10 @@ export interface Reading {
   level: string;
   minutes: number;
   text: string;
+  // Task 102 reconstruction: the interface lost these when the recycle reset
+  // tracked files; readings.json (tracked) always carried the data.
+  glossary: { w: string; fa: string }[];
+  questions: { q: string; choices: string[]; a: number; why?: string }[];
 }
 
 export const DECK: Card[] = (deckJson as { cards: Card[] }).cards;
@@ -53,3 +57,29 @@ export function deckStats() {
   }
   return { total: DECK.length, byLevel, byUnit };
 }
+
+// ---------- Task 102 reconstruction: practice + listening content wiring ----------
+// The feature session added these modules and re-exported them here; the
+// recycle reset this file before that was committed. The content files
+// survived (src/content/practice.ts, src/content/listening.ts) and define
+// the exact names the components import.
+import { WRITE_PROMPTS } from "@/content/practice";
+export {
+  GRAMMAR_LESSONS,
+  SPEAK_PROMPTS,
+  WRITE_PROMPTS,
+  CHECKPOINT_TEXTS,
+} from "@/content/practice";
+export {
+  MISS_TYPES,
+  PASSAGES,
+  PAIR_FOCUS,
+  MINIMAL_PAIRS,
+  STRESS_ITEMS,
+  LINK_ITEMS,
+} from "@/content/listening";
+
+export const CARD_BY_ID = cardById;
+
+// The new placement flow wants items + the writing prompt in one object.
+export const PLACEMENT = { items: PLACEMENT_ITEMS, prompts: WRITE_PROMPTS.map((w) => w.prompt) };

@@ -12,81 +12,24 @@
  * first request is handled, so this is the one hook that covers every boot
  * road: supervisor restart, ensure-server revive, dev, and standalone prod.
  *
- * Mirrors the ensure-server order exactly:
+ * Task 102: Next 16 Turbopack compiles this file for BOTH runtimes and its
+ * Edge analysis hard-errors on Node APIs (process.cwd/kill/pid) - a cold
+ * build (post-recycle-#12) failed with 21 such errors. The entire Node body
+ * moved to src/lib/boot-guard-node.ts, dynamically imported ONLY in the
+ * nodejs branch (NEXT_RUNTIME is a compile-time constant per bundle, so the
+ * Edge graph never includes it). Mirrors the ensure-server order exactly:
  *   1. db-guard.sh boot        - snapshot-if-used BEFORE schema work / restore-if-fresh
  *   2. db-restore.sh           - restore-if-MISSING (sync -> vault -> OSS -> backups)
  *   3. db-migrate-safe.sh      - versioned migrate deploy, never reset
  *   4. db-integrity-repair.sh  - insert-only FSRS repair BEFORE writes accepted
- * Plus (dev only) the Task-87 client-stamp guard: a stale generated Prisma
- * client 500s every newer-column query at runtime; prod bakes the client at
- * build time so a regen there cannot take effect.
+ * (dev-only client-stamp guard unchanged, inside the node module.)
  *
  * Hard rules: NEVER blocks boot on failure (every step is failure-isolated),
  * never runs twice concurrently (global flag + stale-tolerant lockfile),
  * every step has a hard timeout.
  */
 export async function register(): Promise<void> {
-  const g = globalThis as { __rahBootGuard?: boolean };
-  if (g.__rahBootGuard) return;
-  g.__rahBootGuard = true;
-
-  const { execFile } = await import("child_process");
-  const fs = await import("fs");
-  const path = await import("path");
-
-  const root = process.cwd();
-  const log = (line: string) => console.log(`[rah-boot] ${new Date().toISOString()} ${line}`);
-
-  // Single-flight across processes: lockfile with PID, stale after 120s.
-  const lockPath = path.join(root, "db", ".boot-guard.lock");
-  try {
-    if (fs.existsSync(lockPath)) {
-      const raw = fs.readFileSync(lockPath, "utf8").trim();
-      const pid = parseInt(raw.split(" ")[0] ?? "", 10);
-      const at = parseInt(raw.split(" ")[1] ?? "", 10);
-      const fresh = Number.isFinite(at) && Date.now() - at < 120_000;
-      const alive = Number.isFinite(pid) && pid > 0 && (() => {
-        try { process.kill(pid, 0); return true; } catch { return false; }
-      })();
-      if (fresh && alive) {
-        log(`another boot guard holds the lock (pid ${pid}) - skipping`);
-        return;
-      }
-      log(`taking over stale lock (pid ${raw})`);
-    }
-    fs.mkdirSync(path.dirname(lockPath), { recursive: true });
-    fs.writeFileSync(lockPath, `${process.pid} ${Date.now()}`);
-  } catch {
-    /* lock failure must never block boot */
-  }
-
-  const run = (script: string, timeoutMs: number): Promise<void> =>
-    new Promise((resolve) => {
-      const t0 = Date.now();
-      execFile(
-        "bash",
-        [path.join(root, "scripts", script)],
-        { cwd: root, timeout: timeoutMs, killSignal: "SIGKILL" },
-        (err, stdout, stderr) => {
-          const ms = Date.now() - t0;
-          const tail = `${stdout ?? ""}${stderr ?? ""}`.split("\n").filter(Boolean).slice(-2).join(" | ");
-          if (err) log(`${script} FAILED in ${ms}ms: ${String(err.message).slice(0, 120)} :: ${tail}`);
-          else log(`${script} ok in ${ms}ms :: ${tail}`);
-          resolve(); // failure-isolated by contract: always resolve
-        },
-      );
-    });
-
-  try {
-    log(`boot guard chain starting (cwd=${root}, NODE_ENV=${process.env.NODE_ENV ?? "unset"})`);
-    await run("db-guard.sh", 90_000);            // boot: snapshot-if-used / restore-if-fresh
-    await run("db-restore.sh", 120_000);          // restore-if-MISSING from the snapshot chain
-    await run("db-migrate-safe.sh", 120_000);     // forward-only schema move
-    await run("db-integrity-repair.sh", 120_000); // insert-only FSRS repair
-    log("boot guard chain complete - server may accept requests");
-  } catch (e) {
-    log(`boot guard chain error (non-fatal): ${String(e).slice(0, 160)}`);
-  } finally {
-    try { fs.rmSync(lockPath, { force: true }); } catch { /* ignore */ }
-  }
+  if (process.env.NEXT_RUNTIME !== "nodejs") return;
+  const { bootGuard } = await import("./lib/boot-guard-node");
+  await bootGuard();
 }

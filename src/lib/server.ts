@@ -27,7 +27,7 @@ export async function bumpDaily(field: "reviews" | "correct" | "xp" | "spoken" |
 // absorbed by a freeze if one is banked (that is what freezes are for), and
 // every full week mints one more freeze (banked max 2). A two-day gap with
 // no freeze, or any longer gap, resets the chain - honest again.
-export async function touchStreak() {
+export async function touchStreak(_learnerId?: string) {
   const l = await getLearner();
   const today = dayIndex();
   if (l.lastActiveDay === today) return l;
@@ -214,4 +214,17 @@ export async function diagnose() {
 
 function dueCountSafe(states: { state: string; due: number }[], today: number): number {
   return states.filter((s) => s.state !== "new" && s.due <= today).length;
+}
+
+// AI provider settings (Task 102 reconstruction): the single AiSettings row.
+// Consumers: /api/ai (discover/test), /api/settings (GET view + POST save),
+// bootstrap (profileView). Absent row = built-in engine.
+export async function getSettings() {
+  return db.aiSettings.findUnique({ where: { id: "main" } });
+}
+
+// Day index helper re-exported for the routes/components that import it from
+// here (the bootstrap and tracking flows use the same day reckoning).
+export function today(now = Date.now()): number {
+  return dayIndex(now);
 }

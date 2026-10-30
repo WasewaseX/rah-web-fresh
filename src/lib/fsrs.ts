@@ -204,3 +204,67 @@ export function fmtIvl(ivl: number): string {
   if (ivl < 360) return `${Math.round((ivl / 30) * 10) / 10}mo`;
   return `${Math.round((ivl / 360) * 10) / 10}y`;
 }
+
+// ---------- Task 102 reconstruction: shared helpers the new components import ----------
+
+// Tolerant answer equality: case-insensitive, punctuation- and
+// whitespace-insensitive, with accepted alternatives. Used by the review
+// flow, grammar drills, and checkpoint checks so a correct answer is never
+// marked wrong over a comma.
+export function answerEq(input: string, answer: string, alts: string[] = []): boolean {
+  const norm = (s: string) =>
+    s.toLowerCase().replace(/[.,!?;:'"()\u060C]/g, "").replace(/\s+/g, " ").trim();
+  const got = norm(input);
+  if (!got) return false;
+  return [answer, ...alts].filter(Boolean).some((a) => norm(String(a)) === got);
+}
+
+// Human label for a review interval in days: 12d, 3mo, 1.2y.
+export function ivlLabel(days: number): string {
+  if (!Number.isFinite(days) || days < 0) return "?";
+  if (days < 1) return "today";
+  if (days < 30) return `${Math.round(days)}d`;
+  if (days < 365) return `${Math.round(days / 30)}mo`;
+  return `${(days / 365).toFixed(1)}y`;
+}
+
+// Map a CardState row (or any stored FSRS state) to the FsrsState shape the
+// FSRS math and the UI both consume.
+export function toFsrs(row: {
+  s: number;
+  d: number;
+  due: number;
+  last: number;
+  lapses: number;
+  reps: number;
+  state: string;
+  lastivl: number;
+}): FsrsState {
+  return {
+    s: row.s,
+    d: row.d,
+    due: row.due,
+    last: row.last,
+    lapses: row.lapses,
+    reps: row.reps,
+    state: row.state,
+    lastivl: row.lastivl,
+  };
+}
+
+// Deterministic shuffle for drills (same seed = same order = stable UI).
+export function seededShuffle<T>(arr: T[], seed: number): T[] {
+  const out = [...arr];
+  let s = seed || 1;
+  for (let i = out.length - 1; i > 0; i--) {
+    s = (s * 1664525 + 1013904223) % 4294967296;
+    const j = s % (i + 1);
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+// Word count for writing surfaces (whitespace tokens with at least one letter).
+export function wordCount(text: string): number {
+  return String(text || "").split(/\s+/).filter((w) => /[a-zA-Z]/.test(w)).length;
+}

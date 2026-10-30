@@ -31,7 +31,20 @@ model Learner {
   persona        String  @default("mentor") // mentor | drill | zen - flavors the AI director and the coach
   gems           Int     @default(0) // soft currency (Duolingo RE): earned from levels, quests, leagues; spent in the Shop
   boostUntil     Int     @default(-1) // day index until which all XP payouts are doubled (Shop item, Duolingo XP boost RE)
+  diagnosis      String  @default("{}") // JSON: the tutor's latest diagnosis report (levels, weak tags, notes)
+  bestStreak     Int     @default(0) // longest streak ever reached (Task 102: lost column restored)
+  onboarded      Boolean @default(false) // first-run onboarding finished
+  settings       String  @default("{}") // JSON learner settings (theme, appearance plugin state)
+  skillLevels    String  @default("{}") // JSON map skill -> band + measuredAt (skills assess)
   createdAt      DateTime @default(now())
+  userCards         UserCard[]
+  speakingAttempts  SpeakingAttempt[]
+  checkpoints       Checkpoint[]
+  grammarDones      GrammarDone[]
+  listeningLogs     ListeningLog[]
+  placementResults  PlacementResult[]
+  sessionLogs       SessionLog[]
+  soundLogs         SoundLog[]
 }
 
 // Accounts. The learner data stays the singleton above; users gate access to it.
@@ -75,6 +88,7 @@ model Session {
 // other learning table. Legacy rows keep userId "me".
 model CardState {
   userId    String  @default("me") // per-user isolation (audit P0)
+  learnerId String  @default("me") // learner scoping name used by the feature layer (same singleton id)
   cardId    String
   s         Float   @default(0)
   d         Float   @default(0)
@@ -88,6 +102,7 @@ model CardState {
   suspended Boolean @default(false)
 
   @@id([userId, cardId])
+  @@index([learnerId, due])
   @@index([userId, due])
 }
 
@@ -209,13 +224,17 @@ model QuizItem {
 // Coach-built exam. Answers live server side; the client only sees items
 // without keys until the grade route scores a submission.
 model Exam {
-  id        String   @id
-  title     String
+  id        String   @id @default(cuid())
+  kind      String   @default("") // quick | standard | full (skills drill flow)
+  skill     String   @default("") // ExamSkill the drill targets
+  level     String   @default("?") // CEFR level the drill was built at
+  title     String   @default("")
   spec      String // JSON: level, targetSkills, plannedCount, minutes
-  items     String // JSON: full items WITH answers/accept/mustInclude
+  items     String   @default("") // JSON: full items WITH answers/accept/mustInclude
   status    String   @default("pending") // pending | graded
   result    String? // JSON: per-item verdicts + per-skill totals
   createdAt DateTime @default(now())
+  gradedAt  DateTime? // when the exam was graded (Task 102: lost column restored)
 }
 
 // Measured CEFR band per skill, separate from the overall placement level.
@@ -452,4 +471,190 @@ model MaterialCard {
   createdAt  DateTime @default(now())
 
   @@index([materialId])
+}
+
+// ---------- Task 102 reconstruction: the feature-layer tables ----------
+// These models were lost from the WORKING TREE when a platform recycle reset
+// tracked files to HEAD after the feature layer was written but before it
+// was committed. Reconstructed from the consumers' exact usage (routes and
+// libs survived as untracked files and specify every field).
+
+// BYO AI provider configuration. Single row, id "main". Empty baseUrl/model
+// = the built-in Rah engine manages everything (the $0 default).
+model AiSettings {
+  id         String   @id @default("main")
+  provider   String   @default("") // preset id ("" = built-in engine)
+  baseUrl    String   @default("") // OpenAI-compatible base URL; empty = built-in
+  apiKey     String   @default("") // server-side only, never sent to the client
+  model      String   @default("") // model id at the provider
+  discovered String   @default("") // JSON array of discovered model ids (capped 200)
+  lastTest   String   @default("") // JSON { ok, ms, error, at }
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// Learner-created cards (AI import or manual) in the same FSRS queue.
+// CardState.cardId references these as "u_<id>".
+model UserCard {
+  id        String   @id @default(cuid())
+  learnerId String
+  learner   Learner  @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  kind      String   @default("cloze") // ef | fae | cloze
+  prompt    String
+  answer    String
+  en        String   @default("")
+  fa        String   @default("")
+  note      String   @default("")
+  level     String   @default("B2")
+  createdAt DateTime @default(now())
+
+  @@index([learnerId, createdAt])
+}
+
+// Tutor instrument outputs: deep scans, mistake clinic, study plans.
+// Rotating log: each kind keeps only its newest few rows.
+model TutorReport {
+  id   String   @id @default(cuid())
+  kind String // scan | clinic | plan
+  data String // JSON payload
+  at   DateTime @default(now())
+
+  @@index([kind, at])
+}
+
+// One generated + graded practice exam run (both exam flows share the table).
+model ExamRun {
+  id         Int       @id @default(autoincrement()) // numeric run id (both exam flows pass Number(runId))
+  kind       String    @default("") // skill kind
+  length     Int       @default(0)
+  items      String    @default("") // JSON { title, passage, items } (tutor exam flow)
+  exam       String    @default("") // JSON generated exam (classic exam flow)
+  status     String    @default("ready") // ready | done
+  score      Int       @default(0)
+  total      Int       @default(0)
+  percent    Int       @default(-1) // -1 = not submitted yet
+  band       String    @default("")
+  report     String    @default("") // JSON history report (tutor flow)
+  result     String    @default("") // JSON graded report (classic flow)
+  answers    String    @default("") // JSON array of the learner's answers (tutor flow)
+  elapsedMs  Int       @default(0)
+  spec       String    @default("") // JSON ExamSpec (analyze evidence)
+  at         DateTime  @default(now()) // submission timestamp used by the analyze evidence blob
+  finishedAt DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+// Speaking practice attempts per prompt (voice shadowing / speaking loop).
+model SpeakingAttempt {
+  id        String   @id @default(cuid())
+  learnerId String
+  learner   Learner  @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  promptId  String
+  attemptNo Int      @default(1)
+  seconds   Float    @default(0)
+  selfEval  String   @default("{}") // JSON self assessment
+  createdAt DateTime @default(now())
+
+  @@index([learnerId, promptId])
+}
+
+// The holder's explicit mastery stance per interference tag (mastery page).
+model TagOverride {
+  tag    String @id
+  stance String // weak | strong | paused
+}
+
+// Weekly checkpoint (protocol: listening %, reading score, writing sample, speaking notes).
+model Checkpoint {
+  id            String   @id @default(cuid())
+  learnerId     String
+  learner       Learner  @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  listeningPct  Int      @default(0)
+  readingScore  Int      @default(0)
+  writingText   String   @default("")
+  speakingNotes String   @default("")
+  day           Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  @@index([learnerId, createdAt])
+}
+
+// Completed grammar lessons (compound key per learner+lesson).
+model GrammarDone {
+  learnerId String
+  learner   Learner  @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  lessonId  String
+  createdAt DateTime @default(now())
+
+  @@id([learnerId, lessonId])
+}
+
+// Listening practice misses (passage, round, miss type) for the listening library.
+model ListeningLog {
+  id        String   @id @default(cuid())
+  learnerId String
+  learner   Learner  @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  passageId String
+  round     Int      @default(0)
+  missType  String   @default("")
+  detail    String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([learnerId, createdAt])
+}
+
+// Placement outcomes (level + per-strand JSON), newest wins in reads.
+model PlacementResult {
+  id        String   @id @default(cuid())
+  learnerId String
+  learner   Learner  @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  level     String   @default("B2")
+  strands   String   @default("{}") // JSON map strand -> level
+  day       Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([learnerId, createdAt])
+}
+
+// Daily study minutes per strand (bootstrap protocol math).
+model SessionLog {
+  id        String   @id @default(cuid())
+  learnerId String
+  learner   Learner  @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  day       Int      @default(0)
+  strand    String
+  minutes   Int      @default(0)
+  meta      String   @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([learnerId, day])
+}
+
+// Minimal key-value settings store (appearance plugin, feature flags).
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+// Minimal-pair listening drill results (sound page).
+model SoundLog {
+  id        String   @id @default(cuid())
+  learnerId String
+  learner   Learner  @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  pairId    String
+  focus     String   @default("")
+  correct   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([learnerId, createdAt])
+}
+
+// CEFR band measurements from the skills system (band-keyed rows, global).
+model SkillBand {
+  band      String   @id
+  level     String   @default("?")
+  score     Float    @default(0)
+  evidence  String   @default("") // JSON array of evidence strings
+  updatedAt DateTime @updatedAt
 }

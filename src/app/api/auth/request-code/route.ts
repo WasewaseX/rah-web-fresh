@@ -28,6 +28,21 @@ export async function POST(req: Request) {
   } catch (e) {
     const detail = String((e as Error).message ?? e).replace(/\s+/g, " ").slice(0, 160);
     console.log(`[request-code] SMTP send failed for ${email}: ${detail}`);
+    // Task 104: dev-mode fallback. A configured-but-restricted provider (the
+    // sandbox's 550 policy) made local battery testing impossible - the code
+    // existed but died with the send. In NON-production, return the plaintext
+    // devCode (flagged smtpError) so boot-regression testing works; production
+    // keeps the honest 503 and never leaks a code.
+    if (process.env.NODE_ENV !== "production") {
+      return NextResponse.json({
+        ok: true,
+        email: String(email).trim().toLowerCase(),
+        via: "smtp-failed-dev",
+        smtpConfigured: smtpConfigured(),
+        devCode: issued.code,
+        smtpError: detail,
+      });
+    }
     return NextResponse.json(
       { error: `The sign-in email could not be sent. Mail provider said: ${detail}` },
       { status: 503 },
@@ -36,6 +51,16 @@ export async function POST(req: Request) {
   if (mail.via === "smtp" && !mail.delivered) {
     // Idempotent replay of a failed send (or a provider answer nodemailer
     // resolved without throwing): same honesty rule - say so, with status.
+    // Dev-mode fallback mirrors the catch branch above (Task 104).
+    if (process.env.NODE_ENV !== "production") {
+      return NextResponse.json({
+        ok: true,
+        email: String(email).trim().toLowerCase(),
+        via: "smtp-undelivered-dev",
+        smtpConfigured: smtpConfigured(),
+        devCode: issued.code,
+      });
+    }
     return NextResponse.json(
       { error: "The sign-in email could not be delivered. The mail provider rejected the send - see the deployment's MailLog for the exact reason." },
       { status: 503 },

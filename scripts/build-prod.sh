@@ -22,7 +22,18 @@ echo "build-prod: BUILD_ID=$(cat .next/BUILD_ID)"
 # can alert when the served build ever differs from what was last built
 # here on purpose.
 mkdir -p backups
-cat .next/BUILD_ID > backups/.intended-build-id
+# Task 102 part 3: read BUILD_ID ONCE, right after the build, and GUARD it.
+# Found live 2026-10-30: backups/.intended-build-id was EMPTY (recycle
+# snapshot semantics truncated it after the 09:00 build) and the manifest
+# disagreed with the packed artifact's own BUILD_ID by one leading char -
+# the manifest read the tree while the artifact carried the truth. From now
+# on the post-pack refresh below (read FROM the tgz) is authoritative.
+BUILD_ID="$(cat .next/BUILD_ID 2>/dev/null || true)"
+if [ -z "$BUILD_ID" ]; then
+  echo "build-prod: FATAL - .next/BUILD_ID missing/empty after build; refusing to record or pack" >&2
+  exit 1
+fi
+printf '%s\n' "$BUILD_ID" > backups/.intended-build-id
 echo "build-prod: intended-release record -> backups/.intended-build-id"
 
 # Task 99 (review P1, triply-proven): PRESERVE THE ARTIFACT. Recycles #8/#9
@@ -59,18 +70,28 @@ tar -czf "$ARTIFACT_TGZ.tmp" -C "$STAGE" standalone 2>/dev/null || RC_TAR=$?
 rm -rf "$STAGE"
 if [ "$RC_TAR" -eq 0 ] && [ -f "$ARTIFACT_TGZ.tmp" ]; then
   if bash scripts/artifact-secret-gate.sh "$ARTIFACT_TGZ.tmp"; then
+    # Task 102 part 3: the manifest's build_id is read FROM THE PACKED BYTES
+    # (ground truth), never from the tree - the tree can be truncated by a
+    # recycle between build and pack; the tgz cannot disagree with itself.
+    ART_BUILD="$(tar -xzOf "$ARTIFACT_TGZ.tmp" standalone/.next/BUILD_ID 2>/dev/null | tr -d '\n\r' || true)"
+    if [ -z "$ART_BUILD" ]; then
+      echo "build-prod: REFUSED to publish artifact - packed BUILD_ID unreadable" >&2
+      rm -f "$ARTIFACT_TGZ.tmp"
+      exit 1
+    fi
+    printf '%s\n' "$ART_BUILD" > backups/.intended-build-id
     ART_SHA=$(sha256sum "$ARTIFACT_TGZ.tmp" | cut -d' ' -f1)
     mv "$ARTIFACT_TGZ.tmp" "$ARTIFACT_TGZ"
-    python3 - "$ARTIFACT_JSON" "$(cat .next/BUILD_ID)" "$ART_SHA" <<'PY'
+    python3 - "$ARTIFACT_JSON" "$ART_BUILD" "$ART_SHA" <<'PY'
 import json, sys, datetime
 out, build_id, sha = sys.argv[1:4]
 json.dump({"build_id": build_id, "sha256": sha,
            "ts": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
            "bytes": None,
-           "note": "restore via ensure-server.sh when BUILD_ID is wiped; Task 102: allowlist pack + secret gate"},
+           "note": "restore via ensure-server.sh when BUILD_ID is wiped; Task 102: allowlist pack + secret gate; build_id read from the packed artifact itself"},
           open(out, "w"), indent=1)
 PY
-    echo "build-prod: artifact preserved -> $ARTIFACT_TGZ (sha256=${ART_SHA:0:12}..., gate PASSED)"
+    echo "build-prod: artifact preserved -> $ARTIFACT_TGZ (sha256=${ART_SHA:0:12}..., BUILD_ID=$ART_BUILD, gate PASSED)"
   else
     RC=$?
     echo "build-prod: REFUSED to publish artifact - secret gate FAILED (exit $RC). Previous artifact left untouched." >&2

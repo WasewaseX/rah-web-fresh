@@ -17,6 +17,10 @@ LAST_TS_FILE="backups/.last-autosnap"
 LAST_PILOT_FILE="backups/.last-pilot-week"
 
 while true; do
+  # Task 102 part 3: env-drift guard EVERY tick (closes the provisioning
+  # race: .env overwritten after boot would make the NEXT restart boot
+  # SQLite beside the PG-era data store). One grep - negligible cost.
+  bash scripts/env-guard.sh
   if curl -sf -o /dev/null --max-time 5 http://localhost:3000/api/version; then
     :
   else

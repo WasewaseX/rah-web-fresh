@@ -114,7 +114,7 @@ Reading guide:
   the round-trip (delete → restore → `diff -q` identical), re-runnable by
   hand; the vault holds `rah-web/pilot/series.md` from commit b38fe69 on.
 
-### A-5 · P1 · Remove dependence on ephemeral workspace state — `IN PROGRESS` (drift + alerts done incl. Task 95-b's fourth state; immutable-deploy hardening remains)
+### A-5 · P1 · Remove dependence on ephemeral workspace state — `DONE (Task 102 part 3): immutable-deploy hardening closed — exact-BUILD_ID restore drill-proven from the PUBLIC release bytes; drift + alerts carry the state; the deployment is one restart away from prod-serving at all times`
 - **Outcome**: recycles become non-events: prod-preferred boot (done,
   Task 89), drift detection (done, Task 95 + 95-b — all FOUR states:
   missing prod build CRITICAL, dev-serving while prod exists WARN, build
@@ -420,6 +420,26 @@ me always!"
 | 2 | **Rotate the Resend key** (same window; sandbox-limited blast radius) | P1 | Holder-side dashboard action; new key goes only into gitignored `.env` via the same handoff path as Task 97. |
 | 3 | A-6 login-email decision (unchanged from Task 101): switch login email to the sandbox address / screen-code fallback / open-recipient provider / domain verification | P1 | Real email login remains structurally impossible until one is chosen. |
 | 4 | Old repo: decision already taken (KEEP ARCHIVED) — no action requested; monitoring continues daily | — | Recorded in A-1. |
+
+### Task 102 part 3 addendum (2026-10-30, holder directive session) — verification, drill, env-race hardening, rotation runbook
+
+The holder's 30-Oct status check reordered priorities: **rotation and
+release-pipeline verification before any feature work**, and "until those
+credentials are rotated, treat them as potentially exposed." This session
+executed every part of that which does not require the holder's own UI actions.
+
+| Item | Result |
+|---|---|
+| CI verification of Task 102 (holder: "only three runs visible") | STALE — API shows **7 runs, all green**: #4 ad97d7c, #5 ace3cef, #6 90e437a, #7 51e24cb (through 2026-10-30T09:06Z). The Task 102 changes ARE CI-proven. |
+| Release integrity (independent re-verification) | Release `build-latest` holds exactly 2 assets; GitHub's own digest of the stored tgz bytes (`sha256:c1eb765a…`) matches the manifest; the tainted 321 MB asset is gone. |
+| **NEW bug found + fixed: BUILD_ID divergence** | The packed artifact's own BUILD_ID is `-gf09az0tUwgVCVcjZsP9` (leading dash, valid base64url) but the manifest recorded `gf09az0tUwgVCVcjZsP9` and `backups/.intended-build-id` was found **EMPTY** (recycle snapshot semantics truncated it after the 09:00 build). Root fix in `build-prod.sh`: BUILD_ID read once post-build with a hard empty-guard; the manifest's build_id is now read **from the packed tgz itself** (the artifact cannot disagree with itself); intended-file refreshed from the tgz. Corrected manifest re-uploaded to the release (asset 692483510); local manifest + intended-file repaired to `-gf09az0tUwgVCVcjZsP9`. |
+| **A-5 acceptance drill (was "in progress")** | `scripts/drill-release-restore.sh` — re-runnable, non-destructive. **PASS all 6 phases**: fresh download from the release (56,346,659 B) → sha256 == manifest → secret gate CLEAN on the DOWNLOADED bytes → structural allowlist (no .env / db / upload / scripts / skills … in the tree) → BUILD_ID exact match → throwaway PG DB + `migrate deploy` → **standalone booted on :3100 in 60 ms from public bytes only** → probes: `/api/version` Rah contract with `"data":null` (privacy-clean: the public artifact ships NO learner data), `/api/state` → 401, `/` → 200. The "fresh recycle restores the EXACT intended BUILD_ID without a new build" acceptance is now proven from the PUBLIC release bytes. |
+| **Provisioning-race hardening shipped (was a recorded candidate)** | `scripts/env-guard.sh`: ONE implementation of the .env survival doctrine (ensure-server delegates to it) AND called by the watchdog's 15-second tick — closing the race where provisioning re-overwrote `.env` after the boot guard (the next restart would have booted SQLite beside the PG-era store). Negative-control tested live: SQLite drift injected → byte-identical PG restore (incl. SMTP line) + WARN alert; episode-dedup prevents alert flapping; healthy tick clears the episode state. |
+| Live deployment posture | Deliberately NOT restarted mid-day (possible learner activity; the platform's own `bun run dev` supervisor owns the boot). The artifact tree WAS restored into `.next/` (sha-verified, gate CLEAN 2718 entries, defensive strip, BUILD_ID `-gf09az0tUwgVCVcjZsP9`) — `deploy-drift-check` is now WARN-only ("dev serving while prod exists"); the next recycle/revive flips to prod automatically through the drill-proven restore path. `/api/version` tripwire untouched: 483/6/18, createdAt exact. |
+| Resend rotation feasibility probe (live) | The current key is **send-only restricted**: `GET/POST /api-keys` → `401 restricted_api_key`. Rotation therefore requires one holder dashboard step; with a full-access replacement the OPERATOR can revoke the old key via the API (no second dashboard trip). |
+| Rotation runbook delivered | `CREDENTIAL-ROTATION-RUNBOOK.md` — both rotations (GitHub PAT P0, Resend P1) with exact UI steps, safe hand-off paths, operator-side wiring + verification checklist, and the ordering rule (old token/key revoked ONLY after the replacement is verified). |
+
+**Holder asks after part 3 (unchanged in substance, now turnkey):** (1) create + hand off the new GitHub PAT, revoke the old one only after the swap is verified; (2) create + hand off the new Resend key; (3) A-6 login-email decision. Everything else proceeds autonomously.
 
 ### Honest notes
 

@@ -416,7 +416,7 @@ me always!"
 
 | # | Ask | Urgency | Why |
 |---|---|---|---|
-| 1 | **Rotate the GitHub fine-grained PAT** (it was publicly downloadable ~6 h) | P0 — as soon as the holder reads this | Only the holder can rotate it. After rotation, the new token needs to be re-set in the workspace git remotes (operator can do that on receipt). Old repos/CI unaffected until rotation. |
+| 1 | **Rotate the GitHub fine-grained PAT** (it was publicly downloadable ~6 h) — `ROTATION EXECUTED (workspace side), part 3-b addendum below — holder may now revoke the old token` | P0 | Only the holder can create/revoke it. The new token was handed off and is now wired into every remote, push-proven. |
 | 2 | **Rotate the Resend key** (same window; sandbox-limited blast radius) | P1 | Holder-side dashboard action; new key goes only into gitignored `.env` via the same handoff path as Task 97. |
 | 3 | A-6 login-email decision (unchanged from Task 101): switch login email to the sandbox address / screen-code fallback / open-recipient provider / domain verification | P1 | Real email login remains structurally impossible until one is chosen. |
 | 4 | Old repo: decision already taken (KEEP ARCHIVED) — no action requested; monitoring continues daily | — | Recorded in A-1. |
@@ -440,6 +440,19 @@ executed every part of that which does not require the holder's own UI actions.
 | Rotation runbook delivered | `CREDENTIAL-ROTATION-RUNBOOK.md` — both rotations (GitHub PAT P0, Resend P1) with exact UI steps, safe hand-off paths, operator-side wiring + verification checklist, and the ordering rule (old token/key revoked ONLY after the replacement is verified). |
 
 **Holder asks after part 3 (unchanged in substance, now turnkey):** (1) create + hand off the new GitHub PAT, revoke the old one only after the swap is verified; (2) create + hand off the new Resend key; (3) A-6 login-email decision. Everything else proceeds autonomously.
+
+### Task 102 part 3-b addendum (2026-10-30, later same day) — GitHub PAT rotation EXECUTED (workspace side complete)
+
+The holder handed off the new fine-grained PAT in chat (the runbook's Part 1 handoff path). Executed in order, with the token never printed to any output, never committed, and verified absent from every tracked file (`git grep` on the live value → empty):
+
+1. **Verified BEFORE any swap**: `GET /user` → `WasewaseX`; `rah-web-fresh` → 200; **`vault` → 200** (the holder granted both repos, so the private-vault chain needed no separate token); Actions runs → 200.
+2. **`origin` remote swapped** and push-proven: scratch branch `rotation-verify-*` pushed and deleted with the new token (push = Contents:R/W proof).
+3. **`vault` remote swapped** (vault-sync resolves its clone URL from this remote each run, so one swap covers the chain) and the REAL chain proven: a full `vault-sync.sh` run pushed fresh scrubbed snapshots + PG dump + redacted env to the PRIVATE vault on the new token.
+4. **Credential record updated** (`db/vault-work/github-tokens.md`, gitignored, perms tightened to 600): new token recorded with verification evidence; the old token marked LEAKED-2026-10-29 / revocation-pending-holder; the Resend key's rotation status noted alongside.
+5. **Token-store sweep**: no script stores a GitHub PAT (`db-pull.sh`/`deploy.sh` use the local app admin token; `release.sh`/`github-release.sh` read env vars) — the two remotes + the vault record were the complete store set.
+6. **Old token status: still valid until the holder revokes it — the workspace no longer depends on it anywhere. The holder may revoke NOW (github.com → Settings → Developer settings → Fine-grained tokens → the 2026-10-21 token → Delete).**
+
+**Residual holder asks:** (2) Resend key (dashboard step, runbook Part 2 — with a full-access replacement the operator revokes the old key via API); (3) A-6 login-email decision; (4) confirm the old-PAT revocation when done (the daily privacy sweep will also keep watching the archived repo).
 
 ### Honest notes
 

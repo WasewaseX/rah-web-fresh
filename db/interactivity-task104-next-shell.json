@@ -1,0 +1,62 @@
+{
+  "label": "task104-next-shell",
+  "url": "http://localhost:3000/",
+  "tab": "Progress",
+  "harness": {
+    "device": "iPhone 13",
+    "cpuThrottle": "4x",
+    "net": "1.6Mbps/150ms RTT"
+  },
+  "at": "2026-10-30T20:56:49.197Z",
+  "bootBlocking": {
+    "supported": true,
+    "count": 7,
+    "tbt": 930,
+    "worst": 639,
+    "tasks": [
+      {
+        "dur": 639,
+        "start": 4793
+      },
+      {
+        "dur": 76,
+        "start": 5736
+      },
+      {
+        "dur": 73,
+        "start": 5955
+      },
+      {
+        "dur": 139,
+        "start": 6155
+      },
+      {
+        "dur": 130,
+        "start": 6358
+      },
+      {
+        "dur": 88,
+        "start": 6513
+      },
+      {
+        "dur": 135,
+        "start": 6661
+      }
+    ]
+  },
+  "lazyTabSettleMs": 177,
+  "lazyFirstChunkMs": 63,
+  "lazyChunkBytes": 0,
+  "lazyChunks": [
+    {
+      "url": "src_components_rah_next_progress_tsx_ef9c0d08._.js",
+      "bytes": 0,
+      "ms": 63
+    },
+    {
+      "url": "src_components_rah_next_progress_tsx_4da852c4._.js",
+      "bytes": 0,
+      "ms": 70
+    }
+  ]
+}

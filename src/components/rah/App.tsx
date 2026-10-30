@@ -21,15 +21,23 @@ import {
   Sparkles,
   GraduationCap,
   Gamepad2,
+  MessageCircle,
+  BookMarked,
+  Volume2,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Chip } from "./ui";
-import HomeView from "./Home";
 import PwaBootstrap from "./PwaBootstrap";
 import OfflineBadge from "./OfflineBadge";
-import ReviewView from "./Review";
 import CoachSidebar from "./CoachSidebar";
 import LoginView from "./Login";
+import type { Boot } from "@/app/page";
+// Task 104 (feature-layer wiring): the recovered next/ generation now powers
+// the surfaces. The daily loop (today + review) stays in the initial chunk so
+// first paint and the core SRS action never wait on a lazy fetch; everything
+// else is code-split exactly as the Task 91 bundle doctrine requires.
+import TodayView from "./next/today";
+import NextReview from "./next/review";
 
 // Round-3 bundle optimization (Task 91): the daily loop (Home, Review, Coach,
 // Login gate) stays in the initial chunk so first paint and the core SRS action
@@ -40,13 +48,17 @@ const ViewFallback = () => (
     Loading&hellip;
   </div>
 );
-const PlacementView = dynamic(() => import("./Placement"), { ssr: false, loading: ViewFallback });
-const WriteView = dynamic(() => import("./Write"), { ssr: false, loading: ViewFallback });
-const ListenView = dynamic(() => import("./Listen"), { ssr: false, loading: ViewFallback });
-const SpeakView = dynamic(() => import("./Speak"), { ssr: false, loading: ViewFallback });
-const ReadView = dynamic(() => import("./Read"), { ssr: false, loading: ViewFallback });
-const ProgressView = dynamic(() => import("./Progress"), { ssr: false, loading: ViewFallback });
 const ArcadeView = dynamic(() => import("./Arcade"), { ssr: false, loading: ViewFallback });
+const NextPlacement = dynamic(() => import("./next/placement"), { ssr: false, loading: ViewFallback });
+const NextWrite = dynamic(() => import("./next/writing"), { ssr: false, loading: ViewFallback });
+const NextListen = dynamic(() => import("./next/listening"), { ssr: false, loading: ViewFallback });
+const NextSpeak = dynamic(() => import("./next/speaking"), { ssr: false, loading: ViewFallback });
+const NextRead = dynamic(() => import("./next/reading"), { ssr: false, loading: ViewFallback });
+const NextProgress = dynamic(() => import("./next/progress"), { ssr: false, loading: ViewFallback });
+const NextTutor = dynamic(() => import("./next/tutor"), { ssr: false, loading: ViewFallback });
+const NextGrammar = dynamic(() => import("./next/grammar"), { ssr: false, loading: ViewFallback });
+const NextSound = dynamic(() => import("./next/sound"), { ssr: false, loading: ViewFallback });
+const NextCheckpoint = dynamic(() => import("./next/checkpoint"), { ssr: false, loading: ViewFallback });
 import { applyTheme } from "@/lib/theme-bus";
 import { installOfflineSync, flush } from "@/lib/offline";
 
@@ -103,18 +115,39 @@ export interface AppState {
 }
 
 export const VIEWS = [
-  { id: "home", label: "Home", icon: Home },
+  { id: "home", label: "Today", icon: Home },
   { id: "review", label: "Review", icon: RotateCcw },
   { id: "write", label: "Writing", icon: PenLine },
   { id: "speak", label: "Speaking", icon: Mic },
   { id: "listen", label: "Listening", icon: Headphones },
   { id: "read", label: "Reading", icon: BookOpen },
+  { id: "tutor", label: "Tutor", icon: MessageCircle },
+  { id: "grammar", label: "Grammar", icon: BookMarked },
+  { id: "sound", label: "Sound", icon: Volume2 },
   { id: "placement", label: "Placement", icon: Target },
   { id: "arcade", label: "Arcade", icon: Gamepad2 },
   { id: "progress", label: "Progress", icon: BarChart3 },
 ] as const;
 
-export type ViewId = (typeof VIEWS)[number]["id"];
+export type ViewId = (typeof VIEWS)[number]["id"] | "checkpoint";
+
+// Task 104: the recovered generation navigates by STRAND names — "today",
+// "writing", "listening", "reading" (the bootstrap plan's view ids) — while
+// this shell's canonical ids are home/write/listen/read. normalizeView maps
+// every recovered id onto the canonical set; unknown hashes fall back home.
+const VIEW_ALIASES: Record<string, ViewId> = {
+  today: "home",
+  writing: "write",
+  speaking: "speak",
+  listening: "listen",
+  reading: "read",
+};
+function normalizeView(raw: string): ViewId {
+  const alias = VIEW_ALIASES[raw];
+  if (alias) return alias;
+  if (VIEWS.some((v) => v.id === raw) || raw === "checkpoint") return raw as ViewId;
+  return "home";
+}
 
 // Task 92-bis (mobile perf round 2, measured with scripts/interactivity-probe.mjs):
 // a lazy view's first open pays a chunk fetch before its data fetches (measured:
@@ -125,13 +158,17 @@ export type ViewId = (typeof VIEWS)[number]["id"];
 // idle AFTER authenticated boot (network is idle; FCP unaffected). Duplicate
 // import() calls dedupe to the same chunk - never a double download.
 const LAZY_IMPORTS: Partial<Record<ViewId, () => Promise<unknown>>> = {
-  placement: () => import("./Placement"),
-  write: () => import("./Write"),
-  listen: () => import("./Listen"),
-  speak: () => import("./Speak"),
-  read: () => import("./Read"),
-  progress: () => import("./Progress"),
+  placement: () => import("./next/placement"),
+  write: () => import("./next/writing"),
+  listen: () => import("./next/listening"),
+  speak: () => import("./next/speaking"),
+  read: () => import("./next/reading"),
+  progress: () => import("./next/progress"),
   arcade: () => import("./Arcade"),
+  tutor: () => import("./next/tutor"),
+  grammar: () => import("./next/grammar"),
+  sound: () => import("./next/sound"),
+  checkpoint: () => import("./next/checkpoint"),
 };
 let idlePrefetchDone = false;
 function prefetchView(id: ViewId) {
@@ -153,6 +190,9 @@ export default function RahApp() {
   const [toasts, setToasts] = useState<{ key: string; title: string; desc: string; icon: string }[]>([]);
   const [user, setUser] = useState<{ email: string; name: string } | null>(null);
   const [coachOpen, setCoachOpen] = useState(false);
+  // Recovered-generation data layer: the /api/bootstrap payload (Boot).
+  // Refreshed together with /api/state so every onDone keeps both views true.
+  const [boot, setBoot] = useState<Boot | null>(null);
 
   // Trophy fanfare: recent unlocks surface once per session, then never again.
   const announceUnlocks = (recent: { key: string; title: string; desc: string; icon: string }[]) => {
@@ -214,6 +254,8 @@ export default function RahApp() {
         // view chunk so the first tab open pays only its data fetches.
         idlePrefetchAll();
       }
+      const rb = await fetch("/api/bootstrap", { cache: "no-store" });
+      if (rb.ok) setBoot((await rb.json()) as Boot);
     } catch {
       // offline blip; keep last state
     }
@@ -233,8 +275,8 @@ export default function RahApp() {
 
   useEffect(() => {
     const applyHash = () => {
-      const h = window.location.hash.replace("#", "") as ViewId;
-      setView(VIEWS.some((v) => v.id === h) ? h : "home");
+      const h = window.location.hash.replace("#", "");
+      setView(normalizeView(h));
     };
     const t0 = setTimeout(applyHash, 0);
     const t1 = setTimeout(refresh, 0);
@@ -250,9 +292,10 @@ export default function RahApp() {
     };
   }, [refresh]);
 
-  const go = (id: ViewId) => {
-    window.history.pushState(null, "", `#${id}`);
-    setView(id);
+  const go = (id: string) => {
+    const v = normalizeView(id);
+    window.history.pushState(null, "", `#${v}`);
+    setView(v);
   };
 
   // Not signed in: the login gate owns the screen. After sign-in, load the app.
@@ -371,20 +414,75 @@ export default function RahApp() {
           </div>
         )}
 
-        {!state ? (
+        {!state || !boot ? (
           <div className="flex h-64 items-center justify-center">
             <span className="h-6 w-6 animate-spin rounded-full border-2 border-[#2a3242] border-t-[var(--rah-primary)]" />
           </div>
         ) : (
           <div key={view} className="rah-rise">
-            {view === "home" && <HomeView state={state} go={go} openCoach={() => setCoachOpen(true)} onChange={refresh} toast={pushToast} />}
-            {view === "review" && <ReviewView state={state} onChange={refresh} />}
-            {view === "placement" && <PlacementView state={state} onChange={refresh} />}
-            {view === "write" && <WriteView state={state} onChange={refresh} />}
-            {view === "listen" && <ListenView state={state} />}
-            {view === "speak" && <SpeakView state={state} onChange={refresh} />}
-            {view === "read" && <ReadView state={state} />}
-            {view === "progress" && <ProgressView state={state} go={go} />}
+            {/* Task 104: recovered next/ generation. Each branch is wrapped in
+               .rah-next so the scoped recovered design tokens apply without
+               touching the classic shell's look (arcade stays classic). */}
+            {view === "home" && (
+              <div className="rah-next">
+                <TodayView boot={boot} go={go} />
+              </div>
+            )}
+            {view === "review" && (
+              <div className="rah-next">
+                <NextReview boot={boot} onDone={() => void refresh()} go={go} />
+              </div>
+            )}
+            {view === "write" && (
+              <div className="rah-next">
+                <NextWrite boot={boot} onDone={() => void refresh()} />
+              </div>
+            )}
+            {view === "speak" && (
+              <div className="rah-next">
+                <NextSpeak onDone={() => void refresh()} />
+              </div>
+            )}
+            {view === "listen" && (
+              <div className="rah-next">
+                <NextListen onDone={() => void refresh()} />
+              </div>
+            )}
+            {view === "read" && (
+              <div className="rah-next">
+                <NextRead boot={boot} onDone={() => void refresh()} />
+              </div>
+            )}
+            {view === "tutor" && (
+              <div className="rah-next">
+                <NextTutor boot={boot} />
+              </div>
+            )}
+            {view === "grammar" && (
+              <div className="rah-next">
+                <NextGrammar onDone={() => void refresh()} />
+              </div>
+            )}
+            {view === "sound" && (
+              <div className="rah-next">
+                <NextSound onDone={() => void refresh()} />
+              </div>
+            )}
+            {view === "placement" && (
+              <div className="rah-next">
+                <NextPlacement boot={boot} onDone={() => void refresh()} go={go} />
+              </div>
+            )}
+            {view === "progress" && (
+              <div className="rah-next">
+                <NextProgress boot={boot} />
+              </div>
+            )}
+            {view === "checkpoint" && (
+              <div className="rah-next">
+                <NextCheckpoint boot={boot} onDone={() => void refresh()} />
+              </div>
+            )}
             {view === "arcade" && <ArcadeView state={state} onChange={refresh} />}
           </div>
         )}

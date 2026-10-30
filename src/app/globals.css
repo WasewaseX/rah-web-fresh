@@ -226,3 +226,63 @@
 .rah-shake {
   animation: rah-shake 0.4s ease-in-out;
 }
+
+/* ============================================================
+   Task 104 — recovered feature-layer design system.
+   The Task 102 reconstruction rebuilt the next/ components against
+   the LOST token set: card-rah / btn-primary / chip / display plus
+   a light-era semantics for --accent (bright signal color) and
+   --muted (secondary TEXT gray). This shell is midnight-dark where
+   --accent/--muted are dark surface tones mapped into Tailwind's
+   @theme, so the recovered tokens are re-homed onto Rah Midnight
+   values and SCOPED to .rah-next wrappers: the classic shell keeps
+   its exact look, the recovered views get their intended system.
+   ============================================================ */
+.rah-next {
+  --accent: var(--rah-primary);
+  --accent-dim: rgba(78, 140, 255, 0.14);
+  --accent-deep: #9dc0ff;
+  --muted: #8b96a9;
+}
+.rah-next .card-rah {
+  background: linear-gradient(180deg, #151c2b 0%, #121826 100%);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 18px;
+  box-shadow: 0 14px 34px -22px rgba(0, 0, 0, 0.6);
+}
+.rah-next .btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--rah-primary);
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 1;
+  padding: 11px 18px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 10px 22px -8px rgba(78, 140, 255, 0.55);
+  transition: filter 0.15s ease, transform 0.06s ease;
+}
+.rah-next .btn-primary:hover { filter: brightness(1.08); }
+.rah-next .btn-primary:active { transform: translateY(1px); }
+.rah-next .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.045);
+  color: #dbe3f0;
+  white-space: nowrap;
+}
+.rah-next .display {
+  letter-spacing: -0.02em;
+  font-weight: 900;
+}

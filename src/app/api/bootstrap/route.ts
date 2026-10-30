@@ -5,6 +5,9 @@ import { profileView } from "@/lib/ai";
 import { toFsrs } from "@/lib/fsrs";
 import { DECK, CARD_BY_ID } from "@/lib/content";
 
+// Per-learner, session-gated payload: never prerender, never cache.
+export const dynamic = "force-dynamic";
+
 // The daily protocol, bent toward the learner's weakest strand.
 export function planFor(diagnosis: Record<string, number>): { strand: string; label: string; minutes: number; view: string; note: string }[] {
   const base: { strand: string; label: string; minutes: number; view: string; note: string }[] = [

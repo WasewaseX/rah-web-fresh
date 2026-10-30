@@ -43,3 +43,54 @@ jobs:
         run: bun run lint
       - name: Typecheck
         run: bunx tsc --noEmit
+
+  build:
+    runs-on: ubuntu-latest
+    needs: check
+    # Task 104: the status-check finding was real - CI proved migrations +
+    # lint + typecheck but never ran a PRODUCTION next build, so integration
+    # regressions (bad imports, RSC violations, prerender crashes) could reach
+    # main green. This job runs the exact `bun run build` script production
+    # uses (next build + standalone static/public copies) and asserts the
+    # standalone artifact is complete: server.js, BUILD_ID, standalone .next.
+    # The PG service is present as belt-and-suspenders: Next 16 handlers are
+    # dynamic by default, but no build may ever fail for lack of a database.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: rah_build
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install
+        run: bun install --frozen-lockfile
+      - name: Prisma generate
+        run: bun run db:generate
+        env:
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/rah_build"
+      - name: Production build (bun run build)
+        run: bun run build
+        env:
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/rah_build"
+          NEXT_TELEMETRY_DISABLED: "1"
+      - name: Assert standalone artifact completeness
+        run: |
+          test -f .next/standalone/server.js || { echo "server.js missing"; exit 1; }
+          test -f .next/standalone/.next/BUILD_ID || { echo "BUILD_ID missing"; exit 1; }
+          test -d .next/standalone/.next/static || { echo "static missing"; exit 1; }
+          test -d .next/standalone/public || { echo "public missing"; exit 1; }
+          BUILD_ID="$(cat .next/standalone/.next/BUILD_ID)"
+          echo "standalone BUILD_ID: $BUILD_ID"
+          test -n "$BUILD_ID"

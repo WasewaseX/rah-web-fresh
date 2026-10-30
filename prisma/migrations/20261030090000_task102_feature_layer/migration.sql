@@ -1,13 +1,20 @@
 -- AlterTable
+ALTER TABLE "Learner" ADD COLUMN     "bestStreak" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "diagnosis" TEXT NOT NULL DEFAULT '{}',
+ADD COLUMN     "onboarded" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "settings" TEXT NOT NULL DEFAULT '{}',
+ADD COLUMN     "skillLevels" TEXT NOT NULL DEFAULT '{}';
+
+-- AlterTable
 ALTER TABLE "CardState" ADD COLUMN     "learnerId" TEXT NOT NULL DEFAULT 'me';
 
 -- AlterTable
-ALTER TABLE "Exam" ADD COLUMN     "gradedAt" TIMESTAMP(3);
-
--- AlterTable
-ALTER TABLE "Learner" ADD COLUMN     "bestStreak" INTEGER NOT NULL DEFAULT 0,
-ADD COLUMN     "diagnosis" TEXT NOT NULL DEFAULT '{}',
-ADD COLUMN     "onboarded" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "Exam" ADD COLUMN     "gradedAt" TIMESTAMP(3),
+ADD COLUMN     "kind" TEXT NOT NULL DEFAULT '',
+ADD COLUMN     "level" TEXT NOT NULL DEFAULT '?',
+ADD COLUMN     "skill" TEXT NOT NULL DEFAULT '',
+ALTER COLUMN "title" SET DEFAULT '',
+ALTER COLUMN "items" SET DEFAULT '';
 
 -- CreateTable
 CREATE TABLE "AiSettings" (
@@ -64,6 +71,10 @@ CREATE TABLE "ExamRun" (
     "band" TEXT NOT NULL DEFAULT '',
     "report" TEXT NOT NULL DEFAULT '',
     "result" TEXT NOT NULL DEFAULT '',
+    "answers" TEXT NOT NULL DEFAULT '',
+    "elapsedMs" INTEGER NOT NULL DEFAULT 0,
+    "spec" TEXT NOT NULL DEFAULT '',
+    "at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "finishedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -173,6 +184,17 @@ CREATE TABLE "SoundLog" (
     CONSTRAINT "SoundLog_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "SkillBand" (
+    "band" TEXT NOT NULL,
+    "level" TEXT NOT NULL DEFAULT '?',
+    "score" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "evidence" TEXT NOT NULL DEFAULT '',
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "SkillBand_pkey" PRIMARY KEY ("band")
+);
+
 -- CreateIndex
 CREATE INDEX "UserCard_learnerId_createdAt_idx" ON "UserCard"("learnerId", "createdAt");
 
@@ -223,309 +245,4 @@ ALTER TABLE "SessionLog" ADD CONSTRAINT "SessionLog_learnerId_fkey" FOREIGN KEY 
 
 -- AddForeignKey
 ALTER TABLE "SoundLog" ADD CONSTRAINT "SoundLog_learnerId_fkey" FOREIGN KEY ("learnerId") REFERENCES "Learner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- DropForeignKey
-ALTER TABLE "MaterialCard" DROP CONSTRAINT "MaterialCard_materialId_fkey";
-
--- AlterTable
-ALTER TABLE "Exam" ADD COLUMN     "kind" TEXT NOT NULL DEFAULT '';
-
--- AlterTable
-ALTER TABLE "ExamRun" ADD COLUMN     "answers" TEXT NOT NULL DEFAULT '',
-ADD COLUMN     "elapsedMs" INTEGER NOT NULL DEFAULT 0;
-
--- AlterTable
-ALTER TABLE "Learner" ADD COLUMN     "settings" TEXT NOT NULL DEFAULT '{}';
-
--- AlterTable
-ALTER TABLE "SkillLevel" ADD COLUMN     "band" TEXT NOT NULL,
-ADD COLUMN     "evidence" TEXT NOT NULL DEFAULT '';
-
--- DropTable
-DROP TABLE "Achievement";
-
--- DropTable
-DROP TABLE "Briefing";
-
--- DropTable
-DROP TABLE "ContentFlag";
-
--- DropTable
-DROP TABLE "GameStat";
-
--- DropTable
-DROP TABLE "Goal";
-
--- DropTable
-DROP TABLE "League";
-
--- DropTable
-DROP TABLE "Material";
-
--- DropTable
-DROP TABLE "MaterialCard";
-
--- DropTable
-DROP TABLE "MistakeFamily";
-
--- DropTable
-DROP TABLE "MistakeForgiven";
-
--- DropTable
-DROP TABLE "Quest";
-
--- DropTable
-DROP TABLE "Rival";
-
--- DropTable
-DROP TABLE "RunState";
-
--- DropTable
-DROP TABLE "TagMastery";
-
--- CreateIndex
-CREATE UNIQUE INDEX "SkillLevel_band_key" ON "SkillLevel"("band");
-
--- CreateTable
-CREATE TABLE "Achievement" (
-    "userId" TEXT NOT NULL DEFAULT 'me',
-    "key" TEXT NOT NULL,
-    "at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "meta" TEXT NOT NULL DEFAULT '',
-
-    CONSTRAINT "Achievement_pkey" PRIMARY KEY ("userId","key")
-);
-
--- CreateTable
-CREATE TABLE "GameStat" (
-    "userId" TEXT NOT NULL DEFAULT 'me',
-    "key" TEXT NOT NULL,
-    "best" INTEGER NOT NULL DEFAULT 0,
-    "plays" INTEGER NOT NULL DEFAULT 0,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "GameStat_pkey" PRIMARY KEY ("userId","key")
-);
-
--- CreateTable
-CREATE TABLE "Quest" (
-    "userId" TEXT NOT NULL DEFAULT 'me',
-    "id" TEXT NOT NULL,
-    "day" INTEGER NOT NULL,
-    "key" TEXT NOT NULL,
-    "title" TEXT NOT NULL,
-    "fa" TEXT NOT NULL DEFAULT '',
-    "target" INTEGER NOT NULL,
-    "progress" INTEGER NOT NULL DEFAULT 0,
-    "done" BOOLEAN NOT NULL DEFAULT false,
-    "xp" INTEGER NOT NULL DEFAULT 0,
-
-    CONSTRAINT "Quest_pkey" PRIMARY KEY ("userId","id")
-);
-
--- CreateTable
-CREATE TABLE "Rival" (
-    "userId" TEXT NOT NULL DEFAULT 'me',
-    "id" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "weekXp" INTEGER NOT NULL DEFAULT 0,
-    "lastWeekXp" INTEGER NOT NULL DEFAULT 0,
-    "weekKey" INTEGER NOT NULL DEFAULT -1,
-    "wins" INTEGER NOT NULL DEFAULT 0,
-    "losses" INTEGER NOT NULL DEFAULT 0,
-    "taunt" TEXT NOT NULL DEFAULT '',
-
-    CONSTRAINT "Rival_pkey" PRIMARY KEY ("userId","id")
-);
-
--- CreateTable
-CREATE TABLE "League" (
-    "userId" TEXT NOT NULL DEFAULT 'me',
-    "id" TEXT NOT NULL,
-    "weekKey" INTEGER NOT NULL DEFAULT -1,
-    "division" INTEGER NOT NULL DEFAULT 0,
-    "history" TEXT NOT NULL DEFAULT '[]',
-
-    CONSTRAINT "League_pkey" PRIMARY KEY ("userId","id")
-);
-
--- CreateTable
-CREATE TABLE "RunState" (
-    "userId" TEXT NOT NULL DEFAULT 'me',
-    "id" TEXT NOT NULL,
-    "day" INTEGER NOT NULL DEFAULT 0,
-    "state" TEXT NOT NULL DEFAULT '{}',
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "RunState_pkey" PRIMARY KEY ("userId","id")
-);
-
--- CreateTable
-CREATE TABLE "Briefing" (
-    "day" INTEGER NOT NULL,
-    "text" TEXT NOT NULL DEFAULT '',
-    "at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "Briefing_pkey" PRIMARY KEY ("day")
-);
-
--- CreateTable
-CREATE TABLE "MistakeFamily" (
-    "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL DEFAULT 'me',
-    "kind" TEXT NOT NULL,
-    "tag" TEXT NOT NULL,
-    "label" TEXT NOT NULL,
-    "count" INTEGER NOT NULL DEFAULT 1,
-    "evidence" TEXT NOT NULL,
-    "lastSeen" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-    "editedAt" TIMESTAMP(3),
-    "streakClean" INTEGER NOT NULL DEFAULT 0,
-    "resolvedAt" TIMESTAMP(3),
-
-    CONSTRAINT "MistakeFamily_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "TagMastery" (
-    "userId" TEXT NOT NULL DEFAULT 'me',
-    "tag" TEXT NOT NULL,
-    "ok" INTEGER NOT NULL DEFAULT 0,
-    "no" INTEGER NOT NULL DEFAULT 0,
-    "ewma" DOUBLE PRECISION NOT NULL DEFAULT 0.5,
-    "lastOk" TIMESTAMP(3),
-    "lastNo" TIMESTAMP(3),
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "TagMastery_pkey" PRIMARY KEY ("userId","tag")
-);
-
--- CreateTable
-CREATE TABLE "MistakeForgiven" (
-    "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL DEFAULT 'me',
-    "kind" TEXT NOT NULL,
-    "tag" TEXT NOT NULL,
-    "evidenceHash" TEXT NOT NULL,
-    "at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "MistakeForgiven_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "Goal" (
-    "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL DEFAULT 'me',
-    "title" TEXT NOT NULL,
-    "kind" TEXT NOT NULL DEFAULT 'habit',
-    "target" TEXT NOT NULL DEFAULT '',
-    "dueDay" INTEGER,
-    "weeklySessions" INTEGER NOT NULL DEFAULT 4,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "archivedAt" TIMESTAMP(3),
-
-    CONSTRAINT "Goal_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "ContentFlag" (
-    "id" SERIAL NOT NULL,
-    "cardId" TEXT NOT NULL DEFAULT '',
-    "kind" TEXT NOT NULL DEFAULT 'other',
-    "note" TEXT NOT NULL DEFAULT '',
-    "status" TEXT NOT NULL DEFAULT 'open',
-    "at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "ContentFlag_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "Material" (
-    "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL DEFAULT 'me',
-    "title" TEXT NOT NULL,
-    "source" TEXT NOT NULL DEFAULT '',
-    "text" TEXT NOT NULL DEFAULT '',
-    "words" INTEGER NOT NULL DEFAULT 0,
-    "degraded" BOOLEAN NOT NULL DEFAULT false,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "Material_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "MaterialCard" (
-    "id" TEXT NOT NULL,
-    "materialId" TEXT NOT NULL,
-    "front" TEXT NOT NULL,
-    "answer" TEXT NOT NULL,
-    "context" TEXT NOT NULL,
-    "note" TEXT NOT NULL DEFAULT '',
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "MaterialCard_pkey" PRIMARY KEY ("id")
-);
-
--- CreateIndex
-CREATE INDEX "MistakeFamily_userId_resolvedAt_idx" ON "MistakeFamily"("userId", "resolvedAt");
-
--- CreateIndex
-CREATE INDEX "MistakeFamily_userId_lastSeen_idx" ON "MistakeFamily"("userId", "lastSeen");
-
--- CreateIndex
-CREATE INDEX "MistakeForgiven_userId_idx" ON "MistakeForgiven"("userId");
-
--- CreateIndex
-CREATE INDEX "Goal_userId_archivedAt_idx" ON "Goal"("userId", "archivedAt");
-
--- CreateIndex
-CREATE INDEX "Material_userId_idx" ON "Material"("userId");
-
--- CreateIndex
-CREATE INDEX "MaterialCard_materialId_idx" ON "MaterialCard"("materialId");
-
--- AddForeignKey
-ALTER TABLE "MaterialCard" ADD CONSTRAINT "MaterialCard_materialId_fkey" FOREIGN KEY ("materialId") REFERENCES "Material"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- DropIndex
-DROP INDEX "SkillLevel_band_key";
-
--- AlterTable
-ALTER TABLE "Exam" ADD COLUMN     "skill" TEXT NOT NULL DEFAULT '';
-
--- AlterTable
-ALTER TABLE "Learner" ADD COLUMN     "skillLevels" TEXT NOT NULL DEFAULT '{}';
-
--- AlterTable
-ALTER TABLE "SkillLevel" DROP COLUMN "band",
-DROP COLUMN "evidence";
-
--- CreateTable
-CREATE TABLE "SkillBand" (
-    "band" TEXT NOT NULL,
-    "level" TEXT NOT NULL DEFAULT '?',
-    "score" DOUBLE PRECISION NOT NULL DEFAULT 0,
-    "evidence" TEXT NOT NULL DEFAULT '',
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "SkillBand_pkey" PRIMARY KEY ("band")
-);
-
--- AlterTable
-ALTER TABLE "Exam" ADD COLUMN     "level" TEXT NOT NULL DEFAULT '?';
-
--- AlterTable
-ALTER TABLE "ExamRun" ADD COLUMN     "at" TIMESTAMP(3),
-ADD COLUMN     "spec" TEXT NOT NULL DEFAULT '';
-
--- AlterTable
-ALTER TABLE "Exam" ALTER COLUMN "title" SET DEFAULT '',
-ALTER COLUMN "items" SET DEFAULT '';
-
--- AlterTable
-ALTER TABLE "ExamRun" ALTER COLUMN "at" SET NOT NULL,
-ALTER COLUMN "at" SET DEFAULT CURRENT_TIMESTAMP;
-
--- This is an empty migration.
 

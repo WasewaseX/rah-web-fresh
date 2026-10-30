@@ -427,3 +427,11 @@ me always!"
 - `dirty` counter in `/api/version` reads uncommitted-tree state; it spikes during incident work and normalizes after the Task 102 commit.
 - `latestSnapshot` beacon now reads `null` (the SQLite-era files it probed were pruned by vault-sync this session) — still cosmetic, still Part C.
 - The 56 MB artifact excludes everything non-runtime by allowlist; if a future feature needs a runtime file outside the allowlist (e.g. a new data dir), the pack list and the gate allowlist must be extended TOGETHER or the gate will (correctly) refuse.
+
+### Task 102 part 2 addendum (2026-10-30, same day) — the lost feature layer reconstructed
+
+The same claims-vs-diff audit that caught the leak then caught a SECOND structural failure: recycle #12 had reset tracked files to HEAD after the feature session wrote ~50 new paths but before it committed — orphaning the new code while destroying its tracked-file glue. The workspace build was incoherent; CI never saw it (CI checks out the repo, which never had the untracked files, and never runs `next build`).
+
+Reconstructed same session from the consumers' exact contracts: schema +15 models/tables (replay-proven migration), the full ai.ts BYO-engine layer + tutor prompt systems, Edge-safe instrumentation split, settings/content/fsrs/server glue, orphan components parked in `next/`. One owned near-miss: an intermediate schema-diff drop took 14 learner tables offline for minutes; restored data-only from the 07:57 boot dump, rows and sequences verified, tripwire exact. tsc 0 on the whole tree; build `gf09az0tUwgVCVcjZsP9` live (drift OK); release asset replaced (sha `c1eb765a`, gate PASSED); commit `ace3cef` (+15,026 lines) + `90e437a` (replay-proven migration) pushed; CI runs #4/#5/#6 green.
+
+**Standing consequence:** the fresh repo now carries the COMPLETE app source for the first time. Every prior external review read the repo and undersold the workspace; from here on, repo == truth. Next engineering step (no holder input needed): wire the `next/` component generation into the shell (the lost App.tsx rewiring), one surface at a time with the batteries green.

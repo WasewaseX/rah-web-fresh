@@ -1,7 +1,12 @@
 // Boot regression check: proves the two live-reported failures stay fixed on the current tree.
 // 1) /api/state loads for an authenticated session (the "eternal loading screen" path, Task 84)
 // 2) /api/coach-agent returns a real streamed reply (the "Coach unreachable" report)
-// Throwaway account only; read-only toward the live learner.
+// Throwaway account only; the RAH_SESSION path drives the REAL learner's
+// routes. Honesty note (Task 104, evidence-backed 2026-10-30): the coach-agent
+// leg is NOT inert - agent skills award XP/minutes (measured: +8 XP, 1 review
+// on day 20756). Impact is tiny but real; do not run this battery repeatedly
+// against the learner's session in a short window, and read learner-evidence
+// output with this footprint in mind.
 const BASE = process.env.RAH_BASE || "http://localhost:3000";
 const EMAIL = process.env.RAH_EMAIL || `bootcheck-${Date.now()}@rah.test`;
 // PRODUCTION path (Task 89): the standalone server withholds devCode by

@@ -1850,3 +1850,9 @@ Stage Summary:
 - **BOOT REGRESSION CHECK: ALL PASS** (RAH_SESSION path): /api/state 200 with learner payload; /api/coach-agent 200 with a real streamed reply. Both live-reported failure modes (eternal loading, coach unreachable) proven fixed on the integrated tree.
 - **Phone-emulation proof (playwright, iPhone 13, 4x CPU, 1.6Mbps/150ms)**: authenticated boot on the NEW shell; lazy tab → next/ Progress settles in **177ms** (first chunk 63ms) — the Task 91/92 prefetch doctrine carries to the recovered generation. Saved: db/interactivity-task104-next-shell.json. Boot TBT numbers are dev-mode compile overhead (unminified), not production posture.
 - Battery session for the RAH_SESSION path is minted on demand (INSERT hashed `sha256(token)` into "Session" for the learner's user; resolveToken hashes before lookup) — token lives only in /tmp/rah-battery-token (600), never committed.
+
+## Task 104 part 4 — 2026-10-31 — learner-data footprint owned; streak mystery resolved with evidence
+
+- Observed on the health sweep: streak 6→1, xp 483→491. Root-caused from DB evidence: DailyStat day 20756 (Oct 30) carries 1 review + 8 XP written by the battery's coach-agent leg (skills/agent.ts:407 awards bumpDaily("xp", 8)). The streak break itself was INEVITABLE — 5 idle days (Oct 26-29) with freezes=0 broke the chain; any resumed activity restarts it at 1. NOT a bug in the app, NOT a read-path mutation of streak.
+- The honest correction: the battery's header claimed "read-only toward the live learner" — PROVEN FALSE by this footprint. Header rewritten with the measured impact and a warning not to hammer the battery in short windows. Evidence-first discipline applied to my own tooling.
+- For the multi-week evidence item: machine-generated activity (battery footprints) must be excluded or annotated when the holder reads learner-evidence output; the 8 XP on day 20756 is machine-origin, not learner study.

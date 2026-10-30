@@ -470,3 +470,7 @@ priorities; this wave executed them in order.
 ### Gates (this wave)
 
 before/after sweep evidence (15/16 → 0/16) · orphan root 9db1d29 on rah-web-fresh · first fresh-repo CI green · old repo archived:true verified via API · artifact drill PASSED (~40 s recovery) · env-guard drill PASSED · third PG restore drill PASSED · tripwire xp=483 from PG · tsc 0 · eslint 0 · secrets sweep clean (key only in gitignored .env + upload copy) · bash -n on all touched scripts
+
+### Task 104 (2026-10-31, same day) — feature layer LIVE in the shell; CI now builds production
+
+Holder order: "speed things up". Same-hour response, commit `37ea6d4`: all 12 surfaces (today/review/writing/speaking/listening/reading/tutor/grammar/sound/placement/progress/checkpoint) now run the recovered next/ generation — three strands (tutor, grammar, sound) became reachable for the first time; recovered design tokens re-homed scoped (.rah-next); strand-id navigation normalized; Boot payload in the refresh loop; bootstrap force-dynamic. CI gains the production-build job the 31-Oct status check flagged as missing: `bun run build` + standalone-artifact assertions, PG service attached. Run #12: check 12/12 + build 12/12 SUCCESS — first CI run ever to prove a real production build of the integrated tree. Remaining integration passes: Payloads/coach Blocks/aisettings/aurora visuals; prune superseded old-gen files after device testing.

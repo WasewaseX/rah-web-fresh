@@ -478,3 +478,10 @@ Reconstructed same session from the consumers' exact contracts: schema +15 model
 - **Health after the recycle:** watchdog found DEAD (our background process, not platform-supervised) → restarted via `scripts/ensure-watchdog.sh` (pid 2399); env-guard tick exit 0; DB alive; `/api/version` serving `aa5070a21b0f`; `/api/state` 401.
 - **New tooling for two open holder items:** `scripts/learner-evidence.sh` (multi-week evidence: privacy-safe aggregates only, appends `db/evidence/evidence-timeline.log`; first reading 2026-10-30T17:54Z: 6 activity days trailing-14, streak 6, 18 lifetime reviews, 0 writing/speaking, login mails dev-captured/failed per the A-6 block) and `DEVICE-TEST-CHECKLIST.md` (physical-device pass, $0, explicit about the fresh-device login block pending A-6).
 - **Holder asks (unchanged in substance, one now fully unblocked):** (1) revoke the OLD PAT — the 2026-10-21 token ending `…Gf23` — the replacement is push-proven on both remotes and nothing depends on the old one; (2) Resend key handoff (runbook Part 2); (3) A-6 login-email decision.
+
+### Task 104 (2026-10-31) — feature-layer integration STARTED AND SHIPPED (part 1)
+
+- Holder directive after the 31-Oct status check: "we are working too slow, speed things up". Response: same-hour start on the #1 engineering item.
+- Shipped in `37ea6d4`: all 12 surfaces live on the recovered next/ generation (incl. three previously unreachable strands: tutor, grammar, sound + checkpoint branch), recovered design tokens re-homed (scoped .rah-next), strand-id navigation normalized, Boot payload in the refresh loop, bootstrap pinned force-dynamic, and the CI production-build job (the status check's own CI finding, closed).
+- Verification: tsc 0 / lint 0 errors / page compiles + SSRs / state 200 / bootstrap 200 with minted hashed session. The boot-regression script's registration path is SMTP-sandbox-blocked (pre-existing; follow-up: devCode fallback on SMTP failure).
+- Remaining integration (next passes): wire Payloads/coach Blocks/aisettings + aurora visuals; prune superseded old-generation files after device testing; then per-surface polish with the learner.

@@ -34,13 +34,23 @@ token is never printed back, never committed, and `db/` is gitignored +
 tracing-excluded + gate-excluded.
 
 **Then the operator (me) does, in order:**
-1. Swap the token into the git remote and verify a real push (empty commit to a
-   scratch branch, deleted right after — or the next real commit).
-2. Update the vault copy of the token record (private vault repo).
-3. Confirm CI visibility with the new token.
-4. Tell the holder: **now revoke the old token** (same page → the old
-   `rah-web…` token → Delete). Never earlier — the old token is the fallback
-   until the new one is proven.
+1. ✅ DONE 2026-10-30: both remotes swapped (origin `rah-web-fresh` + `vault`);
+   real push proven — commit `aa5070a` on `main`, CI run #10 SUCCESS
+   (2026-10-30T16:10Z). Second independent push-proof 2026-10-31: vault-sync
+   `963af52` to the private vault repo.
+2. ✅ DONE 2026-10-31: vault token record updated and synced to the private
+   vault repo (`WasewaseX/vault`, `github-tokens.md`) — new PAT ACTIVE with
+   verification evidence, old PAT RETIRED/LEAKED-2026-10-29/revoke-pending.
+   (The local gitignored copy had been lost to a sandbox recycle; recovered
+   via `scripts/restore-cred-record.py`, which is now the standing recovery
+   tool for that path.)
+3. ✅ DONE 2026-10-31: CI visibility confirmed with the new PAT — Actions API
+   returns 200 with runs #1–#10 visible; API auth 200 as `WasewaseX`; repo +
+   collaborator-permission endpoints 200.
+4. ➡️ **HOLDER: you may now revoke the old token** (Settings → Developer
+   settings → Fine-grained tokens → the 2026-10-21 token, ends `…Gf23` →
+   Delete). The replacement is push-proven on both remotes; the workspace no
+   longer depends on the old token anywhere (token-store sweep clean).
 
 ## Part 2 · Resend API key — holder action (~1 min), then operator
 
@@ -68,12 +78,19 @@ frontend, and `.env` is excluded from every artifact by the allowlist gate).
 
 ## Verification checklist (both rotations done)
 
-- [ ] `git push` succeeds with the new PAT; CI run goes green
-- [ ] old GitHub token revoked (holder, after step 1 above)
-- [ ] `smtp-verify-once` returns OK with the new key
-- [ ] old Resend key revoked (operator via API, or holder via dashboard)
-- [ ] `grep -r` over tracked files finds no `github_pat_` / `re_` secrets
-- [ ] worklog entry records both rotations with dates
+- [x] `git push` succeeds with the new PAT; CI run goes green — `aa5070a`, run
+      #10 SUCCESS (2026-10-30); second proof: vault push `963af52` (2026-10-31)
+- [ ] old GitHub token revoked (holder — **UNBLOCKED NOW**, see Part 1 step 4:
+      the 2026-10-21 token, ends `…Gf23`)
+- [ ] `smtp-verify-once` returns OK with the new key — blocked on Part 2
+      holder handoff (new Resend key)
+- [ ] old Resend key revoked (operator via API, or holder via dashboard) —
+      blocked on Part 2
+- [x] `grep -r` over tracked files finds no `github_pat_` / `re_` secrets —
+      re-verified 2026-10-31: 0 hits in tracked files; live values exist only
+      in `.env`, `.git/config` remotes, and the gitignored vault record
+- [x] worklog entry records both rotations with dates — part 3-b (2026-10-30,
+      swap + push) and Task 103 (2026-10-31, verification + record recovery)
 
 ## Explicitly NOT part of this rotation (standing rules)
 

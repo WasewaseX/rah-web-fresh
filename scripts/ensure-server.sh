@@ -136,10 +136,25 @@ if [ ! -s .next/BUILD_ID ] && [ -f upload/rah-backups/rah-build-latest.tgz ]; th
   WANT_SHA=$(python3 -c "import json;print(json.load(open('upload/rah-backups/rah-build-latest.json'))['sha256'])" 2>/dev/null)
   GOT_SHA=$(sha256sum upload/rah-backups/rah-build-latest.tgz 2>/dev/null | cut -d' ' -f1)
   if [ -n "$WANT_SHA" ] && [ "$WANT_SHA" = "$GOT_SHA" ]; then
-    echo "$(date -Is) BUILD_ID missing - restoring the preserved build artifact (sha256 verified)"
+    # Task 102: SECRET GATE before extraction. The Task 101 release asset
+    # shipped .env + learner data publicly for ~6h because nothing checked
+    # artifact CONTENT. A sha match only proves the bytes are the ones we
+    # packed - the gate proves the bytes contain no secrets/PII paths.
+    if bash scripts/artifact-secret-gate.sh upload/rah-backups/rah-build-latest.tgz; then
+      echo "$(date -Is) BUILD_ID missing - restoring the preserved build artifact (sha256 verified, secret gate PASSED)"
+    else
+      echo "$(date -Is) WARNING: artifact FAILED the Task 102 secret gate - restoring anyway (local restore, not a publish) but stripping all non-runtime paths after extraction"
+      bash scripts/alert.sh WARN ensure-server "build artifact failed the secret gate - restored with defensive strip; regenerate the artifact with build-prod.sh ASAP" || true
+    fi
     rm -rf .next/standalone
     mkdir -p .next   # drill-proven: tar -C .next fails silently when the recycle removed .next/ entirely
     tar -xzf upload/rah-backups/rah-build-latest.tgz -C .next
+    # Task 102 defensive strip: even a gate-failing artifact must never
+    # leave .env/learner-data copies inside the restored build tree (they
+    # would be re-packed by any future pack and could re-leak).
+    rm -rf .next/standalone/.env .next/standalone/db .next/standalone/upload \
+           .next/standalone/scripts .next/standalone/skills .next/standalone/download \
+           .next/standalone/tool-results .next/standalone/backups 2>/dev/null || true
     # The tar holds the standalone/ subtree; .next/BUILD_ID sits beside it,
     # so rebuild it from the manifest (drill-proven requirement - without it
     # the prod-boot condition fails and the road falls back to dev).

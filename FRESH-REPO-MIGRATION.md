@@ -17,6 +17,20 @@
 > below now evaluate against the OLD repo: after deletion, its URLs 404
 > and two consecutive sweeps (with `RAH_SWEEP_REPO=WasewaseX/rah-web`)
 > record unreachable/CLEAN.
+>
+> **TASK 101/102 DECISION UPDATE (2026-10-29/30) — SUPERSEDES the
+> "remaining human steps" above.** The account holder DECIDED (verbatim:
+> "dont delete ... about unarchiving only if its necessary"): the old repo
+> `WasewaseX/rah-web` STAYS ARCHIVED — no deletion is planned, and NO
+> deletion or un-archiving may be executed without the holder's explicit
+> fresh approval (standing rule #4, the consent gate). The dangling-object
+> exposure is therefore a HOLDER-ACCEPTED, actively-monitored state (daily
+> `privacy-sweep.py` with `RAH_SWEEP_REPO=WasewaseX/rah-web`), not an open
+> human step. The §8 closure criteria about post-deletion 404s are
+> dormant until the holder ever revives them. Everything else above
+> (orphan history, purge-request file removed from the tree, sweeps) is
+> unchanged. `PRIVACY-PURGE-REQUEST.md` is NOT in the current tree — it
+> survives only in old-repo history and in this document's description.
 
 Written 2026-10-25 (Task 97). Decision recorded verbatim from the account
 holder: the GitHub Support purge request is superseded — **"its okay we

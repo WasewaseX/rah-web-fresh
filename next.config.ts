@@ -2,6 +2,32 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Task 102 (release-asset leak): outputFileTracing copied EVERYTHING the
+  // server code ever referenced at runtime - db/ (learner SQLite snapshots +
+  // db/vault-work with github-tokens.md), scripts/, upload/ (incl. the env
+  // backup) - INTO .next/standalone with their build-time contents, and the
+  // preserved artifact tarred all of it onto a PUBLIC release asset. These
+  // excludes cut the leak at the source; build-prod.sh additionally packs
+  // via an allowlist and scripts/artifact-secret-gate.sh hard-fails any
+  // artifact that still contains non-runtime paths or secret patterns.
+  outputFileTracingExcludes: {
+    "*": [
+      "./db/**",
+      "./scripts/**",
+      "./skills/**",
+      "./upload/**",
+      "./download/**",
+      "./tool-results/**",
+      "./examples/**",
+      "./tests/**",
+      "./backups/**",
+      "./docs/**",
+      "./.env",
+      "./.env.*",
+      "./*.log",
+      "./*.md",
+    ],
+  },
   // Task 89 (HTTP layer): gzip text responses from the Next server itself -
   // the preview gateway's Caddy only reverse-proxies, it does not encode.
   compress: true,

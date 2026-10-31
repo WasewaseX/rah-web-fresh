@@ -286,3 +286,22 @@
   letter-spacing: -0.02em;
   font-weight: 900;
 }
+
+/* ============================================================
+   Task 105 — recovered backdrop layer.
+   next/Backdrop.tsx renders a WebGL light field (aurora / nebula /
+   waves, tinted by --hue) into .rah-backdrop: fixed, behind every
+   surface, pointer-transparent. It is the room's lighting, not
+   content. Without WebGL, with data-motion="off", data-backdrop=
+   "off", or per this media query, the component idles dark or
+   removes itself, so this layer stays invisible when it must.
+   ============================================================ */
+.rah-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rah-backdrop { display: none; }
+}

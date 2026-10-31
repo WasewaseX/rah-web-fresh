@@ -61,7 +61,13 @@ const NextGrammar = dynamic(() => import("./next/grammar"), { ssr: false, loadin
 const NextSound = dynamic(() => import("./next/sound"), { ssr: false, loading: ViewFallback });
 const NextCheckpoint = dynamic(() => import("./next/checkpoint"), { ssr: false, loading: ViewFallback });
 const NextSettings = dynamic(() => import("./next/aisettings"), { ssr: false, loading: ViewFallback });
+// Task 105: the recovered WebGL light field (aurora/nebula/waves, tinted by
+// --hue). Client-only canvas; rendered only for a signed-in learner so the
+// login gate keeps its clean look. Honors motion-off and removes itself
+// without WebGL; the prefers-reduced-motion media query hides it too.
+const Backdrop = dynamic(() => import("./next/Backdrop"), { ssr: false });
 import { applyTheme } from "@/lib/theme-bus";
+import { loadAppearance, applyBackdropAttributes } from "@/lib/appearance";
 import { installOfflineSync, flush } from "@/lib/offline";
 
 import type { GameView, RivalView, LeagueView } from "@/lib/arcade";
@@ -222,6 +228,22 @@ export default function RahApp() {
     setTimeout(() => setToasts((cur) => cur.filter((x) => x.key !== key)), 5000);
   }, []);
 
+  // Task 105: the recovered appearance layer drives the backdrop (hue + style
+  // + motion). Only the backdrop-relevant attributes are applied - the full
+  // applyAppearance would also set --accent/--radius/font-size inline and
+  // override the classic shell's @theme mapping. A stored appearance wins;
+  // with nothing stored, the OS reduced-motion preference decides.
+  useEffect(() => {
+    try {
+      const stored = typeof window !== "undefined" && window.localStorage.getItem("rah.appearance.v1");
+      const reduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      const a = loadAppearance();
+      applyBackdropAttributes(a, stored ? a.motion : !reduced);
+    } catch {
+      // appearance must never block boot
+    }
+  }, []);
+
   // Auth gate: resolve the session once; the shell renders the login screen until signed in.
   useEffect(() => {
     fetch("/api/auth/session", { cache: "no-store" })
@@ -315,6 +337,7 @@ export default function RahApp() {
 
   return (
     <div className="flex min-h-screen flex-col bg-[var(--rah-bg)] md:flex-row">
+      <Backdrop />
       <PwaBootstrap />
       <OfflineBadge onSynced={() => void refresh()} />
       {/* Desktop rail */}

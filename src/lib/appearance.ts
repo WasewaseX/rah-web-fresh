@@ -140,6 +140,21 @@ export function applyAppearance(a: Appearance) {
   r.dataset.backdrop = a.backdrop ? a.backdropStyle : "off";
 }
 
+// Task 105: backdrop-scoped application. The recovered Backdrop (next/
+// Backdrop.tsx) reads only --hue, data-backdrop and data-motion, but the FULL
+// applyAppearance would also set --accent/--radius/font-size inline on :root
+// and override the classic shell's Tailwind @theme mapping (arcade, coach
+// sidebar keep their exact look). This applies just the three attributes the
+// backdrop consumes, so the recovered visual layer runs without touching
+// anything else. motionOn=false renders one dark frame and idles (cheap).
+export function applyBackdropAttributes(a: Appearance, motionOn: boolean) {
+  if (typeof document === "undefined") return;
+  const r = document.documentElement;
+  r.style.setProperty("--hue", String(hexHue(a.accent)));
+  r.dataset.motion = motionOn ? "on" : "off";
+  r.dataset.backdrop = a.backdrop ? a.backdropStyle : "off";
+}
+
 // preset accents mirror plugins.ts PRESETS (kept local: appearance.ts must not
 // pull server code)
 const PRESET_ACCENTS: Record<string, string> = {

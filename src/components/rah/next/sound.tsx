@@ -25,7 +25,7 @@ export default function SoundView({ onDone }: { onDone: () => void }) {
 
   useEffect(() => {
     start("pairs");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   const start = (m: Mode) => {
@@ -68,7 +68,7 @@ export default function SoundView({ onDone }: { onDone: () => void }) {
           key={m}
           onClick={() => start(m as Mode)}
           className="text-[13px] font-bold rounded-full px-4 py-2 transition-colors"
-          style={mode === m ? { background: "var(--ink)", color: "#fff" } : { background: "#fff", color: "var(--muted)", border: "1px solid var(--line)" }}
+          style={mode === m ? { background: "var(--accent)", color: "#fff" } : { background: "var(--rah-field)", color: "var(--muted)", border: "1px solid var(--line)" }}
         >
           {label}
         </button>
@@ -97,8 +97,10 @@ export default function SoundView({ onDone }: { onDone: () => void }) {
           </div>
         ) : pair ? (
           <div className="card-rah p-8 text-center">
-            <div className="text-[12.5px] font-bold uppercase tracking-wide mb-2" style={{ color: "var(--accent-deep)" }}>
-              round {round + 1} of {pairQueue.length} · {PAIR_FOCUS.find((f) => f.id === pair.focus)?.label}
+            {/* Task 109: was an all-caps kicker (banned eyebrow pattern); a
+               sentence-case status line reads cleaner and stays honest. */}
+            <div className="text-[13px] font-bold mb-2" style={{ color: "var(--accent-deep)" }}>
+              Round {round + 1} of {pairQueue.length} — {PAIR_FOCUS.find((f) => f.id === pair.focus)?.label}
             </div>
             <p className="text-[14px] mb-6" style={{ color: "var(--muted)" }}>One word will be spoken. Which one is it?</p>
             <button className="btn-primary text-[15px] px-8 py-3 mb-8" onClick={() => say(Math.random() < 0.5 ? pair.a : pair.b)}>

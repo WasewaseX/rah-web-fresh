@@ -63,7 +63,7 @@ export default function GrammarView({ onDone }: { onDone: () => void }) {
               key={s}
               onClick={() => setStep(i)}
               className="text-[12.5px] font-bold rounded-full px-3.5 py-1.5 transition-colors"
-              style={step === i ? { background: "var(--ink)", color: "#fff" } : { background: "#fff", color: "var(--muted)", border: "1px solid var(--line)" }}
+              style={step === i ? { background: "var(--accent)", color: "#fff" } : { background: "var(--rah-field)", color: "var(--muted)", border: "1px solid var(--line)" }}
             >
               {i + 1}. {s}
             </button>
@@ -104,7 +104,7 @@ export default function GrammarView({ onDone }: { onDone: () => void }) {
                     value={inputs[i] ?? ""}
                     onChange={(e) => setInputs((x) => ({ ...x, [i]: e.target.value }))}
                     className="flex-1 rounded-xl border px-4 py-2.5 text-[14.5px]"
-                    style={{ borderColor: "var(--line)", background: "#fff", outline: "none" }}
+                    style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
                     placeholder="type your answer"
                   />
                   <button

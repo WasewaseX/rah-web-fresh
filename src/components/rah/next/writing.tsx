@@ -112,7 +112,7 @@ export default function WritingView({ boot, onDone }: { boot: Boot; onDone: () =
             value={text}
             onChange={(e) => setText(e.target.value)}
             className="w-full rounded-2xl border p-5 min-h-[300px] text-[15.5px] leading-[1.8]"
-            style={{ borderColor: "var(--line)", background: "#fff", outline: "none" }}
+            style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
             placeholder="Answer the prompt with a position and two developed reasons. Collocations over loose pairs."
           />
           <div className="flex items-center justify-between mt-3">
@@ -167,7 +167,7 @@ export default function WritingView({ boot, onDone }: { boot: Boot; onDone: () =
             </div>
           </div>
           {fbMsg ? <div className="mt-3"><Note tone="warn">{fbMsg}. No problem: use the self-check rubric below, then repair from your own re-read. The rubric catches most of what the examiner would.</Note></div> : null}
-          <div className="mt-5 rounded-2xl p-5" style={{ background: "#f4f3ec" }}>
+          <div className="mt-5 rounded-2xl p-5" style={{ background: "var(--rah-callout)" }}>
             <div className="font-bold text-[13px] mb-2">Self-check rubric (no AI needed)</div>
             {[
               ["task", "I answered every part of the prompt with development, not just a position"],
@@ -205,7 +205,7 @@ export default function WritingView({ boot, onDone }: { boot: Boot; onDone: () =
               {feedback.scores ? (
                 <div className="grid grid-cols-4 gap-3 mb-4">
                   {Object.entries(feedback.scores).map(([k, v]) => (
-                    <div key={k} className="rounded-xl p-3 text-center" style={{ background: "#f4f3ec" }}>
+                    <div key={k} className="rounded-xl p-3 text-center" style={{ background: "var(--rah-callout)" }}>
                       <div className="display text-[20px] font-bold">{v}/10</div>
                       <div className="text-[11.5px]" style={{ color: "var(--muted)" }}>{k}</div>
                     </div>
@@ -253,7 +253,7 @@ export default function WritingView({ boot, onDone }: { boot: Boot; onDone: () =
             value={repaired}
             onChange={(e) => setRepaired(e.target.value)}
             className="w-full rounded-2xl border p-4 min-h-[80px] text-[14.5px]"
-            style={{ borderColor: "var(--line)", background: "#fff", outline: "none" }}
+            style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
             placeholder='e.g. "I have seen him yesterday" needs past simple: I saw him yesterday. Time point means past tense.'
           />
           <label className="text-[12.5px] font-bold block mb-1 mt-4">2. Now use that corrected structure in two brand new sentences</label>
@@ -263,7 +263,7 @@ export default function WritingView({ boot, onDone }: { boot: Boot; onDone: () =
               value={v}
               onChange={(e) => setReuse((xs) => xs.map((x, j) => (j === i ? e.target.value : x)))}
               className="w-full rounded-xl border px-4 py-2.5 text-[14px] mb-2"
-              style={{ borderColor: "var(--line)", background: "#fff", outline: "none" }}
+              style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
               placeholder={i === 0 ? "New sentence one, different topic" : "New sentence two, different topic again"}
             />
           ))}
@@ -302,7 +302,7 @@ export default function WritingView({ boot, onDone }: { boot: Boot; onDone: () =
             Research on L2 writing keeps finding that studying high-quality models beats error correction alone. Read it as
             a builder, not a judge: how does it open, how does each paragraph earn its place, where does it concede?
           </p>
-          <p className="text-[16px] leading-[1.9] rounded-2xl p-6 mb-5" style={{ background: "#f4f3ec" }}>{prompt.model}</p>
+          <p className="text-[16px] leading-[1.9] rounded-2xl p-6 mb-5" style={{ background: "var(--rah-callout)" }}>{prompt.model}</p>
           <div className="font-bold text-[13.5px] mb-2">What makes it C1</div>
           <ul className="text-[14px] leading-relaxed list-disc pl-5 space-y-1.5">
             {prompt.modelNotes.map((n, i) => <li key={i}>{n}</li>)}

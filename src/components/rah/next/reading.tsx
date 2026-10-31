@@ -78,7 +78,7 @@ export default function ReadingView({ boot, onDone }: { boot: Boot; onDone: () =
             value={importText}
             onChange={(e) => setImportText(e.target.value)}
             className="w-full rounded-2xl border p-4 min-h-[100px] text-[14px]"
-            style={{ borderColor: "var(--line)", background: "#fff", outline: "none" }}
+            style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
             placeholder="Paste English text here, two paragraphs or more."
           />
           <div className="mt-3 flex items-center gap-3">
@@ -255,13 +255,13 @@ export default function ReadingView({ boot, onDone }: { boot: Boot; onDone: () =
               value={recon}
               onChange={(e) => setRecon(e.target.value)}
               className="w-full rounded-2xl border p-4 min-h-[110px] text-[15px]"
-              style={{ borderColor: "var(--line)", background: "#fff", outline: "none" }}
+              style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
               placeholder="The author's point here is..."
             />
             {recon.trim() ? (
               <div className="mt-4">
                 <div className="font-bold text-[13.5px] mb-2">Original, for comparison</div>
-                <p className="text-[15.5px] leading-[1.8] rounded-2xl p-4" style={{ background: "#f4f3ec" }}>{para}</p>
+                <p className="text-[15.5px] leading-[1.8] rounded-2xl p-4" style={{ background: "var(--rah-callout)" }}>{para}</p>
               </div>
             ) : null}
             <div className="mt-5 flex gap-2">

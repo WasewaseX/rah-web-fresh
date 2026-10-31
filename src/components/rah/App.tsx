@@ -433,27 +433,22 @@ export default function RahApp() {
       </header>
 
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 pb-24 pt-6 md:px-10 md:pb-12">
-        {/* Desktop header row */}
+        {/* Desktop header row. Task 109: this used to repeat every view's
+           title as an h1 AND carry 4-5 stat chips - the title appeared twice
+           (here + the view's own SectionTitle) and the pills were the
+           "excessive chips" pattern the holder banned. Now: one quiet
+           learner-context line; the view's own SectionTitle is the only
+           title; the chain chip survives because it is a live signal. */}
         {state && (
-          <div className="rah-rise mb-7 hidden items-end justify-between md:flex">
-            <h1 className="text-[28px] font-black leading-none tracking-tight text-[#f2f5fa]">
-              {VIEWS.find((v) => v.id === view)?.label}
-            </h1>
-            <div className="flex items-center gap-2">
-              {state.learner.level !== "?" ? <Chip tone="blue">Level {state.learner.level}</Chip> : <Chip>No level yet</Chip>}
+          <div className="rah-rise mb-6 hidden items-center justify-end gap-3 md:flex">
+            {state.chain && state.chain.chain >= 5 && (
               <Chip tone="amber">
-                <Flame className="h-3 w-3" /> {state.learner.streak} day streak
+                <Flame className="h-3 w-3" /> {state.chain.chain}-chain · {state.chain.mult}x
               </Chip>
-              <Chip tone="cyan">
-                <Sparkles className="h-3 w-3" /> {state.today.xp} XP today
-              </Chip>
-              {state.game && <Chip tone="violet">Lv {state.game.level.level} · {state.game.level.name}</Chip>}
-              {state.chain && state.chain.chain >= 5 && (
-                <Chip tone="amber">
-                  <Flame className="h-3 w-3" /> {state.chain.chain}-chain · {state.chain.mult}x
-                </Chip>
-              )}
-            </div>
+            )}
+            <span className="text-[12.5px] font-semibold" style={{ color: "#7d889c" }}>
+              {state.game ? <>Lv {state.game.level.level} · {state.game.level.name}</> : "Rookie"} · {state.learner.streak}-day streak · {state.today.xp} XP today
+            </span>
           </div>
         )}
 

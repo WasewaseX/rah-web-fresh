@@ -344,7 +344,10 @@ function ChatTab() {
   };
 
   return (
-    <div className="flex flex-col" style={{ height: "calc(100vh - 260px)" }}>
+    /* Task 109: calc(100vh - 260px) let the chat exceed the visible viewport
+       (title + tabs stack above it), so the page scrolled and the input sat
+       below the fold under a void. Capped to a viewport-aware min. */
+    <div className="flex flex-col" style={{ height: "min(58vh, 620px)", minHeight: 340 }}>
       <div ref={scroller} className="flex-1 overflow-y-auto pr-1 space-y-4">
         {turns.map((t, i) =>
           t.role === "user" ? (
@@ -362,7 +365,7 @@ function ChatTab() {
                 {t.corrections?.length ? (
                   <div className="mt-3 space-y-2">
                     {t.corrections.map((c, ci) => (
-                      <div key={ci} className="rounded-xl p-3" style={{ background: "#f4f3ec" }}>
+                      <div key={ci} className="rounded-xl p-3" style={{ background: "var(--rah-callout)" }}>
                         <div className="text-[13.5px]">
                           <span style={{ color: "var(--danger)", textDecoration: "line-through" }}>{c.wrong}</span>
                           {" → "}

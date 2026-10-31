@@ -18,13 +18,16 @@ export function Logo({ size = 26 }: { size?: number }) {
 }
 
 export function SectionTitle({ title, sub, right }: { title: string; sub?: string; right?: React.ReactNode }) {
+  // Task 109: sub used to share the row with `right`, so a long sentence
+  // collided with the right-side element on narrow screens. The title row
+  // (title + right) stands alone; the sub gets the full width below it.
   return (
-    <div className="flex items-end justify-between gap-4 mb-5">
-      <div>
+    <div className="mb-5">
+      <div className="flex items-center justify-between gap-4">
         <h1 className="display text-[26px] md:text-[32px] font-bold leading-tight">{title}</h1>
-        {sub ? <p className="text-[13.5px] mt-1" style={{ color: "var(--muted)" }}>{sub}</p> : null}
+        {right}
       </div>
-      {right}
+      {sub ? <p className="text-[13.5px] mt-1.5 leading-relaxed" style={{ color: "var(--muted)" }}>{sub}</p> : null}
     </div>
   );
 }
@@ -36,20 +39,28 @@ export function Stat({ value, label, delta, accent }: { value: string | number; 
         <span className={cn("text-[26px] font-bold display", accent && "")} style={accent ? { color: "var(--accent)" } : undefined}>
           {value}
         </span>
-        {delta !== undefined && delta !== 0 ? (
-          <span className="text-[12px] font-bold" style={{ color: delta > 0 ? "var(--accent)" : "var(--danger)" }}>
-            {delta > 0 ? "+" : ""}{delta}%
-          </span>
-        ) : null}
       </div>
-      <div className="text-[12px] mt-0.5 font-medium" style={{ color: "var(--muted)" }}>{label}</div>
+      {/* Task 109: the delta was a squished inline "-20%" that read like a
+         typo. It gets its own line, an arrow, and names its comparison. */}
+      {delta !== undefined && delta !== 0 ? (
+        <div
+          className="text-[12px] mt-0.5 font-bold"
+          style={{ color: delta > 0 ? "var(--c-green)" : "var(--danger)" }}
+          title="change vs the previous week"
+        >
+          {delta > 0 ? "▲" : "▼"} {Math.abs(delta)} pts vs last week
+        </div>
+      ) : null}
+      <div className={cn("text-[12px] mt-0.5 font-medium", delta !== undefined && delta !== 0 && "mt-1")} style={{ color: "var(--muted)" }}>{label}</div>
     </div>
   );
 }
 
 export function Bar({ pct, color = "var(--accent)", h = 8 }: { pct: number; color?: string; h?: number }) {
   return (
-    <div className="w-full rounded-full overflow-hidden" style={{ background: "#efeee7", height: h }}>
+    // Task 109: the track was the light-era cream #efeee7 - a pale fossil
+    // on the Midnight theme. Track = hairline white, like every border.
+    <div className="w-full rounded-full overflow-hidden" style={{ background: "rgba(255, 255, 255, 0.08)", height: h }}>
       <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, Math.max(0, pct))}%`, background: color }} />
     </div>
   );
@@ -62,7 +73,7 @@ export function Ring({ pct, size = 74, stroke = 8, children }: { pct: number; si
   return (
     <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} stroke="#efeee7" strokeWidth={stroke} fill="none" />
+        <circle cx={size / 2} cy={size / 2} r={r} stroke="rgba(255, 255, 255, 0.08)" strokeWidth={stroke} fill="none" />
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -90,10 +101,13 @@ export function Fa({ children, className }: { children: React.ReactNode; classNa
 }
 
 export function Note({ children, tone = "info" }: { children: React.ReactNode; tone?: "info" | "warn" | "error" | "accent" }) {
-  const bg = tone === "warn" ? "var(--amber-dim)" : tone === "error" ? "var(--danger-dim)" : tone === "accent" ? "var(--accent-dim)" : "#f4f3ec";
-  const fg = tone === "warn" ? "#8a5a12" : tone === "error" ? "#a03030" : tone === "accent" ? "var(--accent-deep)" : "var(--muted)";
+  // Task 109: the info tone was a light-era cream block (#f4f3ec) with
+  // light-theme text colors - a blinding fossil inside Midnight views.
+  // All four tones now come from the theme's dim/tint token families.
+  const bg = tone === "warn" ? "var(--amber-dim)" : tone === "error" ? "var(--danger-dim)" : tone === "accent" ? "var(--accent-dim)" : "rgba(255, 255, 255, 0.045)";
+  const fg = tone === "warn" ? "var(--c-gold-tint)" : tone === "error" ? "var(--c-red-tint)" : tone === "accent" ? "var(--accent-deep)" : "var(--text-soft)";
   return (
-    <div className="rounded-2xl px-4 py-3 text-[13.5px] leading-relaxed" style={{ background: bg, color: fg }}>
+    <div className="rounded-2xl border px-4 py-3 text-[13.5px] leading-relaxed" style={{ background: bg, color: fg, borderColor: tone === "warn" ? "rgba(255, 176, 46, 0.25)" : tone === "error" ? "rgba(255, 107, 129, 0.25)" : "var(--line)" }}>
       {children}
     </div>
   );

@@ -95,6 +95,8 @@ export default function ProgressView({ boot }: { boot: Boot }) {
 
   const deck = d.deckTotal ?? 218;
   const maxDay = Math.max(1, ...d.byDay.map((x) => x.count));
+  const reviews14 = d.byDay.reduce((a, x) => a + x.count, 0);
+  const bestDay = Math.max(0, ...d.byDay.map((x) => x.count));
   const totalStrandMin = Object.values(d.strands).reduce((a, b) => a + b, 0) || 1;
   const maturePct = Math.round((d.mastery.mature / Math.max(1, deck - d.mastery.new)) * 100);
 
@@ -120,19 +122,28 @@ export default function ProgressView({ boot }: { boot: Boot }) {
               <div key={x.day} className="flex-1 flex flex-col items-center gap-1.5">
                 <div
                   className="w-full rounded-t-md transition-all"
-                  style={{ height: `${(x.count / maxDay) * 100}%`, minHeight: x.count ? 4 : 2, background: x.count ? "var(--accent)" : "#e6e4dc" }}
+                  style={{ height: `${(x.count / maxDay) * 100}%`, minHeight: x.count ? 4 : 2, background: x.count ? "var(--accent)" : "var(--rah-dot)" }}
                   title={`${x.count} retrievals`}
                 />
                 <span className="text-[9.5px]" style={{ color: "var(--muted)" }}>{x.day % 7 === 0 ? new Date(x.day * 86400000).toLocaleDateString("en", { weekday: "short" }).slice(0, 2) : ""}</span>
               </div>
             ))}
           </div>
+          {reviews14 === 0 ? (
+            <p className="text-[12px] mt-3" style={{ color: "var(--muted)" }}>A quiet fortnight. Every bar is a day; take a review session and the first bar lights up.</p>
+          ) : (
+            <p className="text-[12px] mt-3" style={{ color: "var(--muted)" }}>{reviews14} retrievals across the fortnight{bestDay >= 4 ? `, best day ${bestDay}` : ""}.</p>
+          )}
         </div>
 
         <div className="card-rah p-6">
           <div className="font-bold text-[14.5px] mb-4">Four strands balance, last 7 days</div>
-          {d.totalReviews === 0 && !Object.keys(d.strands).length ? (
-            <p className="text-[13px]" style={{ color: "var(--muted)" }}>No practice logged yet. Everything you do lands here.</p>
+          {/* Task 109: the old condition keyed on totalReviews (all-time), so a
+             learner with history but no logged minutes in the WINDOW rendered
+             a card with a title and nothing under it. Key on the strands map
+             itself - an empty map means nothing to show in this window. */}
+          {!Object.keys(d.strands).length ? (
+            <p className="text-[13px]" style={{ color: "var(--muted)" }}>No strand time logged in the last 7 days. Review sessions, listening, reading, speaking and writing all land here as minutes.</p>
           ) : (
             <>
               <div className="flex h-4 rounded-full overflow-hidden mb-4">
@@ -202,7 +213,7 @@ export default function ProgressView({ boot }: { boot: Boot }) {
             <div
               key={c.day}
               className="w-5 h-5 rounded"
-              style={{ background: c.active ? "var(--accent)" : "#e6e4dc" }}
+              style={{ background: c.active ? "var(--accent)" : "var(--rah-dot)" }}
               title={new Date(c.day * 86400000).toLocaleDateString()}
             />
           ))}

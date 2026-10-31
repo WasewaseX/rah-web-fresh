@@ -365,22 +365,25 @@ export default function ReviewView({ boot, onDone, go }: { boot: Boot; onDone: (
         <div className="flex items-center gap-2">
           <span className="chip chip-accent">{c!.skill}</span>
           <span className="chip">{c!.level}</span>
-          {cur.state.state === "new" ? <span className="chip" style={{ background: "var(--amber-dim)", color: "#8a5a12", borderColor: "transparent" }}>new</span> : null}
+          {cur.state.state === "new" ? <span className="chip" style={{ background: "var(--amber-dim)", color: "var(--c-gold-tint)", borderColor: "transparent" }}>new</span> : null}
         </div>
         <span className="text-[12.5px] font-semibold" style={{ color: "var(--muted)" }}>
           {idx + 1} / {items.length}
         </span>
       </div>
 
-      <div className="h-1.5 rounded-full overflow-hidden mb-6" style={{ background: "#efeee7" }}>
+      <div className="h-1.5 rounded-full overflow-hidden mb-6" style={{ background: "var(--rah-track)" }}>
         <div className="h-full transition-all" style={{ width: `${shownPct}%`, background: "var(--accent)" }} />
       </div>
 
-      <div className="text-[12.5px] font-bold uppercase tracking-wide mb-3" style={{ color: "var(--accent-deep)" }}>
-        {DIR_LABEL[dir] ?? dir}
-      </div>
-
+      {/* Task 109: the direction used to render as an all-caps kicker ABOVE
+         the card - the eyebrow pattern the craft floor bans. It is an
+         instruction, so it lives inside the card at readable weight. */}
       <div className="card-rah p-8">
+        <div className="text-[13px] font-bold mb-4" style={{ color: "var(--accent-deep)" }}>
+          {DIR_LABEL[dir] ?? dir}
+        </div>
+
         {/* ---- prompt per direction ---- */}
         {dir === "cloze" && <Cloze text={c!.prompt} />}
 
@@ -470,7 +473,7 @@ export default function ReviewView({ boot, onDone, go }: { boot: Boot; onDone: (
 
         {isBank && phase === "prompt" && (
           <div className="mt-6">
-            <div className="min-h-14 rounded-2xl border-2 border-dashed p-2.5" style={{ borderColor: "var(--line)", background: "#fff" }}>
+            <div className="min-h-14 rounded-2xl border-2 border-dashed p-2.5" style={{ borderColor: "var(--line)", background: "var(--rah-field)" }}>
               {picked.length === 0 ? (
                 <div className="py-1.5 text-center text-[13px]" style={{ color: "var(--muted)" }}>Tap the words below in order…</div>
               ) : (
@@ -544,7 +547,7 @@ export default function ReviewView({ boot, onDone, go }: { boot: Boot; onDone: (
               value={input}
               onChange={(e) => setInput(e.target.value)}
               className="w-full rounded-2xl border p-4 min-h-[110px] text-[15.5px] leading-relaxed"
-              style={{ borderColor: "var(--line)", background: "#fff", outline: "none" }}
+              style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
               placeholder="Write one natural sentence that uses it. Make it about your own life so it sticks."
             />
             <div className="mt-3">
@@ -589,7 +592,7 @@ export default function ReviewView({ boot, onDone, go }: { boot: Boot; onDone: (
                   onClick={() => grade(g.r)}
                   disabled={busy}
                   className="rounded-2xl border py-3 text-center transition-transform active:scale-95 disabled:opacity-50"
-                  style={{ borderColor: "var(--line)", background: "#fff" }}
+                  style={{ borderColor: "var(--line)", background: "var(--rah-field)" }}
                 >
                   <div className="text-[14px] font-bold" style={{ color: g.color }}>{g.label}</div>
                   <div className="text-[11.5px] font-semibold" style={{ color: "var(--muted)" }}>{ivlLabel(previews[g.r - 1])}</div>

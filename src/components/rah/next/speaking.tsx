@@ -240,7 +240,7 @@ export default function SpeakingView({ onDone }: { onDone: () => void }) {
           <div className="display text-[21px] font-bold mb-1">Prep, one minute</div>
           <p className="text-[13.5px] mb-5" style={{ color: "var(--muted)" }}>Decide your position and three beats: claim, reason, example. Do not write a script.</p>
           <p className="text-[17.5px] leading-relaxed mb-5">{prompt.prompt}</p>
-          <div className="rounded-2xl p-4 mb-6" style={{ background: "#f4f3ec" }}>
+          <div className="rounded-2xl p-4 mb-6" style={{ background: "var(--rah-callout)" }}>
             <div className="font-bold text-[13px] mb-2">Chunks worth landing</div>
             <div className="flex flex-wrap gap-2">
               {prompt.useful.map((u) => <span key={u} className="chip chip-accent">{u}</span>)}
@@ -265,7 +265,7 @@ export default function SpeakingView({ onDone }: { onDone: () => void }) {
             {recState === "recording" ? "Keep talking past the awkward part. Fluency lives after second twenty." : micNote}
           </p>
           <div className="text-[42px] display font-bold mb-1">{Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, "0")}</div>
-          <div className="h-2 rounded-full overflow-hidden max-w-xs mx-auto mb-8" style={{ background: "#efeee7" }}>
+          <div className="h-2 rounded-full overflow-hidden max-w-xs mx-auto mb-8" style={{ background: "var(--rah-track)" }}>
             <div className="h-full transition-all" style={{ width: `${pct}%`, background: seconds >= 120 ? "var(--accent)" : "var(--danger)" }} />
           </div>
           <p className="text-[15.5px] leading-relaxed max-w-lg mx-auto mb-8">{prompt.prompt}</p>
@@ -301,7 +301,7 @@ export default function SpeakingView({ onDone }: { onDone: () => void }) {
             </div>
           ) : null}
           {transcript && heard ? (
-            <div className="rounded-2xl p-4 mb-5" style={{ background: "#f4f3ec" }}>
+            <div className="rounded-2xl p-4 mb-5" style={{ background: "var(--rah-callout)" }}>
               <div className="font-bold text-[12.5px] mb-1">{typedMode ? "What you typed" : "What the engine heard"}</div>
               <div className="text-[13.5px] leading-relaxed italic">{transcript}</div>
             </div>
@@ -319,7 +319,7 @@ export default function SpeakingView({ onDone }: { onDone: () => void }) {
                 onChange={(e) => setTranscript(e.target.value)}
                 rows={4}
                 className="w-full rounded-xl border px-4 py-3 text-[14px]"
-                style={{ borderColor: "var(--line)", background: "#fff", outline: "none" }}
+                style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
                 placeholder="Type the sentences you remember saying. The coach works from this."
               />
               <div className="mt-2">
@@ -348,7 +348,7 @@ export default function SpeakingView({ onDone }: { onDone: () => void }) {
                 value={ev[k]}
                 onChange={(e) => setEv((x) => ({ ...x, [k]: e.target.value }))}
                 className="w-full rounded-xl border px-4 py-2.5 text-[14px]"
-                style={{ borderColor: "var(--line)", background: "#fff", outline: "none" }}
+                style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
               />
             </div>
           ))}
@@ -391,7 +391,7 @@ export default function SpeakingView({ onDone }: { onDone: () => void }) {
             accuracy and fluency; one repetition does almost nothing, which is why this screen exists.
           </p>
           {last ? (
-            <div className="rounded-2xl p-5 mb-6" style={{ background: "#f4f3ec" }}>
+            <div className="rounded-2xl p-5 mb-6" style={{ background: "var(--rah-callout)" }}>
               <div className="font-bold text-[13px] mb-2">Your repair list</div>
               <ul className="text-[13.5px] leading-relaxed space-y-1">
                 {last.eval.grammar ? <li>grammar: {last.eval.grammar}</li> : null}

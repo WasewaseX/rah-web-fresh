@@ -117,7 +117,7 @@ export default function ListeningView({ onDone }: { onDone: () => void }) {
             value={caught}
             onChange={(e) => setCaught(e.target.value)}
             className="w-full rounded-2xl border p-4 min-h-[130px] text-[15px] mt-6 leading-relaxed"
-            style={{ borderColor: "var(--line)", background: "#fff", outline: "none" }}
+            style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
             placeholder="What did I understand? Words, topics, half sentences, anything."
           />
           <div className="mt-4">
@@ -160,7 +160,7 @@ export default function ListeningView({ onDone }: { onDone: () => void }) {
             value={detail}
             onChange={(e) => setDetail(e.target.value)}
             className="w-full rounded-2xl border p-4 min-h-[80px] text-[14.5px]"
-            style={{ borderColor: "var(--line)", background: "#fff", outline: "none" }}
+            style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
             placeholder="Optional: name one specific word or sound that fooled you."
           />
           <div className="mt-4 text-right">
@@ -184,7 +184,7 @@ export default function ListeningView({ onDone }: { onDone: () => void }) {
           </p>
           <p className="text-[17px] leading-loose mb-6">{passage.transcript}</p>
 
-          <div className="rounded-2xl p-5 mb-4" style={{ background: "#f4f3ec" }}>
+          <div className="rounded-2xl p-5 mb-4" style={{ background: "var(--rah-callout)" }}>
             <div className="font-bold text-[13.5px] mb-2">Target vocabulary</div>
             {passage.vocab.map((v) => (
               <div key={v.w} className="flex items-baseline justify-between gap-4 py-1.5 border-b last:border-0" style={{ borderColor: "var(--line)" }}>
@@ -247,7 +247,7 @@ export default function ListeningView({ onDone }: { onDone: () => void }) {
             value={repro}
             onChange={(e) => setRepro(e.target.value)}
             className="w-full rounded-2xl border p-4 min-h-[140px] text-[15px] leading-relaxed"
-            style={{ borderColor: "var(--line)", background: "#fff", outline: "none" }}
+            style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
             placeholder="Type the passage from memory. Approximations welcome."
           />
           {repro.trim() ? (
@@ -256,7 +256,7 @@ export default function ListeningView({ onDone }: { onDone: () => void }) {
                 <span className="font-semibold">Word overlap with the transcript</span>
                 <span style={{ color: "var(--muted)" }}>{pct}%</span>
               </div>
-              <div className="h-2 rounded-full overflow-hidden" style={{ background: "#efeee7" }}>
+              <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--rah-track)" }}>
                 <div className="h-full rounded-full" style={{ width: `${pct}%`, background: pct > 70 ? "var(--accent)" : "var(--gold)" }} />
               </div>
             </div>

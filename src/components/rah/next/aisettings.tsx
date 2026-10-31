@@ -4,12 +4,15 @@ import { useEffect, useState } from "react";
 import type { Boot } from "@/app/page";
 import { SectionTitle, Note } from "./bits";
 
+// Task 109: this interface described a shape the API never sent (label/hint)
+// - every preset button rendered an empty box. The real wire shape is
+// { name, base, docs, note } (src/lib/ai.ts presets).
 interface Preset {
   id: string;
-  family: string;
-  label: string;
-  hint: string;
+  name: string;
   base: string;
+  docs: string;
+  note: string;
 }
 
 export default function SettingsView({ boot, onDone }: { boot: Boot; onDone: () => void }) {
@@ -197,8 +200,8 @@ export default function SettingsView({ boot, onDone }: { boot: Boot; onDone: () 
               className="rounded-2xl border p-4 text-left"
               style={presetId === p.id ? { background: "var(--accent-dim)", borderColor: "transparent" } : { borderColor: "var(--line)" }}
             >
-              <div className="font-bold text-[14px]">{p.label}</div>
-              <div className="text-[12px] mt-0.5 leading-snug" style={{ color: "var(--muted)" }}>{p.hint}</div>
+              <div className="font-bold text-[14px]">{p.name}</div>
+              <div className="text-[12px] mt-0.5 leading-snug" style={{ color: "var(--muted)" }}>{p.note}</div>
             </button>
           ))}
         </div>
@@ -211,7 +214,7 @@ export default function SettingsView({ boot, onDone }: { boot: Boot; onDone: () 
           value={baseUrl}
           onChange={(e) => setBaseUrl(e.target.value)}
           className="w-full rounded-xl border px-4 py-2.5 text-[14px] mb-3"
-          style={{ borderColor: "var(--line)", background: "#fff", outline: "none" }}
+          style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
           placeholder="https://api.openai.com/v1"
         />
         <label className="text-[12.5px] font-bold block mb-1">
@@ -222,7 +225,7 @@ export default function SettingsView({ boot, onDone }: { boot: Boot; onDone: () 
           onChange={(e) => setApiKey(e.target.value)}
           type="password"
           className="w-full rounded-xl border px-4 py-2.5 text-[14px]"
-          style={{ borderColor: "var(--line)", background: "#fff", outline: "none" }}
+          style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
           placeholder={boot.ai.keyset ? "kept secret" : "sk-..."}
           autoComplete="off"
         />
@@ -253,7 +256,7 @@ export default function SettingsView({ boot, onDone }: { boot: Boot; onDone: () 
           value={model}
           onChange={(e) => setModel(e.target.value)}
           className="w-full rounded-xl border px-4 py-2.5 text-[14px] mb-3"
-          style={{ borderColor: "var(--line)", background: "#fff", outline: "none" }}
+          style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
           placeholder="model id"
           list="model-list"
         />
@@ -266,7 +269,7 @@ export default function SettingsView({ boot, onDone }: { boot: Boot; onDone: () 
               <button
                 key={m}
                 onClick={() => setModel(m)}
-                className="block w-full text-left px-4 py-2 text-[13px] border-b last:border-0 hover:bg-[#f4f3ec]"
+                className="block w-full text-left px-4 py-2 text-[13px] border-b last:border-0 hover:bg-white/[0.07]"
                 style={{ borderColor: "var(--line)", color: m === model ? "var(--accent-deep)" : "var(--ink)", fontWeight: m === model ? 700 : 400 }}
               >
                 {m}

@@ -95,8 +95,12 @@ export default function PwaBootstrap() {
   }, []);
 
   if (!installEvt || installDismissed) return null;
+  // Task 109: left-1/2 + translate centering with an auto width made the
+  // shrink-to-fit use only the space RIGHT of the left edge (~half the
+  // viewport), wrapping the copy into a tall skinny box. w-max sizes to
+  // content first; max-w keeps it inside small screens.
   return (
-    <div className="fixed bottom-4 left-1/2 z-[70] flex -translate-x-1/2 items-center gap-3 rounded-2xl border border-[#2a3242] bg-[#141925]/95 px-4 py-3 shadow-[0_18px_44px_-14px_rgba(0,0,0,.7)]">
+    <div className="fixed bottom-4 left-1/2 z-[70] flex w-max max-w-[calc(100vw-32px)] -translate-x-1/2 items-center gap-3 rounded-2xl border border-[#2a3242] bg-[#141925]/95 px-4 py-3 shadow-[0_18px_44px_-14px_rgba(0,0,0,.7)]">
       <div className="text-sm">
         <div className="font-bold text-[#f2f5fa]">Install Rah</div>
         <div className="text-xs text-[#8b96a9]">Own window, works offline, one tap from your home screen.</div>

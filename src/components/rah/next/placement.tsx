@@ -173,7 +173,7 @@ export default function PlacementView({ boot, onDone, go }: { boot: Boot; onDone
             value={writing}
             onChange={(e) => setWriting(e.target.value)}
             className="w-full rounded-2xl border p-4 min-h-[220px] text-[15px] leading-relaxed"
-            style={{ borderColor: "var(--line)", background: "#fff", outline: "none" }}
+            style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
             placeholder="Write here. Take a position and defend it with two reasons."
           />
           <div className="flex justify-between items-center mt-3">

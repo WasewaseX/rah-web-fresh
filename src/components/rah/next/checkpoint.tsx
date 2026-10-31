@@ -129,7 +129,7 @@ export default function CheckpointView({ boot, onDone }: { boot: Boot; onDone: (
           <span
             key={s}
             className="text-[12.5px] font-bold rounded-full px-3.5 py-1.5"
-            style={station === i ? { background: "var(--ink)", color: "#fff" } : station > i ? { background: "var(--accent-dim)", color: "var(--accent-deep)" } : { background: "#fff", color: "var(--muted)", border: "1px solid var(--line)" }}
+            style={station === i ? { background: "var(--accent)", color: "#fff" } : station > i ? { background: "var(--accent-dim)", color: "var(--accent-deep)" } : { background: "var(--rah-field)", color: "var(--muted)", border: "1px solid var(--line)" }}
           >
             {i + 1}. {s}
           </span>
@@ -178,7 +178,7 @@ export default function CheckpointView({ boot, onDone }: { boot: Boot; onDone: (
         <div className="card-rah p-8">
           <div className="display text-[20px] font-bold mb-1">Station 2: reading</div>
           <p className="text-[13.5px] mb-5" style={{ color: "var(--muted)" }}>Unseen C1 text. Read once, no dictionary, then answer.</p>
-          <p className="text-[16px] leading-[1.85] rounded-2xl p-5 mb-5" style={{ background: "#f4f3ec" }}>{rText.text}</p>
+          <p className="text-[16px] leading-[1.85] rounded-2xl p-5 mb-5" style={{ background: "var(--rah-callout)" }}>{rText.text}</p>
           {rText.questions.map((q, i) => (
             <div key={i} className="mb-5">
               <div className="text-[14.5px] font-semibold mb-2">{i + 1}. {q.q}</div>
@@ -221,7 +221,7 @@ export default function CheckpointView({ boot, onDone }: { boot: Boot; onDone: (
                 value={speaking[k]}
                 onChange={(e) => setSpeaking((x) => ({ ...x, [k]: e.target.value }))}
                 className="w-full rounded-xl border px-4 py-2.5 text-[14px]"
-                style={{ borderColor: "var(--line)", background: "#fff", outline: "none" }}
+                style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
               />
             </div>
           ))}
@@ -239,7 +239,7 @@ export default function CheckpointView({ boot, onDone }: { boot: Boot; onDone: (
             value={writing}
             onChange={(e) => setWriting(e.target.value)}
             className="w-full rounded-2xl border p-5 min-h-[280px] text-[15px] leading-[1.8]"
-            style={{ borderColor: "var(--line)", background: "#fff", outline: "none" }}
+            style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
           />
           <div className="flex items-center justify-between mt-3">
             <span className="text-[13px]" style={{ color: "var(--muted)" }}>{writing.split(/\s+/).filter(Boolean).length} words</span>

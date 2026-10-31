@@ -522,3 +522,8 @@ Reconstructed same session from the consumers' exact contracts: schema +15 model
 - **Clean live proof:** /api/track checkpoint/listening/speaking/grammar verified on prod with minutes:0 (rows landed, XP untouched); writing save/chain/400/GET verified on dev then prod; every probe row and ledger delta reverted to exact pre-state. 19-surface sweep ALL-PASS on the rebuilt prod z9xcKe3_IPg-_QiKECXVm.
 - **Evidence hygiene held:** after cleanup — Checkpoint/ListeningLog/SpeakingAttempt/GrammarDone/WritingSub all 0 rows, DailyStat written=0, xp=491, streak=1 (the learner's real reviews=1 today untouched). Zero synthetic learning history.
 - Changed: src/components/rah/next/writing.tsx, src/app/api/writing/route.ts, worklog.md, TASK-95-BACKLOG.md.
+
+### Task 109 (2026-10-31) — Impeccable GUI overhaul P1 complete (Groups A-E)
+- Holder brief: "install and use Impeccable, audit the entire app, redesign every learning surface to exceptional professional quality, one coherent design system, iterate on real screenshots at 3 sizes, preserve contracts, $0/4GB, implement don't report."
+- Delivered: skill installed + PRODUCT.md/DESIGN.md/ROADMAP.md recorded; full-app 3-viewport screenshot audit; 19 surfaces redesigned across 5 groups with per-group build+sweep+CI gates (CI #23/#24 green; #22's lint error caught and fixed); light-era fossils eliminated (41 literals -> 5 tokens); 3rd contract-mismatch of the class found+fixed (settings presets label/hint vs name/note); a11y focus rings + themed browser surfaces; honest empty/loading states; chip noise removed everywhere.
+- Not done (next): tutor Exam-tab deep polish, comp-grade motion pass (one authored moment per view), real-device screenshot pass (holder-blocked), ROADMAP P2 teaching-quality items.

@@ -453,8 +453,11 @@ export default function RahApp() {
         )}
 
         {!state || !boot ? (
-          <div className="flex h-64 items-center justify-center">
+          <div className="flex h-64 flex-col items-center justify-center gap-3">
             <span className="h-6 w-6 animate-spin rounded-full border-2 border-[#2a3242] border-t-[var(--rah-primary)]" />
+            {/* Task 109: text-first loading (craft floor) - a bare spinner on a
+               blank page reads as broken; naming the wait reads as honest. */}
+            <span className="text-[13px] font-medium" style={{ color: "var(--muted)" }}>Laying out today's road...</span>
           </div>
         ) : (
           <div key={view} className="rah-rise">
@@ -536,7 +539,9 @@ export default function RahApp() {
         className="fixed inset-x-0 bottom-0 z-20 border-t border-white/[0.06] bg-[#12161f]/90 backdrop-blur-xl md:hidden"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
-        <div className="flex overflow-x-auto px-2 py-1.5">
+        {/* Task 109: pr-16 keeps the tail labels clear of the floating Arcade
+           button that hovers above this rail's right edge. */}
+        <div className="flex overflow-x-auto pl-2 pr-16 py-1.5">
           {VIEWS.map((v) => {
             const Icon = v.icon;
             const active = view === v.id;

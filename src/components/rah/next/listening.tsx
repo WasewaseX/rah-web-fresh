@@ -69,9 +69,9 @@ export default function ListeningView({ onDone }: { onDone: () => void }) {
               }}
               className="card-rah p-5 text-left hover:shadow-md transition-shadow"
             >
-              <div className="flex items-center gap-2 mb-2">
-                <span className="chip chip-accent">{p.level}</span>
-                <span className="chip">~{p.seconds}s</span>
+              {/* Task 109: level+length chips demoted to a quiet meta line. */}
+              <div className="text-[12px] font-semibold mb-2" style={{ color: "var(--muted)" }}>
+                {p.level} · ~{p.seconds}s
               </div>
               <div className="font-bold text-[15.5px]">{p.title}</div>
               <div className="text-[13px] mt-1" style={{ color: "var(--muted)" }}>{p.vocab.length} target words, {p.features.length} sound features</div>

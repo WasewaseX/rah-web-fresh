@@ -69,9 +69,10 @@ export default function WritingView({ boot, onDone }: { boot: Boot; onDone: () =
               className="card-rah p-5 text-left hover:shadow-md transition-shadow"
               onClick={() => { setPid(p.id); setText(""); setFeedback(null); setShowModel(false); setStage("write"); }}
             >
-              <div className="flex items-center gap-2 mb-2">
-                <span className="chip chip-accent">{p.minWords} to {p.maxWords} words</span>
-                <span className="chip">model answer available</span>
+              {/* Task 109: two chips per card x 6 cards was the pill-noise
+                 pattern; metadata demotes to a quiet line. */}
+              <div className="text-[12px] font-semibold mb-2" style={{ color: "var(--muted)" }}>
+                {p.minWords}–{p.maxWords} words · model answer inside
               </div>
               <div className="text-[14.5px] font-semibold leading-relaxed">{p.prompt}</div>
             </button>

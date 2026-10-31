@@ -109,6 +109,20 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* Task 109 (Impeccable craft floor): keyboard focus was invisible on the
+     dark theme - the cheapest a11y signal a page can ship. Also theme the
+     browser-owned surfaces: caret and selection carry the design too. */
+  :focus-visible {
+    outline: 2px solid var(--rah-primary);
+    outline-offset: 2px;
+  }
+  input,
+  textarea {
+    caret-color: var(--rah-primary);
+  }
+  a {
+    text-underline-offset: 3px;
+  }
   html {
     color-scheme: dark;
   }

@@ -207,9 +207,9 @@ export default function SpeakingView({ onDone }: { onDone: () => void }) {
                 setPhase("prep");
               }}
             >
-              <div className="flex items-center gap-2 mb-2">
-                <span className="chip chip-accent">{p.level}</span>
-                <span className="chip">{p.topic}</span>
+              {/* Task 109: level+topic chips demoted to a quiet meta line. */}
+              <div className="text-[12px] font-semibold mb-2" style={{ color: "var(--muted)" }}>
+                {p.level} · {p.topic}
               </div>
               <div className="text-[14.5px] font-semibold leading-relaxed">{p.prompt}</div>
             </button>

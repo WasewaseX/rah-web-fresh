@@ -23,11 +23,9 @@ export default function SoundView({ onDone }: { onDone: () => void }) {
   const stressQueue = queue.filter((id) => id.startsWith("s"));
   const linkQueue = queue.filter((id) => id.startsWith("k"));
 
-  useEffect(() => {
-    start("pairs");
-     
-  }, []);
-
+  // Task 109: `start` is declared below, so the mount effect referenced it
+  // before declaration once the stale eslint-disable was removed. Declared
+  // first now - same behavior, honest order.
   const start = (m: Mode) => {
     setMode(m);
     setRound(0);
@@ -37,6 +35,11 @@ export default function SoundView({ onDone }: { onDone: () => void }) {
     if (m === "stress") setQueue(seededShuffle(STRESS_ITEMS.map((p) => p.id), Date.now() >>> 0).slice(0, 8));
     if (m === "reduce") setQueue(LINK_ITEMS.map((p) => p.id));
   };
+
+  useEffect(() => {
+    start("pairs");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const say = async (text: string) => {
     setPlaying(true);

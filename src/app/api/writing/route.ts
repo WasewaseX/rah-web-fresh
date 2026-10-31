@@ -48,9 +48,13 @@ export async function GET(req: Request) {
     return NextResponse.json({ chain: ordered, rubric: rubricHistory(ordered), changes: revisionChanges(ordered) });
   }
   const rows = await db.writingSub.findMany({ where: scope, orderBy: { id: "desc" }, take: 10 });
+  // Task 108: include `text` here too - the recovered Writing view renders the
+  // last drafts' opening line and word count from it (the ?id=N chain always
+  // carried text; the list endpoint silently didn't, so "Your last drafts"
+  // rendered empty forever).
   return NextResponse.json({
     prompts: WRITING_PROMPTS,
-    recent: rows.map((r) => ({ id: r.id, prompt: r.prompt, revision: r.revision, parentId: r.parentId, result: safeParse(r.result), at: r.at })),
+    recent: rows.map((r) => ({ id: r.id, prompt: r.prompt, revision: r.revision, parentId: r.parentId, result: safeParse(r.result), at: r.at, text: r.text })),
   });
 }
 
@@ -59,8 +63,36 @@ export async function POST(req: Request) {
   const rl = aiRateLimit(req);
   if (!rl.ok) return rl.response!;
 
-  const { prompt, text, revisingId, goal } = await req.json();
+  const { prompt, text, revisingId, goal, action } = await req.json();
   const body = String(text ?? "").trim();
+
+  // Task 108: the recovered Writing view's repair stage saves the REPAIR (a
+  // few short lines) with action:"save". This route used to AI-grade EVERY
+  // POST: the repair triggered a full examiner call, burned rate limit, and
+  // awarded surprise XP. A save-only leg stores the repair as the draft's
+  // revision, honestly counts it in the daily ledger, and awards nothing -
+  // the 15 XP already went to the graded draft.
+  if (action === "save") {
+    if (!body) return NextResponse.json({ error: "Nothing to save yet." }, { status: 400 });
+    const scopeS = await contentScope(req);
+    let parentIdS: number | null = null;
+    let revisionS = 1;
+    const ridS = Number(revisingId ?? 0);
+    if (ridS > 0) {
+      const parentS = await db.writingSub.findFirst({ where: { id: ridS, ...scopeS } });
+      if (parentS) {
+        parentIdS = parentS.id;
+        revisionS = parentS.revision + 1;
+      }
+    }
+    // result column is a non-nullable String: store "" (safeParse -> null
+    // downstream, so the UI correctly shows the repair as ungraded).
+    const createdS = await db.writingSub.create({ data: { prompt: String(prompt ?? ""), text: body, result: "", ...scopeS, parentId: parentIdS, revision: revisionS } });
+    await bumpDaily("written");
+    await touchStreak();
+    return NextResponse.json({ ok: true, id: createdS.id });
+  }
+
   if (body.length < 60) return NextResponse.json({ error: "Write at least 60 characters so there is something to grade." }, { status: 400 });
   // Grammarly RE (Task 85): register goal is a declared prompt input. An
   // invalid value is dropped silently (undefined = the neutral examiner),
@@ -112,7 +144,7 @@ export async function POST(req: Request) {
 
   // Provenance: the register goal the grader was given travels inside the
   // stored result JSON (zero-migration, same envelope as ruleChecks).
-  await db.writingSub.create({ data: { prompt: String(prompt ?? ""), text: body, result: JSON.stringify({ ...result, ruleChecks, goal: goalUsed ?? null }), ...scope, parentId, revision } });
+  const created = await db.writingSub.create({ data: { prompt: String(prompt ?? ""), text: body, result: JSON.stringify({ ...result, ruleChecks, goal: goalUsed ?? null }), ...scope, parentId, revision } });
   await bumpDaily("written");
   await awardXp(15, { chainHit: true });
   await progressQuest("write_1", 1);
@@ -125,7 +157,10 @@ export async function POST(req: Request) {
     await recordMistakes(errs);
     await Promise.allSettled(errs.map((e) => noteTagOutcome(e.tag, false)));
   }
-  return NextResponse.json({ ...result, ruleChecks, goal: goalUsed ?? null });
+  // Task 108: ok + id ride along additively - the recovered view keys its UI
+  // off HTTP status/body presence, and the repair stage links the revision
+  // chain through the id.
+  return NextResponse.json({ ok: true, id: created.id, ...result, ruleChecks, goal: goalUsed ?? null });
 }
 
 // Rubric history (audit: writing-revision workspace - criterion-level deltas

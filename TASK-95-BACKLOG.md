@@ -514,3 +514,11 @@ Reconstructed same session from the consumers' exact contracts: schema +15 model
 - **Harness bug fixed (audit bycatch):** scripts/boot-regression-check.mjs RAH_SESSION preset path sent the raw token without the cookie NAME — the production-path battery could never pass. One-line fix; ALL PASS against prod BUILD_ID mtDd0pBqRdB-4MZsPPmA2.
 - **Infra:** watchdog revived post-recycle; production standalone rebuilt + gate CLEAN + serving (dev server retired); learner untouched beyond the boot-regression coach leg (single +8-XP-class footprint, per the battery's honesty note).
 - Changed: scripts/e2e-surface-sweep.sh + scripts/e2e-login.sh (new), scripts/boot-regression-check.mjs, worklog.md, TASK-95-BACKLOG.md.
+
+### Task 108 (2026-10-31) — write-path audit: Writing core loop repaired (3 legs), 4 strand write paths proven clean live
+- **Method:** the Task 106/107 sweeps prove RENDER; this task proves PERSIST. Same contract-mismatch class as the Progress crash, on the write side: drive every strand's submit path, verify the row + the response, revert every probe.
+- **Finding — Writing was broken end-to-end for the learner:** submit leg graded against an EMPTY prompt and always rendered "error" while the route stored + awarded XP anyway (XP paid for a perceived failure); drafts history never rendered (wrong key + missing field on the wire); the repair-save leg secretly ran a full AI examiner call (cost + surprise XP for three lines).
+- **Fixes:** honest save-only route leg (revision-chained, ledger-counted, zero XP), prompt text travels, response contract aligned both sides, GET list carries text, ok+id additive. Zero migrations.
+- **Clean live proof:** /api/track checkpoint/listening/speaking/grammar verified on prod with minutes:0 (rows landed, XP untouched); writing save/chain/400/GET verified on dev then prod; every probe row and ledger delta reverted to exact pre-state. 19-surface sweep ALL-PASS on the rebuilt prod z9xcKe3_IPg-_QiKECXVm.
+- **Evidence hygiene held:** after cleanup — Checkpoint/ListeningLog/SpeakingAttempt/GrammarDone/WritingSub all 0 rows, DailyStat written=0, xp=491, streak=1 (the learner's real reviews=1 today untouched). Zero synthetic learning history.
+- Changed: src/components/rah/next/writing.tsx, src/app/api/writing/route.ts, worklog.md, TASK-95-BACKLOG.md.

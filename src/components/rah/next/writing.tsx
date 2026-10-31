@@ -16,13 +16,17 @@ interface Feedback {
   upgrades?: { plain: string; c1: string; fa?: string }[];
   next_focus?: string;
 }
+// Task 108: aligned to /api/writing GET's real `recent` row shape (the old
+// Sample shape - promptId/aiFeedback/createdAt - never existed on the wire,
+// so "Your last drafts" rendered empty forever).
 interface Sample {
-  id: string;
-  promptId: string;
+  id: number;
+  prompt: string;
   revision: number;
+  parentId: number | null;
+  result: { scores?: Record<string, number> } | null;
+  at: string;
   text: string;
-  aiFeedback: string;
-  createdAt: string;
 }
 
 export default function WritingView({ boot, onDone }: { boot: Boot; onDone: () => void }) {
@@ -37,13 +41,14 @@ export default function WritingView({ boot, onDone }: { boot: Boot; onDone: () =
   const [showModel, setShowModel] = useState(false);
   const [selfCheck, setSelfCheck] = useState<Record<string, boolean>>({});
   const [history, setHistory] = useState<Sample[]>([]);
+  const [lastId, setLastId] = useState<number | null>(null);
 
   const prompt = WRITE_PROMPTS.find((p) => p.id === pid);
 
   useEffect(() => {
     fetch("/api/writing")
       .then((r) => r.json())
-      .then((j) => setHistory(j.samples ?? []))
+      .then((j) => setHistory(j.recent ?? []))
       .catch(() => undefined);
   }, []);
 
@@ -78,7 +83,7 @@ export default function WritingView({ boot, onDone }: { boot: Boot; onDone: () =
             {history.slice(0, 5).map((h) => (
               <div key={h.id} className="flex items-baseline justify-between gap-4 py-1.5 border-b last:border-0 text-[13px]" style={{ borderColor: "var(--line)" }}>
                 <span className="truncate max-w-[60%]">{h.text.slice(0, 70)}...</span>
-                <span style={{ color: "var(--muted)" }}>{wordCount(h.text)} words · rev {h.revision}{h.aiFeedback ? " · graded" : ""}</span>
+                <span style={{ color: "var(--muted)" }}>{wordCount(h.text)} words · rev {h.revision}{h.result ? " · graded" : ""}</span>
               </div>
             ))}
           </div>
@@ -125,11 +130,17 @@ export default function WritingView({ boot, onDone }: { boot: Boot; onDone: () =
                     const r = await fetch("/api/writing", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ promptId: pid, text, action: "feedback" }),
+                      // Task 108: the route reads {prompt, text, revisingId,
+                      // goal} - the old promptId/action body graded the essay
+                      // against an EMPTY prompt. r.ok + j.error, and the
+                      // result arrives at the top level (no {ok,feedback}
+                      // wrapper ever existed).
+                      body: JSON.stringify({ prompt: prompt.prompt, text }),
                     });
                     const j = await r.json();
-                    if (j.ok) {
-                      setFeedback(j.feedback);
+                    if (r.ok && j && !j.error) {
+                      setFeedback(j);
+                      if (typeof j.id === "number") setLastId(j.id);
                       await fetch("/api/track", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
@@ -262,10 +273,13 @@ export default function WritingView({ boot, onDone }: { boot: Boot; onDone: () =
               className="btn-primary"
               disabled={!repaired.trim() || !reuse[0].trim() || !reuse[1].trim()}
               onClick={async () => {
+                // Task 108: action:"save" now hits the route's save-only leg
+                // (stores the repair as the draft's revision - revision 2
+                // when the graded draft's id is known - no AI call, no XP).
                 await fetch("/api/writing", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ promptId: pid, text: repaired + "\n\nReuse:\n" + reuse.filter(Boolean).join("\n"), action: "save" }),
+                  body: JSON.stringify({ prompt: prompt.prompt, text: repaired + "\n\nReuse:\n" + reuse.filter(Boolean).join("\n"), revisingId: lastId ?? 0, action: "save" }),
                 }).catch(() => undefined);
                 setStage("model");
               }}

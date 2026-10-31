@@ -25,7 +25,10 @@ function check(name, ok, detail = "") {
 }
 
 // --- auth: request-code -> devCode -> verify -> cookie (dev-mode path only)
-let cookie = PRESET_COOKIE;
+// Task 107 fix: the preset path sent the RAW token as the cookie header
+// (missing the `rah_session=` name) - every preset run 401'd no matter how
+// valid the token was. Wrap it in the name=value pair like the verify path.
+let cookie = PRESET_COOKIE ? `rah_session=${PRESET_COOKIE}` : "";
 if (!cookie) {
   const r1 = await fetch(`${BASE}/api/auth/request-code`, {
     method: "POST",

@@ -14,7 +14,10 @@ export async function GET() {
   // Task 89 perf: this route used to await eight queries in sequence (~140ms
   // in dev). None of them depends on another's result, so they go out as one
   // parallel batch. diagnose() keeps its own internals.
-  const [stats, states, diag, writes, speaks, totalReviews, totalLapses, skillLevels, learner, gradedExams] = await Promise.all([
+  // Task 106: the recovered ProgressView (next/progress.tsx) needs the
+  // per-review direction accuracy, strand minutes and weekly checkpoint
+  // scores too - those join the same batch (four more parallel reads).
+  const [stats, states, diag, writes, speaks, totalReviews, totalLapses, skillLevels, learner, gradedExams, strandRows, checkpointRows, dirAllRows, dirOkRows] = await Promise.all([
     db.dailyStat.findMany({ where: { userId: u, day: { gte: today - 34 } } }),
     db.cardState.findMany({ where: { userId: u } }),
     diagnose(),
@@ -25,6 +28,10 @@ export async function GET() {
     getSkillLevels(),
     db.learner.findUnique({ where: { id: "me" } }),
     db.exam.findMany({ where: { status: "graded" }, orderBy: { createdAt: "desc" }, take: 20 }),
+    db.sessionLog.groupBy({ by: ["strand"], where: { learnerId: u, day: { gte: today - 6 } }, _sum: { minutes: true } }),
+    db.checkpoint.findMany({ where: { learnerId: u }, orderBy: { day: "desc" }, take: 12 }),
+    db.reviewLog.groupBy({ by: ["dir"], where: { userId: u, dir: { not: "" } }, _count: { _all: true } }),
+    db.reviewLog.groupBy({ by: ["dir"], where: { userId: u, dir: { not: "" }, grade: { gte: 2 } }, _count: { _all: true } }),
   ]);
   const statMap = new Map(stats.map((s) => [s.day, s]));
   const days = Array.from({ length: 35 }, (_, i) => {
@@ -118,6 +125,37 @@ export async function GET() {
     return { band, skills, exams, proven: skills.length > 0 || exams.graded > 0 };
   });
 
+  // Task 106: the recovered ProgressView contract. Everything here is measured
+  // from rows that already arrived in the batch above - accuracy uses the same
+  // grade>=2 convention the grade route writes into DailyStat.correct.
+  const week = days.slice(-7);
+  const prevWeek = days.slice(-14, -7);
+  const reviewsThisWeek = week.reduce((a, x) => a + x.reviews, 0);
+  const reviewsPrevWeek = prevWeek.reduce((a, x) => a + x.reviews, 0);
+  const accNow = reviewsThisWeek ? Math.round((week.reduce((a, x) => a + x.correct, 0) / reviewsThisWeek) * 100) : 0;
+  const accPrev = reviewsPrevWeek ? Math.round((prevWeek.reduce((a, x) => a + x.correct, 0) / reviewsPrevWeek) * 100) : 0;
+  const byDay = days.slice(-14).map((x) => ({ day: x.day, count: x.reviews }));
+  const strands: Record<string, number> = {};
+  for (const r of strandRows) strands[r.strand] = r._sum.minutes ?? 0;
+  const startedCount = states.filter((s) => s.state !== "new").length;
+  const matureCount = states.filter((s) => s.state !== "new" && s.s >= 21).length;
+  const mastery = {
+    new: states.length - startedCount,
+    young: startedCount - matureCount,
+    mature: matureCount,
+    lapses: states.filter((s) => s.lapses > 0).length,
+  };
+  const calendar = days.map((x) => ({ day: x.day, active: x.reviews > 0 }));
+  const dirTotal = new Map(dirAllRows.map((r) => [r.dir, r._count._all]));
+  const dirs: Record<string, number> = {};
+  for (const r of dirOkRows) {
+    const t = dirTotal.get(r.dir) ?? 0;
+    if (t > 0) dirs[r.dir] = Math.round((r._count._all / t) * 100);
+  }
+  const checkpoints = checkpointRows
+    .map((c) => ({ day: c.day, listeningPct: c.listeningPct, readingScore: c.readingScore }))
+    .reverse();
+
   return NextResponse.json({
     days,
     byUnit: Object.entries(byUnit).map(([unit, u]) => ({ unit, ...u })),
@@ -133,7 +171,21 @@ export async function GET() {
       reviews: totalReviews,
       lapses: totalLapses,
       cards: DECK.length,
-      started: states.filter((s) => s.state !== "new").length,
+      started: startedCount,
     },
+    // Task 106: recovered ProgressView contract (additive - the fields above
+    // keep serving the Payloads/outcome views untouched).
+    accuracy: accNow,
+    delta: accNow - accPrev,
+    reviewsThisWeek,
+    reviewsPrevWeek,
+    byDay,
+    strands,
+    mastery,
+    calendar,
+    dirs,
+    checkpoints,
+    totalReviews,
+    deckTotal: DECK.length,
   });
 }

@@ -1866,3 +1866,13 @@ Stage Summary:
 - PROOF on the production standalone (SLeVGsli6D2jps0S5ZJCy, drift OK, gate CLEAN 2737 entries): tsc 0; lint 0 errors; boot-regression RAH_SESSION ALL PASS; render-proof-tutor.mjs 5/5 (tabs, plan empty state, exam center, Backdrop canvas, no page errors); four tutor GET probes match UI null-guards exactly.
 - HYGIENE: battery + render session rows deleted post-run (Session 0), /tmp tokens removed, footprint +8 XP owned again.
 - Holder items unchanged: revoke old PAT (…Gf23), Resend part 2, A-6 decision, physical device pass (DEVICE-TEST-CHECKLIST.md), multi-week evidence (learner-evidence.sh).
+
+## Task 106 — 2026-10-31 — learner-reported Progress crash fixed; daily review loop contract-repaired; every surface e2e-driven
+
+- Session opened on the learner's crash report (`next/progress.tsx:49 map of undefined`). Claims-vs-diff sweep of the ACTUAL tree found the crash was the visible tip of an integration class: recovered components speaking pre-recovery wire formats at live routes.
+- PROGRESS: route extended with the recovered contract (additive, parallel-batch, 4 new reads); component got shape validation + honest auth-expired state + new-taxonomy DIR_LABELS + deckTotal. Live payload verified field-by-field with measured data.
+- REVIEW (the big one): rebuilt against `batch/counts/mode` + `submitGrade(gid)` + `preview()`; 8/8 directions rendered (ported from git 5fecac8^ Review.tsx); browser-driven full loop: answer→check→feedback→grade→requeue→ReviewLog row with dir. False "Nothing is due" gone (nav shows the real 34→33).
+- DB: ReviewLog.dir migration deployed + generate; grade route writes it; gid replay idempotency re-proven.
+- CSS: 15 missing tokens (semantic + c-* rgb-triplet family) defined in .rah-next; borders/grade colors/payload cards get their intended Midnight values.
+- PROOF: 14 surfaces zero page errors in the browser sweep; tsc 0; eslint 0/0; build-prod WzqdT4VIJLqS5ciG5HmfV gate CLEAN; boot-regression ALL PASS on :3100 standalone; battery 89/98 with all fails = Task 99 registration lock (pre-existing, by design, proven via git -S).
+- Footprint owned: ReviewLog 18→20 (both graded honestly, dirs recorded), +8 XP coach leg. Holder items unchanged (revoke …Gf23, Resend part 2, A-6, device pass, multi-week evidence).

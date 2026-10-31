@@ -115,6 +115,7 @@ model ReviewLog {
   day    Int
   at     DateTime @default(now())
   source String   @default("review") // review | exam | dictation | shadow: where the outcome was earned
+  dir    String   @default("") // retrieval direction used (cloze/reverse/fa2en/audio/bank/mcq_fa/fae/pairs); '' on historical rows - the progress "accuracy by direction" chart only trusts non-empty dirs
 
   @@index([userId])
   // Task 89 perf indexes: per-day rollups, the repair trigger's per-key scan,

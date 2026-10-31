@@ -82,7 +82,11 @@ export async function POST(req: Request) {
     },
   });
 
-  await db.reviewLog.create({ data: { cardId, grade, ivl: out.ivl, day: today, userId: u } });
+  // Task 106: the retrieval direction rides on the log row now (ReviewLog.dir,
+  // migration 20261031070000) so "accuracy by direction" is measured truth
+  // per-review instead of the card's last-used direction. Empty dir (legacy
+  // callers) stays excluded from that chart.
+  await db.reviewLog.create({ data: { cardId, grade, ivl: out.ivl, day: today, userId: u, dir } });
   await bumpDaily("reviews");
   await awardXp(grade >= 3 ? 10 : 5, { chainHit: grade >= 3, perkXp: "review" });
   if (grade < 2) await registerMiss();

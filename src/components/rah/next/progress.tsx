@@ -16,6 +16,26 @@ interface ProgressData {
   dirs: Record<string, number>;
   checkpoints: { day: number; listeningPct: number; readingScore: number }[];
   totalReviews: number;
+  deckTotal?: number;
+}
+
+// Task 106: this component used to render whatever JSON arrived - an auth
+// error body ({error: "Sign in..."}) passed the truthy check and crashed on
+// d.byDay.map. The fetch now validates the shape before it ever reaches the
+// render, and an expired session gets an honest sign-in state instead of a
+// stack trace.
+function isProgressData(x: unknown): x is ProgressData {
+  if (!x || typeof x !== "object") return false;
+  const d = x as Partial<ProgressData>;
+  return (
+    Array.isArray(d.byDay) &&
+    !!d.strands && typeof d.strands === "object" &&
+    !!d.mastery && typeof d.mastery === "object" &&
+    Array.isArray(d.calendar) &&
+    !!d.dirs && typeof d.dirs === "object" &&
+    Array.isArray(d.checkpoints) &&
+    typeof d.totalReviews === "number"
+  );
 }
 
 const STRAND_LABELS: Record<string, string> = {
@@ -27,28 +47,56 @@ const STRAND_LABELS: Record<string, string> = {
   sound: "Pronunciation",
 };
 
+// The live retrieval directions (review/queue's directionsFor rotation).
+// The old-generation labels (ef/sent) stay for historical rows.
 const DIR_LABELS: Record<string, string> = {
   cloze: "Gap fill (type the word)",
+  reverse: "Translate back (EN → FA)",
+  fa2en: "Farsi → English (type it)",
+  fae: "Produce English (FA → EN)",
+  audio: "Audio dictation",
+  bank: "Word-bank build",
+  mcq_fa: "Meaning choice",
+  pairs: "Pair match",
   ef: "English, recall meaning",
-  fae: "Farsi, produce English",
   sent: "Use in your own sentence",
 };
 
 export default function ProgressView({ boot }: { boot: Boot }) {
   const [d, setD] = useState<ProgressData | null>(null);
+  const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/progress", { cache: "no-store" })
       .then((r) => r.json())
-      .then(setD)
-      .catch(() => undefined);
+      .then((j) => {
+        if (isProgressData(j)) setD(j);
+        else if (j && typeof j.error === "string") setErr(j.error);
+        else setErr("Progress data came back malformed.");
+      })
+      .catch(() => setErr("Could not reach the server."));
   }, []);
+
+  if (err) {
+    const auth = err.toLowerCase().includes("sign in");
+    return (
+      <div className="max-w-xl mx-auto text-center pt-16">
+        <div className="display text-[26px] font-bold mb-2">Progress is resting.</div>
+        <p className="text-[14px] mb-6 leading-relaxed" style={{ color: "var(--muted)" }}>
+          {auth
+            ? "Your session expired, so your history stays private. Sign in again from the Home screen and this page fills in."
+            : err + " Give it a moment and reopen this page - nothing is lost."}
+        </p>
+      </div>
+    );
+  }
 
   if (!d) return <div className="py-20 text-center text-[14px]" style={{ color: "var(--muted)" }}>crunching your history...</div>;
 
+  const deck = d.deckTotal ?? 218;
   const maxDay = Math.max(1, ...d.byDay.map((x) => x.count));
   const totalStrandMin = Object.values(d.strands).reduce((a, b) => a + b, 0) || 1;
-  const maturePct = Math.round((d.mastery.mature / Math.max(1, 218 - d.mastery.new)) * 100);
+  const maturePct = Math.round((d.mastery.mature / Math.max(1, deck - d.mastery.new)) * 100);
 
   return (
     <div>
@@ -116,7 +164,7 @@ export default function ProgressView({ boot }: { boot: Boot }) {
                 <span className="font-semibold">{row.label}</span>
                 <span style={{ color: "var(--muted)" }}>{row.v} cards</span>
               </div>
-              <Bar pct={(row.v / 218) * 100} color={row.color} />
+              <Bar pct={(row.v / deck) * 100} color={row.color} />
             </div>
           ))}
           <div className="text-[12px] mt-3" style={{ color: "var(--muted)" }}>

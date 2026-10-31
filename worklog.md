@@ -1902,3 +1902,30 @@ Stage Summary:
 - GROUP D+E: placement/checkpoint/arcade verified coherent on the repaired tokens (arcade gold CTA kept - its identity); text-first loading ("Laying out today's road..."); mobile bottom rail pr-16 so tail labels clear the Arcade FAB.
 - GATES per group: tsc 0, full eslint 0 errors, build-prod PASSED each rebuild, 19-surface sweep ALL-PASS three times, CI #23/#24 green. Screenshots: db/evidence/ui/{desktop,tablet,mobile,after-a,after-bc,after-d}.
 - Backend contracts: untouched except the settings PRESET interface repair (component-side only; wire shape unchanged) - P1 rule held.
+
+---
+Task ID: 109
+Agent: Super Z (main)
+Task: Holder lockout repair - the deployment lock refused the owner's own email; production login made outage-proof.
+
+Work Log:
+- Live forensics (DB + MailLog): holder signed in with geministudent@atomicmail.io 20:43Z, the code was DELIVERED and verified, and THEN the registration lock fired ("private and already claimed") - User.count() >= 1 (filixah964@aravites.com registered 2026-10-20). Second finding: Resend sandbox 550s every address except the account owner's (geministudent@...) - MailLog row for vasovun.jufubi@gotgel.org failed 550; the registered filixah964 address could never receive codes at all, so email-only login was a deadlock for the holder. A session created 19:36Z proved the server-side login worked while the browser context (preview frame) dropped the cookie.
+- auth.ts: added RAH_OWNER_EMAILS allowlist (ownerEmails/isOwnerEmail) - owner emails bypass the deployment lock in verifyLoginCode AND upsertGoogleUser; RAH_ACCESS_CODE deterministic owner login (accessCodeConfigured/safeEqualStr timing-safe compare, accessAttemptFailed per-IP throttle 10/15min, loopback exempt) tried BEFORE the 6-digit gate; extracted issueSessionFor() - owner emails resolve to the OLDEST owner User row so content scoping (contentUserId -> session user id) can NEVER split across aliases; strangers keep exact-match + lock.
+- DB canonicalization: User.email filixah964@aravites.com -> geministudent@atomicmail.io (SAME id cmvh5chsg0000r5tzna0if73k - 38 chats, 18 reviews, all content untouched); name -> geministudent. filixah964 remains an owner alias (access-code only; its mail 550s).
+- .env (never committed): RAH_OWNER_EMAILS=geministudent@atomicmail.io,filixah964@aravites.com; RAH_ACCESS_CODE=<random Crockford 15-char, given to the holder in chat>; backup copy refreshed for the recycle-restore road.
+- verify route passes client IP to the throttle; session route now exposes accessCodeEnabled (public capability flag); Login.tsx: third "access" stage (owner email + access code), "Sign in with your access code" entry on the email stage, "No email?" fallback on the code stage, embedded-frame hint (open in own tab when cookies keep dropping); rah-fetch exports isEmbedded().
+- e2e-login.sh v2: prod road falls back to RAH_ACCESS_CODE when devCode is absent (batteries now work on production).
+- Build SQ_tQKDur7ZPbWCcSeP0F (gate PASSED) swapped onto :3000; stale dev zombie (3h40m old next-dev that lost the port) killed.
+
+Verification (all live on :3000 production):
+- GET / 200; /api/auth/session accessCodeEnabled=true
+- WRONG access code -> 400 "That access code is not right..."
+- gemini + access code -> 200, cookie resolves to user id cmvh5chsg... (canonical, full history)
+- filixah alias + access code -> 200, SAME canonical identity (user.email=gemini) - unification proven
+- stranger + access code -> 400 (owner-only path; falls to 6-digit gate), stranger + dummy 6-digit -> 400
+- request-code gemini -> {"ok":true,via:"smtp"} + MailLog status=sent (real email delivered)
+- probe sessions deleted; e2e-login via access-code -> 19-surface sweep ALL-PASS; boot-regression (RAH_SESSION preset) ALL PASS
+- tsc --noEmit clean; eslint clean
+
+Stage Summary:
+- The lock now only ever stops strangers. The holder can always log in: emailed code at geministudent@atomicmail.io (deliverable) OR the access code from chat (works for both owner aliases, mail outage or not). Sign-ups stay locked for everyone else (single-learner singleton; RAH_OPEN_REGISTRATION=1 remains the documented multi-user escape hatch, off by default).

@@ -6,7 +6,11 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   const { email, code } = await req.json().catch(() => ({ email: "", code: "" }));
-  const result = await verifyLoginCode(String(email ?? ""), String(code ?? ""));
+  // The IP feeds the failed-attempt throttle on the owner access-code path
+  // (Task 109); loopback stays exempt inside the throttle itself.
+  const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim()
+    || (req.headers.get("x-real-ip") ?? "");
+  const result = await verifyLoginCode(String(email ?? ""), String(code ?? ""), ip);
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
 
   const jar = await cookies();

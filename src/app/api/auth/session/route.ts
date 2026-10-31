@@ -1,14 +1,20 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { getSessionUserWithRequest, destroySession, SESSION_COOKIE, googleConfigured } from "@/lib/auth";
+import { getSessionUserWithRequest, destroySession, SESSION_COOKIE, googleConfigured, accessCodeConfigured } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 // Who am I? The login gate polls this once per load; every authed tab knows its user.
 // Header fallback: embedded contexts that cannot hold cookies still resolve.
+// accessCodeEnabled is public, non-sensitive capability info: the login screen
+// only offers the owner access-code path when the deployment armed it.
 export async function GET(req: Request) {
   const user = await getSessionUserWithRequest(req);
-  return NextResponse.json({ user, googleConfigured: googleConfigured() });
+  return NextResponse.json({
+    user,
+    googleConfigured: googleConfigured(),
+    accessCodeEnabled: accessCodeConfigured(),
+  });
 }
 
 // Sign out: kill the server session (cookie token AND header token), clear the cookie.

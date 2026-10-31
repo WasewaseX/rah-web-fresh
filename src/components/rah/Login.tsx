@@ -4,33 +4,43 @@
 // plus Google OAuth when the deployment configured credentials. Dev delivery:
 // with no SMTP configured the code is shown in a clearly-marked dev strip so
 // the app is fully usable with zero setup.
+// Task 109: owner access-code sign-in - a deterministic path for the holder
+// that works even when the mail provider cannot deliver (sandbox 550s, SMTP
+// outages). Offered only when the deployment armed RAH_ACCESS_CODE.
 
 import { useEffect, useState } from "react";
 import { Mail, ShieldCheck, KeyRound, Sparkles, ArrowLeft } from "lucide-react";
 import { Btn } from "./ui";
-import { storeRahToken } from "@/lib/rah-fetch";
+import { storeRahToken, isEmbedded } from "@/lib/rah-fetch";
 
 interface SessionInfo {
   user: { email: string; name: string } | null;
   googleConfigured: boolean;
+  accessCodeEnabled?: boolean;
 }
 
 export default function Login({ onSignedIn }: { onSignedIn: (user: { email: string; name: string }) => void }) {
   const [checking, setChecking] = useState(true);
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
-  const [stage, setStage] = useState<"email" | "code">("email");
+  const [stage, setStage] = useState<"email" | "code" | "access">("email");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [devCode, setDevCode] = useState("");
   const [sentTo, setSentTo] = useState("");
   const [googleOk, setGoogleOk] = useState(false);
+  const [accessOk, setAccessOk] = useState(false);
+  const [accessEmail, setAccessEmail] = useState("");
+  const [accessCode, setAccessCode] = useState("");
+  const [framed, setFramed] = useState(false);
 
   useEffect(() => {
+    setFramed(isEmbedded());
     fetch("/api/auth/session", { cache: "no-store" })
       .then((r) => r.json())
       .then((s: SessionInfo) => {
         setGoogleOk(s.googleConfigured);
+        setAccessOk(Boolean(s.accessCodeEnabled));
         if (s.user) onSignedIn(s.user);
         else setChecking(false);
       })
@@ -78,6 +88,31 @@ export default function Login({ onSignedIn }: { onSignedIn: (user: { email: stri
         // Keep the token for contexts where cookies cannot persist (preview
         // iframes drop SameSite cookies entirely): the fetch wrapper attaches
         // it as x-rah-token on every /api call.
+        storeRahToken(data.token);
+        onSignedIn(data.user);
+      }
+    } catch {
+      setError("Network hiccup - try once more.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Owner access-code sign-in: same verify endpoint, the server routes by
+  // owner allowlist + secret match before the 6-digit path ever runs.
+  const verifyAccess = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const r = await fetch("/api/auth/verify", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: accessEmail, code: accessCode }),
+      });
+      const data = (await r.json()) as { error?: string; token?: string; user?: { email: string; name: string } };
+      if (!r.ok || !data.user) {
+        setError(data.error ?? "Verification failed.");
+      } else {
         storeRahToken(data.token);
         onSignedIn(data.user);
       }
@@ -165,8 +200,27 @@ export default function Login({ onSignedIn }: { onSignedIn: (user: { email: stri
                 </svg>
                 Continue with Gmail
               </a>
+
+              {accessOk && (
+                <>
+                  <div className="my-4 flex items-center gap-3">
+                    <span className="h-px flex-1 bg-white/[0.07]" />
+                    <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#5d6879]">or</span>
+                    <span className="h-px flex-1 bg-white/[0.07]" />
+                  </div>
+                  <button
+                    onClick={() => {
+                      setAccessEmail(email);
+                      setStage("access");
+                    }}
+                    className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-transparent text-[13px] font-bold text-[#8b96a9] transition-colors hover:border-white/[0.16] hover:text-[#dbe3f0]"
+                  >
+                    <KeyRound className="h-3.5 w-3.5" /> Sign in with your access code
+                  </button>
+                </>
+              )}
             </>
-          ) : (
+          ) : stage === "code" ? (
             <>
               <button onClick={() => setStage("email")} className="mb-3 flex items-center gap-1 text-[11px] font-bold text-[#7d889c] hover:text-[#dbe3f0]">
                 <ArrowLeft className="h-3 w-3" /> change email
@@ -201,6 +255,57 @@ export default function Login({ onSignedIn }: { onSignedIn: (user: { email: stri
               <button onClick={() => void requestCode()} disabled={busy} className="mt-2 w-full text-center text-[11px] font-bold text-[#7d889c] hover:text-[#dbe3f0]">
                 resend code
               </button>
+              {accessOk && (
+                <button
+                  onClick={() => {
+                    setAccessEmail(sentTo);
+                    setStage("access");
+                  }}
+                  className="mt-3 w-full text-center text-[11px] font-bold text-[#8b96a9] hover:text-[#dbe3f0]"
+                >
+                  No email? Sign in with your access code instead
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              <button onClick={() => setStage("email")} className="mb-3 flex items-center gap-1 text-[11px] font-bold text-[#7d889c] hover:text-[#dbe3f0]">
+                <ArrowLeft className="h-3 w-3" /> back to email sign-in
+              </button>
+              <label className="text-[11px] font-black uppercase tracking-[0.12em] text-[#7d889c]">Owner email</label>
+              <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-white/[0.08] bg-[#141c2e] px-3 focus-within:border-[var(--rah-primary)]/50">
+                <Mail className="h-4 w-4 shrink-0 text-[#5d6879]" />
+                <input
+                  type="email"
+                  value={accessEmail}
+                  onChange={(e) => setAccessEmail(e.target.value)}
+                  autoComplete="email"
+                  placeholder="you@yourmail.com"
+                  className="min-h-12 w-full bg-transparent text-sm text-[#f2f5fa] outline-none placeholder:text-[#5d6879]"
+                />
+              </div>
+              <label className="mt-4 block text-[11px] font-black uppercase tracking-[0.12em] text-[#7d889c]">Access code</label>
+              <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-white/[0.08] bg-[#141c2e] px-3 focus-within:border-[var(--rah-primary)]/50">
+                <ShieldCheck className="h-4 w-4 shrink-0 text-[#5d6879]" />
+                <input
+                  type="text"
+                  value={accessCode}
+                  onChange={(e) => setAccessCode(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && accessEmail.includes("@") && accessCode.length >= 6 && void verifyAccess()}
+                  autoComplete="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  placeholder="your private access code"
+                  className="min-h-12 w-full bg-transparent text-sm font-semibold tracking-wide text-[#f2f5fa] outline-none placeholder:text-[#5d6879]"
+                />
+              </div>
+              <Btn
+                onClick={() => void verifyAccess()}
+                disabled={busy || !accessEmail.includes("@") || accessCode.length < 6}
+                className="mt-3 w-full !min-h-12 justify-center"
+              >
+                <ShieldCheck className="h-4 w-4" /> Sign in with access code
+              </Btn>
             </>
           )}
 
@@ -210,6 +315,12 @@ export default function Login({ onSignedIn }: { onSignedIn: (user: { email: stri
         <p className="mt-5 text-center text-[11px] leading-relaxed text-[#5d6879]">
           One account per learner. Codes expire in 10 minutes and work once.
         </p>
+        {framed && (
+          <p className="mx-auto mt-3 max-w-sm text-center text-[11px] leading-relaxed text-[#8b96a9]">
+            You are viewing Rah inside a preview frame. If you keep getting signed out,
+            open this page in its own browser tab - embedded frames can drop sign-in cookies.
+          </p>
+        )}
       </div>
     </div>
   );

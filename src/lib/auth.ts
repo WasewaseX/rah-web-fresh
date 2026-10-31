@@ -5,7 +5,7 @@
 // Gmail: the same code flow covers gmail addresses; Google OAuth is optional extras in
 // /api/auth/google/* (active only when GOOGLE_CLIENT_ID/SECRET are configured).
 
-import { createHash, randomBytes, randomInt } from "crypto";
+import { createHash, randomBytes, randomInt, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 
@@ -17,6 +17,67 @@ const MAX_CODES_PER_WINDOW = 5;
 const CODE_WINDOW_MS = 15 * 60 * 1000;
 const MAX_CODES_PER_IP_WINDOW = 10; // per-IP throttle on top of per-email
 const MAX_CODE_ATTEMPTS = 5; // failed guesses before a code self-invalidates
+const MAX_ACCESS_ATTEMPTS = 10; // failed owner access-code guesses per IP window
+
+// Task 109 (live incident 2026-10-31): the deployment lock refused the HOLDER
+// himself - he signed in with geministudent@atomicmail.io, the code arrived
+// (Resend only delivers to the account owner's own address), verify consumed
+// it, and THEN the lock fired: "private and already claimed". The lock's job
+// is keeping STRANGERS out, never the owner. Two mechanisms fix the class:
+//
+// 1. RAH_OWNER_EMAILS - comma-separated allowlist. Owner emails are ALIASES
+//    of one canonical identity: session issuance resolves them to the oldest
+//    existing owner User row (or creates it on first login), so content
+//    scoping (contentUserId -> session user id) can never split across
+//    addresses. The lock bypasses them by definition.
+// 2. RAH_ACCESS_CODE - deterministic owner login that survives any mail
+//    outage (the same incident: the registered filixah964@aravites.com could
+//    NEVER receive codes - Resend sandbox 550 - so email-only login was a
+//    deadlock). Env-provisioned secret, never committed; timing-safe compare;
+//    per-IP throttle on failed attempts.
+const LOCK_MESSAGE =
+  "This Rah deployment is private and already claimed. New sign-ups are disabled by the owner.";
+
+export function ownerEmails(): string[] {
+  return (process.env.RAH_OWNER_EMAILS ?? "")
+    .split(",")
+    .map((e) => normalizeEmail(e))
+    .filter(Boolean);
+}
+
+export function isOwnerEmail(email: string): boolean {
+  const list = ownerEmails();
+  return list.length > 0 && list.includes(normalizeEmail(email));
+}
+
+export function accessCodeConfigured(): boolean {
+  return Boolean((process.env.RAH_ACCESS_CODE ?? "").trim());
+}
+
+// Timing-safe string compare. Both sides are hashed first so length
+// differences never leak and the digest comparison is constant-time.
+export function safeEqualStr(a: string, b: string): boolean {
+  const ha = createHash("sha256").update(a).digest();
+  const hb = createHash("sha256").update(b).digest();
+  return timingSafeEqual(ha, hb);
+}
+
+// In-memory failed-attempt throttle for the access-code path (single node;
+// loopback exempt exactly like ipRateLimited - local batteries share 127.0.0.1).
+const accessFailures = new Map<string, number[]>();
+export function accessAttemptFailed(ip: string): boolean {
+  if (!ip || ip === "::1" || ip === "::ffff:127.0.0.1" || ip.startsWith("127.") || ip.startsWith("::ffff:127.")) return false;
+  const now = Date.now();
+  const hits = (accessFailures.get(ip) ?? []).filter((t) => now - t < CODE_WINDOW_MS);
+  hits.push(now);
+  accessFailures.set(ip, hits);
+  if (accessFailures.size > 5000) {
+    for (const [k, v] of accessFailures) {
+      if (v.every((t) => now - t >= CODE_WINDOW_MS)) accessFailures.delete(k);
+    }
+  }
+  return hits.length > MAX_ACCESS_ATTEMPTS;
+}
 
 // Login codes are stored HASHED (a DB leak must not leak usable codes); the
 // plaintext lives only in memory between issuance and the email. Verify is
@@ -110,10 +171,29 @@ export async function registrationLocked(): Promise<boolean> {
   return users >= 1;
 }
 
-export async function verifyLoginCode(rawEmail: string, rawCode: string): Promise<VerifyResult> {
+export async function verifyLoginCode(rawEmail: string, rawCode: string, ip = ""): Promise<VerifyResult> {
   const email = normalizeEmail(rawEmail);
   const code = String(rawCode ?? "").trim();
-  if (!email || !/^\d{6}$/.test(code)) return { ok: false, error: "Enter the 6-digit code from your email." };
+  if (!email) return { ok: false, error: "Enter your email address first." };
+
+  // Owner access-code path (Task 109): runs BEFORE the 6-digit gate. A match
+  // issues a session immediately - no LoginCode row needed, works with the
+  // mail provider fully down. A miss records the failure (IP-throttled); a
+  // 6-digit miss still falls through to the emailed-code path below, since
+  // the owner may simply be typing an emailed code.
+  if (accessCodeConfigured() && isOwnerEmail(email)) {
+    if (safeEqualStr(code, (process.env.RAH_ACCESS_CODE ?? "").trim())) {
+      return issueSessionFor(email);
+    }
+    if (accessAttemptFailed(ip)) {
+      return { ok: false, error: "Too many attempts. Wait a few minutes and try again." };
+    }
+    if (!/^\d{6}$/.test(code)) {
+      return { ok: false, error: "That access code is not right. Check it and try again, or request an email code." };
+    }
+  }
+
+  if (!/^\d{6}$/.test(code)) return { ok: false, error: "Enter the 6-digit code from your email." };
 
   // The newest unused, unexpired code for this email is the only valid one
   // (resend invalidates older rows). We look it up first so failed guesses
@@ -145,14 +225,26 @@ export async function verifyLoginCode(rawEmail: string, rawCode: string): Promis
     return { ok: false, error: "That code is wrong, used, or expired. Request a fresh one." };
   }
 
-  let user = await db.user.findUnique({ where: { email } });
+  return issueSessionFor(email);
+}
+
+// Session issuance with owner-identity unification (Task 109): owner emails
+// resolve to the OLDEST existing owner User row, so logging in from any
+// alias lands on the same identity - same user id, same content scope, same
+// history. Non-owner emails keep exact-match semantics. The deployment lock
+// fires only for a NEW non-owner registration.
+async function issueSessionFor(email: string): Promise<VerifyResult> {
+  const owners = ownerEmails();
+  let user = isOwnerEmail(email)
+    ? await db.user.findFirst({ where: { email: { in: owners } }, orderBy: { createdAt: "asc" } })
+    : await db.user.findUnique({ where: { email } });
   const isNew = !user;
   if (!user) {
     // Deployment lock: once one account exists, no second one may register
     // (the learner state is a singleton). Existing accounts re-logging in are
     // unaffected - the gate only fires on FIRST registration.
-    if (await registrationLocked()) {
-      return { ok: false, error: "This Rah deployment is private and already claimed. New sign-ups are disabled by the owner." };
+    if (await registrationLocked() && !isOwnerEmail(email)) {
+      return { ok: false, error: LOCK_MESSAGE };
     }
     user = await db.user.create({ data: { email, name: email.split("@")[0], provider: "email" } });
   }
@@ -310,11 +402,14 @@ export async function exchangeGoogleCode(code: string, origin: string): Promise<
 
 export async function upsertGoogleUser(profile: GoogleProfile): Promise<{ id: string; email: string; name: string }> {
   const email = normalizeEmail(profile.email);
-  let user = await db.user.findUnique({ where: { email } });
+  // Owner emails unify onto the canonical owner row, same as the code path.
+  let user = isOwnerEmail(email)
+    ? await db.user.findFirst({ where: { email: { in: ownerEmails() } }, orderBy: { createdAt: "asc" } })
+    : await db.user.findUnique({ where: { email } });
   if (!user) {
     // Same deployment lock as the email-code path (single-user enforcement).
-    if (await registrationLocked()) {
-      throw new Error("This Rah deployment is private and already claimed. New sign-ups are disabled by the owner.");
+    if (await registrationLocked() && !isOwnerEmail(email)) {
+      throw new Error(LOCK_MESSAGE);
     }
     user = await db.user.create({ data: { email, name: profile.name, provider: "google" } });
   }

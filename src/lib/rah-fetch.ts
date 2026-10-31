@@ -50,7 +50,7 @@ export function getRahToken(): string | null {
   }
 }
 
-function isEmbedded(): boolean {
+export function isEmbedded(): boolean {
   try {
     return window.self !== window.top;
   } catch {

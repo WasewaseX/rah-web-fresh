@@ -41,13 +41,17 @@ TOKEN="$(curl -s -c - -X POST http://127.0.0.1:3000/api/auth/verify \
   | grep rah_session | awk '{print $NF}')"
 [ -n "$TOKEN" ] || { echo "FATAL: no session token"; kill_chrome() { pkill -f cdp-profile-sweep; }; exit 1; }
 agent-browser --cdp $PORT open http://127.0.0.1:3000/ >/dev/null 2>&1
-agent-browser --cdp $PORT cookies set rah_session "$TOKEN" >/dev/null 2>&1
+agent-browser --cdp $PORT cookies set rah_session "$TOKEN" --url http://127.0.0.1:3000/ >/dev/null 2>&1
 agent-browser --cdp $PORT open http://127.0.0.1:3000/ >/dev/null 2>&1
 agent-browser --cdp $PORT wait --load networkidle >/dev/null 2>&1 || true
-sleep 5
+sleep 8
 TITLE="$(agent-browser --cdp $PORT get title 2>/dev/null)"
 echo "page title after login: $TITLE"
-case "$TITLE" in *Rah*) : ;; *) echo "WARN: title not Rah - one reload retry"; agent-browser --cdp $PORT open http://127.0.0.1:3000/ >/dev/null 2>&1; sleep 6; TITLE="$(agent-browser --cdp $PORT get title 2>/dev/null)"; echo "title now: $TITLE" ;; esac
+# Determinism: verify the AUTHED shell actually rendered (the hero headline
+# only exists signed-in). If not, the scan below would silently sweep the
+# login page - which is exactly what the first Task 115 mobile run did.
+HERO="$(agent-browser --cdp $PORT eval "document.body.innerText.includes('keep the chain alive')||document.body.innerText.includes('Start with measurement')" 2>/dev/null)"
+case "$HERO" in *true*) : ;; *) echo "FATAL: authed shell not detected (got: $HERO) - aborting so we never sweep the login page"; pkill -f cdp-profile-sweep; exit 1 ;; esac
 TARGET="127.0.0.1:3000"
 AB() { agent-browser --cdp $PORT "$@"; }
 
@@ -56,7 +60,7 @@ VIEWS=("Today" "Review" "Writing" "Speaking" "Listening" "Reading" "Tutor" "Gram
 TOTAL=0
 for v in "${VIEWS[@]}"; do
   AB find role button click --name "$v" >/dev/null 2>&1
-  sleep 3
+  sleep 5
   F="$OUT/${v// /_}.txt"
   timeout 120 "$IMPECCABLE" detect --cdp $PORT --target "$TARGET" > "$F" 2>&1
   N="$(grep -cE '^\s+(?:•|\d+\)|\!)' "$F" 2>/dev/null || true)"

@@ -2,7 +2,84 @@
 
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
+import {
+  AudioWaveform,
+  BarChart3,
+  BookMarked,
+  BookOpen,
+  Gamepad2,
+  Headphones,
+  Layers,
+  MessageCircle,
+  Mic,
+  PenLine,
+  RotateCcw,
+  Target,
+  type LucideIcon,
+} from "lucide-react";
 
+/* ============================================================
+   Task 115 — visual stimulation wave.
+   StrandIcon: the vivid identity unit. Every strand owns a hue
+   pair (bright -> deep) and a glyph; the tile paints gradients
+   with a matching glow, so the home screen and progress surfaces
+   read as a colorful system instead of a wall of identical gray
+   cards. White glyphs sit on the 600-level deep stop (>=3:1
+   graphics floor).
+   ============================================================ */
+type StrandSpec = { icon: LucideIcon; deep: string; bright: string; glow: string; label: string };
+const STRANDS: Record<string, StrandSpec> = {
+  review: { icon: RotateCcw, deep: "#4d7c0f", bright: "#a3e635", glow: "rgba(163, 230, 53, 0.35)", label: "spaced retrieval" },
+  listening: { icon: Headphones, deep: "#2563eb", bright: "#60a5fa", glow: "rgba(96, 165, 250, 0.4)", label: "listening" },
+  reading: { icon: BookOpen, deep: "#7c3aed", bright: "#a78bfa", glow: "rgba(167, 139, 250, 0.4)", label: "reading" },
+  speaking: { icon: Mic, deep: "#059669", bright: "#34d399", glow: "rgba(52, 211, 153, 0.4)", label: "speaking" },
+  writing: { icon: PenLine, deep: "#d97706", bright: "#fbbf24", glow: "rgba(251, 191, 36, 0.4)", label: "writing" },
+  sound: { icon: AudioWaveform, deep: "#0d9488", bright: "#2dd4bf", glow: "rgba(45, 212, 191, 0.4)", label: "pronunciation" },
+  grammar: { icon: BookMarked, deep: "#b45309", bright: "#fbbf24", glow: "rgba(251, 191, 36, 0.35)", label: "grammar" },
+  placement: { icon: Target, deep: "#dc2626", bright: "#f87171", glow: "rgba(248, 113, 113, 0.4)", label: "placement" },
+  checkpoint: { icon: Target, deep: "#dc2626", bright: "#f87171", glow: "rgba(248, 113, 113, 0.4)", label: "checkpoint" },
+  tutor: { icon: MessageCircle, deep: "#4f46e5", bright: "#818cf8", glow: "rgba(129, 140, 248, 0.4)", label: "coach" },
+  arcade: { icon: Gamepad2, deep: "#db2777", bright: "#f472b6", glow: "rgba(244, 114, 182, 0.4)", label: "arcade" },
+  progress: { icon: BarChart3, deep: "#0d9488", bright: "#2dd4bf", glow: "rgba(45, 212, 191, 0.4)", label: "progress" },
+  other: { icon: Layers, deep: "#475569", bright: "#94a3b8", glow: "rgba(148, 163, 184, 0.35)", label: "study" },
+};
+
+export function StrandIcon({
+  strand,
+  size = 40,
+  iconSize,
+  radius = 14,
+}: {
+  strand: string;
+  size?: number;
+  iconSize?: number;
+  radius?: number;
+}) {
+  const spec = STRANDS[strand] ?? STRANDS.other;
+  const Icon = spec.icon;
+  const isz = iconSize ?? Math.round(size * 0.5);
+  return (
+    <span
+      aria-hidden
+      className="rah-tile"
+      title={spec.label}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: radius,
+        background: `linear-gradient(135deg, ${spec.bright} 0%, ${spec.deep} 100%)`,
+        "--tile-glow": spec.glow,
+      } as React.CSSProperties}
+    >
+      <Icon style={{ width: isz, height: isz }} strokeWidth={2.4} />
+    </span>
+  );
+}
+
+export function strandColors(strand: string): { deep: string; bright: string } {
+  const spec = STRANDS[strand] ?? STRANDS.other;
+  return { deep: spec.deep, bright: spec.bright };
+}
 export function Logo({ size = 26 }: { size?: number }) {
   return (
     <span className="inline-flex items-center gap-2 select-none">
@@ -56,12 +133,37 @@ export function Stat({ value, label, delta, accent }: { value: string | number; 
   );
 }
 
-export function Bar({ pct, color = "var(--accent)", h = 8 }: { pct: number; color?: string; h?: number }) {
+export function Bar({
+  pct,
+  color = "var(--accent)",
+  h = 8,
+  deep,
+  bright,
+}: {
+  pct: number;
+  color?: string;
+  h?: number;
+  deep?: string;
+  bright?: string;
+}) {
+  // Task 115: the fill is now a gradient (deep -> bright) with a sheen
+  // sweep; callers pass a strand's pair via deep/bright or keep the old
+  // single-color API (color feeds both stops). Reduced motion stills the
+  // sheen in globals.css.
+  const fillDeep = deep ?? color;
+  const fillBright = bright ?? color;
   return (
     // Task 109: the track was the light-era cream #efeee7 - a pale fossil
     // on the Midnight theme. Track = hairline white, like every border.
-    <div className="w-full rounded-full overflow-hidden" style={{ background: "rgba(255, 255, 255, 0.08)", height: h }}>
-      <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, Math.max(0, pct))}%`, background: color }} />
+    <div className="rah-bar" style={{ height: h }}>
+      <div
+        className="rah-bar-fill"
+        style={{
+          width: `${Math.min(100, Math.max(0, pct))}%`,
+          "--bar-deep": fillDeep,
+          "--bar-bright": fillBright,
+        } as React.CSSProperties}
+      />
     </div>
   );
 }
@@ -153,9 +255,26 @@ export function RecordButton({ state, onClick }: { state: "idle" | "recording" |
   );
 }
 
-export function EmptyState({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
+export function EmptyState({
+  title,
+  body,
+  action,
+  strand,
+}: {
+  title: string;
+  body: string;
+  action?: React.ReactNode;
+  strand?: string;
+}) {
+  // Task 115: an optional strand tile gives the empty state a face -
+  // a glowing gradient glyph instead of bare text on a gray card.
   return (
-    <div className="card-rah p-10 text-center">
+    <div className="card-rah rah-lift p-10 text-center">
+      {strand ? (
+        <div className="mb-4 flex justify-center">
+          <StrandIcon strand={strand} size={56} radius={18} />
+        </div>
+      ) : null}
       <div className="display text-[20px] font-bold mb-2">{title}</div>
       <p className="text-[14px] mb-5 max-w-md mx-auto leading-relaxed" style={{ color: "var(--muted)" }}>{body}</p>
       {action}

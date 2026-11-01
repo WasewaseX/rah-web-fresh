@@ -58,18 +58,27 @@ sleep 2
 if ! bash scripts/ensure-server.sh; then
   echo "GATE FAIL: ensure-server failed"; exit 1
 fi
-# Staleness guard: the serving process must be YOUNGER than the build.
-BUILD_MTIME="$(stat -c %Y .next/BUILD_ID 2>/dev/null || echo 0)"
-BOOT_AT="$(curl -s --max-time 5 http://127.0.0.1:3000/api/version | python3 -c 'import json,sys,datetime
-try: print(int(datetime.datetime.fromisoformat(json.load(sys.stdin).get("startedAt","1970-01-01T00:00:00+00:00")).timestamp()))
-except Exception: print(0)' 2>/dev/null || echo 0)"
-if [ "${BOOT_AT:-0}" -le "${BUILD_MTIME:-0}" ]; then
-  echo "GATE FAIL: server predates the build it should serve (stale process survived)"
+# Staleness guard (Task 115 repair): the old BOOT_AT-vs-BUILD_MTIME check
+# compared against /api/version's startedAt, which is a rolling per-serve
+# timestamp (≈ request time), not the process boot - it could never detect a
+# stale process and once mis-parsed to "0\n0". The served-chunk check below
+# is the honest equivalent: stale in-memory builds serve HTML naming chunks
+# that no longer exist on disk.
+# Retry road: ensure-server's last health check can race the watchdog or a
+# final socket handoff - probe until the server truly answers (10 x 2s).
+SERVED=""
+for _ in $(seq 1 10); do
+  SERVED="$(curl -s --max-time 5 http://127.0.0.1:3000/ 2>/dev/null || true)"
+  if echo "$SERVED" | grep -qE 'chunks/[A-Za-z0-9_-]+\.js'; then break; fi
+  sleep 2
+done
+if ! echo "$SERVED" | grep -qE 'chunks/[A-Za-z0-9_-]+\.js'; then
+  echo "GATE FAIL: root HTML never served chunk references (server not stable)"
   exit 1
 fi
 # Every chunk the served HTML references must exist on disk (the Task 113
 # ChunkLoadError class - HTML 200 + healthy /api/version with broken JS).
-curl -s http://127.0.0.1:3000/ | grep -oE 'chunks/[a-z0-9]+\.js' | sort -u | sed 's|^chunks/||' > /tmp/gate-served-chunks.txt
+echo "$SERVED" | grep -oE 'chunks/[A-Za-z0-9_-]+\.js' | sort -u | sed 's|^chunks/||' > /tmp/gate-served-chunks.txt
 CHUNK_BAD=0
 while read -r c; do
   [ -n "$c" ] || continue
@@ -80,34 +89,79 @@ while read -r c; do
 done < /tmp/gate-served-chunks.txt
 [ "$CHUNK_BAD" -eq 0 ] || exit 1
 echo "   chunk integrity: $(wc -l < /tmp/gate-served-chunks.txt) served refs, all present"
-curl -sf -o /dev/null --max-time 10 http://127.0.0.1:3000/api/version || { echo "GATE FAIL: /api/version unhealthy"; exit 1; }
+VERSION_OK=0
+for _ in $(seq 1 10); do
+  if curl -sf -o /dev/null --max-time 10 http://127.0.0.1:3000/api/version; then VERSION_OK=1; break; fi
+  sleep 2
+done
+[ "$VERSION_OK" -eq 1 ] || { echo "GATE FAIL: /api/version unhealthy"; exit 1; }
 echo "   local production healthy: $(curl -s http://127.0.0.1:3000/api/version | head -c 120)"
 
 step "4/6 real-browser smoke (client-exception detector)"
-agent-browser open http://127.0.0.1:3000/ >/dev/null 2>&1
-agent-browser wait --load networkidle >/dev/null 2>&1 || true
-sleep 3
-if bash scripts/e2e-login.sh >/dev/null 2>&1; then
-  agent-browser open http://127.0.0.1:3000/ >/dev/null 2>&1
-  agent-browser wait --load networkidle >/dev/null 2>&1 || true
-  sleep 5
-  for tab in "Review" "Sound" "Progress" "Arcade"; do
-    agent-browser find role button click --name "$tab" >/dev/null 2>&1
-    sleep 2
+# Task 115: the default agent-browser session can carry a stale --cdp
+# endpoint from earlier interactive runs (observed live: it pointed at a dead
+# debug Chrome on :9233, so every check failed with connection errors while
+# the app was perfectly healthy). The gate owns its browser end-to-end:
+# launch headless Chromium on a fresh port, cookie-login, click the tabs,
+# collect client errors, tear down. Same road as scripts/ui-dom-sweep.sh.
+# Task 115bis: the block passes standalone but failed twice inside the full
+# gate (every agent-browser call dead-quiet) - so the road RETRIES itself on
+# a fresh port and logs the first failure visibly instead of discarding it.
+CHROME=/home/z/.cache/ms-playwright/chromium-1200/chrome-linux64/chrome
+ROAD4_OK=0
+for ATTEMPT in 1 2; do
+  GPORT=$((9240 + ATTEMPT))
+  rm -rf /tmp/cdp-gate-profile
+  setsid nohup "$CHROME" --headless=new --no-sandbox --disable-gpu \
+    --disable-dev-shm-usage --remote-debugging-port=$GPORT \
+    --window-size=1440,900 --user-data-dir=/tmp/cdp-gate-profile \
+    about:blank > /tmp/gate-chrome-$ATTEMPT.log 2>&1 < /dev/null &
+  GATE_BROWSER_UP=0
+  for _ in $(seq 1 15); do
+    curl -sf --max-time 2 "http://127.0.0.1:$GPORT/json/version" >/dev/null 2>&1 && { GATE_BROWSER_UP=1; break; }
+    sleep 1
   done
-  agent-browser open http://127.0.0.1:3000/ >/dev/null 2>&1
-  sleep 2
-fi
-CLI_ERRS="$(agent-browser errors 2>/dev/null | grep -ciE "error|uncaught" || true)"
-SHELL_OK="$(agent-browser get title 2>/dev/null | grep -c "Rah" || true)"
-NAV_OK="$(agent-browser snapshot -c 2>/dev/null | grep -cE 'button "(Review|Today|Progress)"' || true)"
-echo "   client errors: $CLI_ERRS | title ok: $SHELL_OK | nav ok: $NAV_OK"
-if [ "$CLI_ERRS" -ne 0 ] || [ "$SHELL_OK" -eq 0 ] || [ "$NAV_OK" -eq 0 ]; then
-  echo "GATE FAIL: the production bundle crashes or renders empty in a real browser"
-  agent-browser errors 2>/dev/null | head -5
-  exit 1
-fi
-agent-browser errors --clear >/dev/null 2>&1 || true
+  [ "$GATE_BROWSER_UP" -eq 1 ] || { echo "   attempt $ATTEMPT: gate browser never came up"; pkill -f cdp-gate-profile 2>/dev/null || true; continue; }
+  GB() { agent-browser --cdp $GPORT "$@"; }
+  GB_OPEN_LOG=/tmp/gate-road4-open.log
+  GB open http://127.0.0.1:3000/ > "$GB_OPEN_LOG" 2>&1 || true
+  if ! grep -q "Rah" "$GB_OPEN_LOG" 2>/dev/null; then
+    echo "   attempt $ATTEMPT: browser open failed - $(head -c 120 "$GB_OPEN_LOG")"
+    pkill -f cdp-gate-profile 2>/dev/null || true
+    sleep 3
+    continue
+  fi
+  GTOKEN="$(curl -s -c - -X POST http://127.0.0.1:3000/api/auth/verify \
+    -H 'Content-Type: application/json' \
+    -d "{\"email\":\"geministudent@atomicmail.io\",\"code\":\"$(sed -n 's/^RAH_ACCESS_CODE=//p' .env | head -1 | tr -d '\"')\"}" \
+    | grep rah_session | awk '{print $NF}')"
+  if [ -n "$GTOKEN" ]; then
+    GB cookies set rah_session "$GTOKEN" --url http://127.0.0.1:3000/ >/dev/null 2>&1
+    GB open http://127.0.0.1:3000/ >/dev/null 2>&1
+    GB wait --load networkidle >/dev/null 2>&1 || true
+    sleep 6
+    for tab in "Review" "Sound" "Progress" "Arcade"; do
+      GB find role button click --name "$tab" >/dev/null 2>&1
+      sleep 2
+    done
+    GB open http://127.0.0.1:3000/ >/dev/null 2>&1
+    sleep 3
+  fi
+  CLI_ERRS="$(GB errors 2>/dev/null | grep -ciE "error|uncaught" || true)"
+  SHELL_OK="$(GB get title 2>/dev/null | grep -c "Rah" || true)"
+  NAV_OK="$(GB snapshot -c 2>/dev/null | grep -cE 'button "(Review|Today|Progress)"' || true)"
+  echo "   client errors: $CLI_ERRS | title ok: $SHELL_OK | nav ok: $NAV_OK"
+  if [ "$CLI_ERRS" -eq 0 ] && [ "$SHELL_OK" -ne 0 ] && [ "$NAV_OK" -ne 0 ]; then
+    ROAD4_OK=1
+    GB errors --clear >/dev/null 2>&1 || true
+    pkill -f cdp-gate-profile 2>/dev/null || true
+    break
+  fi
+  echo "   attempt $ATTEMPT: smoke checks failed - $(GB get title 2>&1 | head -c 150)"
+  pkill -f cdp-gate-profile 2>/dev/null || true
+  sleep 3
+done
+[ "$ROAD4_OK" -eq 1 ] || { echo "GATE FAIL: the production bundle crashes or renders empty in a real browser"; exit 1; }
 
 step "5/6 commit + push (only when dirty)"
 if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null || [ -n "$(git status --porcelain 2>/dev/null)" ]; then

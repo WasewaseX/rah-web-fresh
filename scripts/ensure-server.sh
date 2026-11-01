@@ -77,17 +77,21 @@ if curl -sf -o /dev/null --max-time 5 http://localhost:3000/api/version; then
   # pkill-by-path never matches it; it survived three restarts while serving
   # an in-memory build whose chunk names no longer existed on disk - the
   # holder saw ChunkLoadError / "Application error" while every health
-  # check passed. Detect staleness: if the on-disk BUILD_ID is NEWER than
-  # the running server's boot time, the served build is not the disk build.
+  # check passed. Detect staleness by the served-chunk-on-disk check below
+  # (Task 115 repair: the earlier startedAt-age heuristic never fired).
   STALE=0
   if [ -s .next/BUILD_ID ]; then
-    BUILD_MTIME="$(stat -c %Y .next/BUILD_ID 2>/dev/null || echo 0)"
-    BOOT_AT="$(curl -s --max-time 5 http://localhost:3000/api/version | python3 -c 'import json,sys,datetime
-try: print(int(datetime.datetime.fromisoformat(json.load(sys.stdin).get("startedAt","1970-01-01T00:00:00+00:00")).timestamp()))
-except Exception: print(0)' 2>/dev/null || echo 0)"
-    if [ "${BOOT_AT:-0}" -gt 0 ] && [ "${BUILD_MTIME:-0}" -gt "${BOOT_AT:-0}" ]; then
+    # Task 115 repair (live incident, same session): /api/version's startedAt
+    # is a rolling per-serve timestamp, NOT the process boot time - the old
+    # BOOT_AT comparison could never fire, which is exactly how a 19:52 stale
+    # server survived the 20:02 release while serving in-memory HTML naming
+    # chunks the new build had wiped (ChunkLoadError -> "Application error",
+    # the Task 113 incident class, all health checks green). The honest check:
+    # every chunk the SERVED HTML references must exist on disk.
+    BADCHUNKS="$(curl -s --max-time 5 http://localhost:3000/ | grep -oE 'chunks/[a-z0-9]+\.js' | sort -u | sed 's|^chunks/||' | while read -r c; do [ -f ".next/standalone/.next/static/chunks/$c" ] || echo "$c"; done)"
+    if [ -n "$BADCHUNKS" ]; then
       STALE=1
-      echo "$(date -Is) healthy but the on-disk build is NEWER than the serving process - flipping to the fresh build"
+      echo "$(date -Is) healthy but the served HTML references $(echo "$BADCHUNKS" | wc -l) chunk(s) missing on disk (stale in-memory build) - flipping to the fresh build"
     fi
   fi
   if { [ -s .next/BUILD_ID ] && pgrep -f "next dev" >/dev/null 2>&1; } || [ "$STALE" -eq 1 ]; then

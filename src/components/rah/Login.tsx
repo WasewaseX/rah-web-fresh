@@ -11,6 +11,7 @@
 import { useEffect, useState } from "react";
 import { Mail, ShieldCheck, KeyRound, Sparkles, ArrowLeft } from "lucide-react";
 import { Btn } from "./ui";
+import { StrandIcon } from "./next/bits";
 import { storeRahToken, isEmbedded } from "@/lib/rah-fetch";
 
 interface SessionInfo {
@@ -148,11 +149,23 @@ export default function Login({ onSignedIn }: { onSignedIn: (user: { email: stri
     <div className="flex min-h-screen items-center justify-center bg-[var(--rah-bg)] px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-[var(--rah-primary-action)] to-[#2650a3] text-2xl font-black text-white shadow-[0_16px_40px_-12px_rgba(0,0,0,.6)]">
-            R
+          {/* Task 115: the first impression. A breathing glow behind the mark,
+             a gradient wordmark, and the four strand colors preview the app's
+             visual identity before sign-in. */}
+          <div className="relative mx-auto mb-4 h-16 w-16">
+            <div aria-hidden className="absolute inset-0 scale-150 rounded-3xl bg-[#4e8cff]/25 blur-xl" />
+            <div className="relative flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-[var(--rah-primary)] to-[#2650a3] text-2xl font-black text-white shadow-[0_16px_40px_-12px_rgba(0,0,0,.6)]">
+              R
+            </div>
           </div>
-          <h1 className="text-2xl font-black tracking-tight text-[#f2f5fa]">Rah</h1>
+          <h1 className="text-3xl font-black tracking-tight text-[#cfe0ff]">Rah</h1>
           <p className="mt-1 text-sm font-medium text-[#7d889c]">B2 to C1, your road. Sign in to continue.</p>
+          <div aria-hidden className="mt-4 flex justify-center gap-2">
+            <StrandIcon strand="listening" size={28} radius={9} />
+            <StrandIcon strand="reading" size={28} radius={9} />
+            <StrandIcon strand="speaking" size={28} radius={9} />
+            <StrandIcon strand="writing" size={28} radius={9} />
+          </div>
         </div>
 
         <div className="rounded-3xl border border-white/[0.07] bg-[#0f1522] p-5 shadow-[0_24px_64px_-32px_rgba(0,0,0,.9)]">

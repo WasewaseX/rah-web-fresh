@@ -3,7 +3,7 @@
 // Rah shell: hash-routed single page app. One learner, one road to C1.
 // Midnight shell: navy rail, glass bars, blue signal color.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { installRahFetch } from "@/lib/rah-fetch";
 // Installs the x-rah-token fetch wrapper BEFORE any effect fires an /api call,
 // so embedded contexts that drop cookies still authenticate every request.
@@ -24,6 +24,7 @@ import {
   MessageCircle,
   BookMarked,
   Volume2,
+  Zap,
   Settings as SettingsIcon,
 } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -39,6 +40,8 @@ import type { Boot } from "@/app/page";
 // else is code-split exactly as the Task 91 bundle doctrine requires.
 import TodayView from "./next/today";
 import NextReview from "./next/review";
+// Task 115: celebration layer - XP burst on any XP gain, confetti on level-up.
+import { confetti, xpBurst } from "./next/celebrate";
 
 // Round-3 bundle optimization (Task 91): the daily loop (Home, Review, Coach,
 // Login gate) stays in the initial chunk so first paint and the core SRS action
@@ -203,6 +206,20 @@ export default function RahApp() {
   // Refreshed together with /api/state so every onDone keeps both views true.
   const [boot, setBoot] = useState<Boot | null>(null);
 
+  // Task 115: celebration triggers. The refresh loop diffs XP and level
+  // against the previous state; an XP gain floats "+n XP", a level-up
+  // rains confetti. First load only primes the baselines - never fires.
+  const prevXpRef = useRef<number | null>(null);
+  const prevLevelRef = useRef<number | null>(null);
+  const celebrateDeltas = useCallback((s: AppState) => {
+    const xpNow = s.today?.xp ?? 0;
+    if (prevXpRef.current !== null && xpNow > prevXpRef.current) xpBurst(xpNow - prevXpRef.current);
+    prevXpRef.current = xpNow;
+    const lvlNow = s.game?.level?.level ?? 1;
+    if (prevLevelRef.current !== null && lvlNow > prevLevelRef.current) confetti();
+    prevLevelRef.current = lvlNow;
+  }, []);
+
   // Trophy fanfare: recent unlocks surface once per session, then never again.
   const announceUnlocks = (recent: { key: string; title: string; desc: string; icon: string }[]) => {
     if (recent.length === 0) return;
@@ -275,6 +292,7 @@ export default function RahApp() {
         // The theme plugin's choices survive reloads: paint on every state load.
         applyTheme(s.theme ?? null);
         announceUnlocks(s.game?.recent ?? []);
+        celebrateDeltas(s);
         // Authenticated boot: network is idle from here - prefetch every lazy
         // view chunk so the first tab open pays only its data fetches.
         idlePrefetchAll();
@@ -446,8 +464,16 @@ export default function RahApp() {
                 <Flame className="h-3 w-3" /> {state.chain.chain}-chain · {state.chain.mult}x
               </Chip>
             )}
-            <span className="text-[12.5px] font-semibold" style={{ color: "var(--muted-foreground)" }}>
-              {state.game ? <>Lv {state.game.level.level} · {state.game.level.name}</> : "Rookie"} · {state.learner.streak}-day streak · {state.today.xp} XP today
+            <span className="inline-flex items-center gap-3 text-[12.5px] font-semibold" style={{ color: "var(--muted-foreground)" }}>
+              <span>{state.game ? <>Lv {state.game.level.level} · {state.game.level.name}</> : "Rookie"}</span>
+              <span className="inline-flex items-center gap-1">
+                <Flame className="h-3.5 w-3.5 text-[#ffb02e]" />
+                {state.learner.streak}-day streak
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Zap className="h-3.5 w-3.5 text-[#7dd0fc]" />
+                {state.today.xp} XP today
+              </span>
             </span>
           </div>
         )}

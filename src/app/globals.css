@@ -110,6 +110,12 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* Task 115 (detector advisory): body copy that leaves one orphan word on
+     its last line gets text-wrap: pretty - the detector's straggler rule
+     names this exact remedy. Scoped to the recovered views' paragraphs. */
+  .rah-next p {
+    text-wrap: pretty;
+  }
   /* Task 109 (Impeccable craft floor): keyboard focus was invisible on the
      dark theme - the cheapest a11y signal a page can ship. Also theme the
      browser-owned surfaces: caret and selection carry the design too. */
@@ -318,11 +324,32 @@
      of them LIGHT-era surfaces rendered on Midnight cards (review MCQ chips
      were #fff/#f2f1ea paper on the dark card). Every one re-homed here and
      documented in DESIGN.md: */
-  --rah-strand-listening: #3d9970;
-  --rah-strand-reading: #2e8b74;
-  --rah-strand-speaking: #57b28a;
-  --rah-strand-writing: #7cc5a3;
-  --rah-strand-other: #a8d9c1;
+  /* Task 115 (visual stimulation wave): strand identity v2. The old strand
+     family was four greens + parchment - calm but indistinguishable, and the
+     Today plan cards never used any of it, so the home screen read as a wall
+     of identical gray cards. Each strand now owns a vivid, distinct hue used
+     EVERYWHERE the strand appears (tiles, plan bars, progress stacked bar,
+     empty states). Values are 500->600 pairs: the 600 end carries white icons
+     at >=3:1 (graphics floor) and fills bars at AA-adjacent visibility. */
+  --rah-strand-review: #4d7c0f;
+  --rah-strand-review-bright: #a3e635;
+  --rah-strand-listening: #2563eb;
+  --rah-strand-listening-bright: #60a5fa;
+  --rah-strand-reading: #7c3aed;
+  --rah-strand-reading-bright: #a78bfa;
+  --rah-strand-speaking: #059669;
+  --rah-strand-speaking-bright: #34d399;
+  --rah-strand-writing: #d97706;
+  --rah-strand-writing-bright: #fbbf24;
+  --rah-strand-sound: #0d9488;
+  --rah-strand-sound-bright: #2dd4bf;
+  --rah-strand-grammar: #b45309;
+  --rah-strand-grammar-bright: #fbbf24;
+  --rah-strand-other: #475569;
+  --rah-strand-other-bright: #94a3b8;
+  /* The five legacy names above ARE the canonical strand tokens - progress.tsx
+     and every future consumer read these same variables, so the vivid identity
+     propagates everywhere through one definition (no shadow duplicates). */
   --rah-deck-new: #d9d7cd; /* parchment: cards still new, not yet in memory */
   --rah-grade-hard: #b7791f; /* pressed amber: between Again(danger) and Good(accent) */
 }
@@ -412,4 +439,161 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .rah-backdrop { display: none; }
+}
+
+/* ============================================================
+   Task 115 — visual stimulation wave ("Aurora").
+   The app was functionally polished but visually monotone: one blue,
+   gray cards, no icons on the home screen, no celebration moments.
+   This layer adds the stimulation vocabulary WITHOUT touching the
+   Task 113 contrast floors: strand icon tiles, gradient bars with a
+   sheen sweep, hover lift, hero glow, XP burst + confetti.
+   Everything here is CSS-only (no dependencies, $0) and every
+   animation is silenced under prefers-reduced-motion.
+   ============================================================ */
+
+/* --- Strand icon tile: the vivid identity unit ----------------
+   A rounded gradient tile in the strand's hue carrying a white
+   lucide glyph. Used by plan cards, stats, empty states. */
+.rah-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border-radius: 14px;
+  color: #ffffff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 6px 16px -8px var(--tile-glow, rgba(0, 0, 0, 0.5));
+}
+
+/* --- Hover lift for interactive cards ------------------------- */
+.rah-lift {
+  transition:
+    transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+.rah-lift:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow:
+    0 18px 40px -22px rgba(0, 0, 0, 0.7),
+    0 0 0 1px var(--lift-tint, transparent),
+    0 0 26px -6px var(--lift-glow, transparent);
+}
+.rah-lift:active {
+  transform: translateY(0);
+}
+
+/* --- Gradient bar with sheen sweep ---------------------------- */
+.rah-bar {
+  position: relative;
+  width: 100%;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+}
+.rah-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--bar-deep, var(--accent)) 0%, var(--bar-bright, var(--accent)) 100%);
+  transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative;
+  overflow: hidden;
+}
+/* The sheen: a light band sweeping the filled part. Pure polish. */
+.rah-bar-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 45%;
+  background: linear-gradient(100deg, transparent 0%, rgba(255, 255, 255, 0.35) 50%, transparent 100%);
+  transform: translateX(-120%);
+  animation: rah-sheen 2.8s ease-in-out infinite;
+}
+@keyframes rah-sheen {
+  0% { transform: translateX(-120%); }
+  55%, 100% { transform: translateX(240%); }
+}
+
+/* --- Hero glow (Today's header card) --------------------------
+   Task 115 amended after the mobile detector sweep: the breathe
+   shadow is NEUTRAL elevation only (the Task 113 doctrine - no
+   chromatic halos on dark), and the wash is the app's own blue
+   family. The gradient-text variant was removed as an AI-tell
+   finding; headlines are solid ink. */
+.rah-hero {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(420px 190px at 88% -30%, rgba(78, 140, 255, 0.14), transparent 65%),
+    linear-gradient(180deg, #17203215 0%, #12182600 100%);
+  animation: rah-breathe 5.2s ease-in-out infinite;
+}
+@keyframes rah-breathe {
+  0%, 100% { box-shadow: 0 14px 34px -22px rgba(0, 0, 0, 0.6); }
+  50% { box-shadow: 0 18px 44px -20px rgba(0, 0, 0, 0.72); }
+}
+
+/* --- Streak flame flicker ------------------------------------- */
+@keyframes rah-flame {
+  0%, 100% { transform: scale(1) rotate(-2deg); }
+  35% { transform: scale(1.12) rotate(2.5deg); }
+  65% { transform: scale(1.05) rotate(-1deg); }
+}
+.rah-flame {
+  display: inline-flex;
+  animation: rah-flame 1.7s ease-in-out infinite;
+  transform-origin: 50% 80%;
+}
+
+/* --- XP burst: floating "+12 XP" pieces ----------------------- */
+.rah-xp-layer {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.rah-xp-piece {
+  font-weight: 900;
+  font-size: 15px;
+  letter-spacing: 0.01em;
+  color: #ffd166;
+  text-shadow: 0 2px 10px rgba(255, 176, 46, 0.45);
+  animation: rah-float-xp 1.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes rah-float-xp {
+  0% { opacity: 0; transform: translateY(10px) scale(0.85); }
+  18% { opacity: 1; transform: translateY(2px) scale(1.06); }
+  100% { opacity: 0; transform: translateY(-52px) scale(1); }
+}
+
+/* --- Confetti: dependency-free celebration --------------------- */
+.rah-confetti-piece {
+  position: fixed;
+  top: -4vh;
+  z-index: 70;
+  pointer-events: none;
+  border-radius: 2px;
+  animation: rah-confetti-fall var(--cd, 2.6s) cubic-bezier(0.3, 0.6, 0.6, 1) both;
+}
+@keyframes rah-confetti-fall {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translate3d(var(--cx, 0px), 108vh, 0) rotate(var(--cr, 540deg)); opacity: 0; }
+}
+
+/* --- Reduced motion: the whole wave goes still ----------------- */
+@media (prefers-reduced-motion: reduce) {
+  .rah-bar-fill::after { animation: none; }
+  .rah-hero { animation: none; }
+  .rah-flame { animation: none; }
+  .rah-xp-piece { animation-duration: 0.01s; animation-fill-mode: forwards; }
+  .rah-confetti-piece { display: none; }
+  .rah-lift,
+  .rah-lift:hover { transition: none; transform: none; }
 }

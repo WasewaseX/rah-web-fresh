@@ -19,11 +19,23 @@ colors:
   signal-red: "#ff6b81"
   line-hairline: "rgba(255, 255, 255, 0.07)"
   primary-ink: "#0b1220"
-  strand-listening: "#3d9970"
-  strand-reading: "#2e8b74"
-  strand-speaking: "#57b28a"
-  strand-writing: "#7cc5a3"
-  strand-other: "#a8d9c1"
+  strand-review: "#4d7c0f"
+  strand-review-bright: "#a3e635"
+  strand-listening: "#2563eb"
+  strand-listening-bright: "#60a5fa"
+  strand-reading: "#7c3aed"
+  strand-reading-bright: "#a78bfa"
+  strand-speaking: "#059669"
+  strand-speaking-bright: "#34d399"
+  strand-writing: "#d97706"
+  strand-writing-bright: "#fbbf24"
+  strand-sound: "#0d9488"
+  strand-sound-bright: "#2dd4bf"
+  strand-grammar: "#b45309"
+  strand-grammar-bright: "#fbbf24"
+  strand-other: "#475569"
+  strand-other-bright: "#94a3b8"
+  xp-gold: "#ffd166"
   deck-new: "#d9d7cd"
   grade-hard: "#b7791f"
   scrollbar-thumb: "#2a3242"
@@ -94,9 +106,11 @@ This is an **Operate** product (the visitor completes study tasks) with one Pers
 
 **Key Characteristics:**
 - Dark-by-design Midnight theme; a single blue accent family; green/gold/red reserved as semantic signals (correct, attention, error).
+- **Strand identity (Task 115, holder-directed):** every study strand owns a vivid hue pair (bright -> deep) used consistently across tiles, plan bars and progress charts — listening blue, reading violet, speaking green, writing amber, sound teal, review cyan, grammar bronze. The hues are CONTENT identity (navigational color coding), not action accents: the One Light Rule still governs actions — one blue per view for the thing you press. The 2026-11-01 holder directive ("the app still lacks visual stimulation") explicitly lifted the earlier single-hue restraint for strand identity.
 - Two hairline layer systems: `--line` borders and one soft ambient gradient wash on the body — depth comes from tonal layering, not stacked shadows.
 - Pressable 3D buttons with a solid bottom edge that compresses on `:active` — tactile, physical, never glossy.
-- Motion is short, spring-eased and purposeful: rise-in on view change, pop on reveal, pulse only while recording, shake only on a misstep.
+- Motion is short, spring-eased and purposeful: rise-in on view change, pop on reveal, pulse only while recording, shake only on a misstep. Ambient identity loops (bar sheen sweep, hero breathe, streak flame flicker) are the one sanctioned exception to the 400ms ceiling — they carry mood, not information, and all of them go still under `prefers-reduced-motion`.
+- Celebration is earned, never ambient: XP gains float a brief "+n XP" burst; level-ups rain a one-shot CSS confetti (zero dependencies). Both are DOM-spawned, self-cleaning and motion-off aware.
 
 ## Colors
 
@@ -174,8 +188,26 @@ Cards 18px radius; controls (buttons, inputs, option rows) 12–16px; chips and 
 
 - **Do** keep one primary action per view; everything else is secondary (ghost/quiet).
 - **Do** show real numbers only. An empty stat shows 0 or the state is omitted, never estimated.
-- **Don't** introduce a second accent hue, a purple gradient, a glassmorphism panel, or a new chip color per section.
+- **Don't** introduce a second ACTION accent hue (One Light Rule), a glassmorphism panel, or a new chip color per section. (Amended Task 115: strand identity hues are content coding, not action accents — they are sanctioned and mapped above; purple as an ACTION color and decorative purple gradients remain banned.)
 - **Don't** nest cards inside cards; use hairline dividers inside a card instead.
 - **Don't** animate anything longer than 400ms except the recording pulse; honor `prefers-reduced-motion` everywhere (the backdrop already does).
 - **Don't** render Farsi without `.fa-text` + `dir="rtl"`.
 - **Don't** add a dependency for what a CSS token or 20-line keyframe can do (4 GB budget, $0 rule).
+
+### Strand identity map (Task 115)
+
+`StrandIcon` (in `next/bits.tsx`) is the identity unit: a gradient tile (bright -> deep, 135deg) with a white lucide glyph and a hue-matched glow. The same pair fills the strand's progress bar (`Bar deep/bright` props) and the stacked chart in Progress. Values are 500/600-level so the deep stop carries white at the 3:1 graphics floor. Detector-driven hue constraint (Task 115): cyan gradients on dark are on the Impeccable AI-tell ban list, so the review strand wears lime, not cyan — keep future strand hues out of the cyan/violet-gradient tell families.
+
+| Strand | Deep | Bright | Glyph |
+|---|---|---|---|
+| review | #4d7c0f | #a3e635 | RotateCcw |
+| listening | #2563eb | #60a5fa | Headphones |
+| reading | #7c3aed | #a78bfa | BookOpen |
+| speaking | #059669 | #34d399 | Mic |
+| writing | #d97706 | #fbbf24 | PenLine |
+| sound | #0d9488 | #2dd4bf | AudioWaveform |
+| grammar | #b45309 | #fbbf24 | BookMarked |
+| placement/checkpoint | #dc2626 | #f87171 | Target |
+| tutor | #4f46e5 | #818cf8 | MessageCircle |
+| arcade | #db2777 | #f472b6 | Gamepad2 |
+| other | #475569 | #94a3b8 | Layers |

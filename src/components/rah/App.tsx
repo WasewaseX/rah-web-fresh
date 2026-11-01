@@ -446,7 +446,7 @@ export default function RahApp() {
                 <Flame className="h-3 w-3" /> {state.chain.chain}-chain · {state.chain.mult}x
               </Chip>
             )}
-            <span className="text-[12.5px] font-semibold" style={{ color: "#7d889c" }}>
+            <span className="text-[12.5px] font-semibold" style={{ color: "var(--muted)" }}>
               {state.game ? <>Lv {state.game.level.level} · {state.game.level.name}</> : "Rookie"} · {state.learner.streak}-day streak · {state.today.xp} XP today
             </span>
           </div>

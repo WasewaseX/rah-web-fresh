@@ -17,7 +17,7 @@ export async function GET() {
   // Task 106: the recovered ProgressView (next/progress.tsx) needs the
   // per-review direction accuracy, strand minutes and weekly checkpoint
   // scores too - those join the same batch (four more parallel reads).
-  const [stats, states, diag, writes, speaks, totalReviews, totalLapses, skillLevels, learner, gradedExams, strandRows, checkpointRows, dirAllRows, dirOkRows] = await Promise.all([
+  const [stats, states, diag, writes, speaks, totalReviews, totalLapses, skillLevels, learner, gradedExams, strandRows, checkpointRows, dirAllRows, dirOkRows, retrDays] = await Promise.all([
     db.dailyStat.findMany({ where: { userId: u, day: { gte: today - 34 } } }),
     db.cardState.findMany({ where: { userId: u } }),
     diagnose(),
@@ -32,6 +32,14 @@ export async function GET() {
     db.checkpoint.findMany({ where: { learnerId: u }, orderBy: { day: "desc" }, take: 12 }),
     db.reviewLog.groupBy({ by: ["dir"], where: { userId: u, dir: { not: "" } }, _count: { _all: true } }),
     db.reviewLog.groupBy({ by: ["dir"], where: { userId: u, dir: { not: "" }, grade: { gte: 2 } }, _count: { _all: true } }),
+    // Task 111 (data honesty): the fortnight chart and the week stats used to
+    // read DailyStat.reviews - a counter that also carries legacy-era items
+    // (days 20749-20751 hold 22 "reviews" with ZERO ReviewLog rows), so the
+    // chart said "46 retrievals across the fortnight" while the all-time stat
+    // next to it said 18. Both now read the SAME source the all-time stat
+    // always used: ReviewLog. DailyStat stays the source for accuracy and
+    // calendar activity (broader signal, its own documented convention).
+    db.reviewLog.groupBy({ by: ["day"], where: { userId: u, day: { gte: today - 34 } }, _count: { _all: true } }),
   ]);
   const statMap = new Map(stats.map((s) => [s.day, s]));
   const days = Array.from({ length: 35 }, (_, i) => {
@@ -130,11 +138,19 @@ export async function GET() {
   // grade>=2 convention the grade route writes into DailyStat.correct.
   const week = days.slice(-7);
   const prevWeek = days.slice(-14, -7);
-  const reviewsThisWeek = week.reduce((a, x) => a + x.reviews, 0);
-  const reviewsPrevWeek = prevWeek.reduce((a, x) => a + x.reviews, 0);
-  const accNow = reviewsThisWeek ? Math.round((week.reduce((a, x) => a + x.correct, 0) / reviewsThisWeek) * 100) : 0;
-  const accPrev = reviewsPrevWeek ? Math.round((prevWeek.reduce((a, x) => a + x.correct, 0) / reviewsPrevWeek) * 100) : 0;
-  const byDay = days.slice(-14).map((x) => ({ day: x.day, count: x.reviews }));
+  const retrMap = new Map(retrDays.map((r) => [r.day, r._count._all]));
+  const retrCount = (d: number) => retrMap.get(d) ?? 0;
+  const reviewsThisWeek = week.reduce((a, x) => a + retrCount(x.day), 0);
+  const reviewsPrevWeek = prevWeek.reduce((a, x) => a + retrCount(x.day), 0);
+  // Accuracy keeps its own documented convention: DailyStat.correct over
+  // DailyStat.reviews (numerator and denominator from the SAME source - the
+  // grade route writes both). Mixing that numerator with the ReviewLog count
+  // could push the percentage over 100 on legacy-overcount days.
+  const dsThisWeek = week.reduce((a, x) => a + x.reviews, 0);
+  const dsPrevWeek = prevWeek.reduce((a, x) => a + x.reviews, 0);
+  const accNow = dsThisWeek ? Math.round((week.reduce((a, x) => a + x.correct, 0) / dsThisWeek) * 100) : 0;
+  const accPrev = dsPrevWeek ? Math.round((prevWeek.reduce((a, x) => a + x.correct, 0) / dsPrevWeek) * 100) : 0;
+  const byDay = days.slice(-14).map((x) => ({ day: x.day, count: retrCount(x.day) }));
   const strands: Record<string, number> = {};
   for (const r of strandRows) strands[r.strand] = r._sum.minutes ?? 0;
   const startedCount = states.filter((s) => s.state !== "new").length;

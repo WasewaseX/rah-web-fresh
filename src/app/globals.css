@@ -306,6 +306,18 @@
   --rah-callout-hover: rgba(255, 255, 255, 0.08);
   --rah-track: rgba(255, 255, 255, 0.08);
   --rah-dot: rgba(255, 255, 255, 0.12);
+  /* Task 111 (impeccable verify-by-eyes): the detector's design-system-color
+     advisories were real drift - literals the Task 109 codemod missed, some
+     of them LIGHT-era surfaces rendered on Midnight cards (review MCQ chips
+     were #fff/#f2f1ea paper on the dark card). Every one re-homed here and
+     documented in DESIGN.md: */
+  --rah-strand-listening: #3d9970;
+  --rah-strand-reading: #2e8b74;
+  --rah-strand-speaking: #57b28a;
+  --rah-strand-writing: #7cc5a3;
+  --rah-strand-other: #a8d9c1;
+  --rah-deck-new: #d9d7cd; /* parchment: cards still new, not yet in memory */
+  --rah-grade-hard: #b7791f; /* pressed amber: between Again(danger) and Good(accent) */
 }
 .rah-next .card-rah {
   background: linear-gradient(180deg, #151c2b 0%, #121826 100%);

@@ -148,7 +148,7 @@ export default function ProgressView({ boot }: { boot: Boot }) {
             <>
               <div className="flex h-4 rounded-full overflow-hidden mb-4">
                 {Object.entries(d.strands).map(([k, v]) => (
-                  <div key={k} style={{ width: `${(v / totalStrandMin) * 100}%`, background: k === "review" ? "var(--accent)" : k === "listening" ? "#3d9970" : k === "reading" ? "#2e8b74" : k === "speaking" ? "#57b28a" : k === "writing" ? "#7cc5a3" : "#a8d9c1" }} />
+                  <div key={k} style={{ width: `${(v / totalStrandMin) * 100}%`, background: k === "review" ? "var(--accent)" : k === "listening" ? "var(--rah-strand-listening)" : k === "reading" ? "var(--rah-strand-reading)" : k === "speaking" ? "var(--rah-strand-speaking)" : k === "writing" ? "var(--rah-strand-writing)" : "var(--rah-strand-other)" }} />
                 ))}
               </div>
               {Object.entries(d.strands).sort((a, b) => b[1] - a[1]).map(([k, v]) => (
@@ -166,7 +166,7 @@ export default function ProgressView({ boot }: { boot: Boot }) {
         <div className="card-rah p-6">
           <div className="font-bold text-[14.5px] mb-4">Memory state of the deck</div>
           {[
-            { label: "new, not started yet", v: d.mastery.new, color: "#d9d7cd" },
+            { label: "new, not started yet", v: d.mastery.new, color: "var(--rah-deck-new)" },
             { label: "young, still fragile", v: d.mastery.young, color: "var(--gold)" },
             { label: "mature, 21+ day intervals", v: d.mastery.mature, color: "var(--accent)" },
           ].map((row) => (

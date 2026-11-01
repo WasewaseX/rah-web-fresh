@@ -50,6 +50,13 @@ export async function POST(req: Request) {
     }));
 
   const encoder = new TextEncoder();
+  // Task 111 (evidence hygiene): automated batteries MUST NOT pay coach
+  // rewards or write chat history - a boot-regression run used to move the
+  // learner ledger +8 xp / +1 streak silently (found 2026-11-01: xp 491->499
+  // overnight, traced to this route's award block). Probes declare themselves
+  // with the x-rah-probe header and get a full dry-run: real reply, zero
+  // writes, zero rewards. Real learners are unaffected.
+  const probe = req.headers.get("x-rah-probe") === "1";
   const stream = new ReadableStream({
     async start(controller) {
       const send = (e: AgentEvent) => {
@@ -82,20 +89,22 @@ export async function POST(req: Request) {
       // straggler (schema default 'me' while every other write resolved the
       // session user), which split the learner's history across two ids until
       // scripts/merge-legacy-user-rows.py re-unified it.
-      const chatUid = await contentUserId(req);
-      await db.chatMsg.create({ data: { role: "user", content: text, userId: chatUid } });
-      await db.chatMsg.create({
-        data: {
-          role: "coach",
-          content: JSON.stringify({ skill: "agent", reply: turn.reply, corrections: turn.corrections, commands: turn.commands, toolsUsed: turn.toolsUsed }),
-          userId: chatUid,
-        },
-      });
+      if (!probe) {
+        const chatUid = await contentUserId(req);
+        await db.chatMsg.create({ data: { role: "user", content: text, userId: chatUid } });
+        await db.chatMsg.create({
+          data: {
+            role: "coach",
+            content: JSON.stringify({ skill: "agent", reply: turn.reply, corrections: turn.corrections, commands: turn.commands, toolsUsed: turn.toolsUsed }),
+            userId: chatUid,
+          },
+        });
 
-      // Same surface rewards as the old chat tab: talking to the coach counts.
-      await bumpDaily("reviews");
-      await awardXp(8, { chainHit: true });
-      await touchStreak().catch(() => undefined);
+        // Same surface rewards as the old chat tab: talking to the coach counts.
+        await bumpDaily("reviews");
+        await awardXp(8, { chainHit: true });
+        await touchStreak().catch(() => undefined);
+      }
 
       send({ type: "done", stepsUsed: turn.steps.length });
       controller.close();

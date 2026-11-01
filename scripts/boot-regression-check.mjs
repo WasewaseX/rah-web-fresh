@@ -63,9 +63,11 @@ check(
 );
 
 // --- coach: a real (tiny) streamed reply
+// x-rah-probe: the battery must never pay coach rewards or write chat rows
+// (Task 111 evidence hygiene - a run used to move the learner ledger +8 xp).
 const r4 = await fetch(`${BASE}/api/coach-agent`, {
   method: "POST",
-  headers: { "content-type": "application/json", cookie },
+  headers: { "content-type": "application/json", cookie, "x-rah-probe": "1" },
   body: JSON.stringify({ message: "Reply with the single word: ready" }),
 });
 const text = await r4.text();

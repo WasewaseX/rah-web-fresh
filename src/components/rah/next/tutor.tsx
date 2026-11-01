@@ -494,7 +494,7 @@ function PlanTab() {
                 <div className="mt-2 space-y-1 pl-8">
                   {d.tasks.map((t, i) => (
                     <div key={i} className="flex items-baseline justify-between gap-3 text-[13px]">
-                      <span style={{ color: "var(--text-soft, #c9d2e3)" }}>{t.text}</span>
+                      <span style={{ color: "var(--text-soft)" }}>{t.text}</span>
                       <span className="shrink-0 text-[11px] font-bold" style={{ color: "var(--muted)" }}>{t.minutes}m</span>
                     </div>
                   ))}

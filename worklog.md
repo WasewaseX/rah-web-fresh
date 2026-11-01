@@ -1947,3 +1947,21 @@ Work Log:
 
 Stage Summary:
 - Sandbox fully revived: prod standalone serving, login battery green (access-code + wrong-code + stranger paths), 19-surface sweep ALL-PASS, learner state = documented baseline, hourly vault protection shipped. ROADMAP.md now carries the Impeccable GUI mandate phases, feature queue, holder-blocked items and infra doctrine.
+
+---
+Task ID: 111
+Agent: Super Z (main)
+Task: Sandbox revival part 2 - verify-by-eyes Impeccable pass, progress unit-honesty fix, battery hygiene hole closed.
+
+Work Log:
+- Reconciled the ledger with the tree (audit gate): the prior session had ALREADY shipped Impeccable Groups A-E (fc8a0f3 -> 2861a71, CI #22 fail->#23/#24 green); restored the P1 group-table ROADMAP my Task 110 overwrite had clobbered; removed my duplicate .claude skill install (.github/skills/impeccable is canonical, v4.8.0); PRODUCT.md facts updated post-Task-109.
+- Ran the skill's own detector (impeccable detect src/components/rah): 0 anti-patterns, 11 design-system-color advisories. Verified each in context - they were REAL drift: review MCQ chips rendered #fff/#f2f1ea PAPER on the Midnight card (light-era fossils the sweep never caught - the swept review state showed the type-the-chunk direction, not MCQ); Hard grade #b7791f, App header gray, tutor fallback, progress strand ramp + deck-new parchment all literal.
+- Re-homed every advisory as tokens (--rah-strand-listening/reading/speaking/writing/other, --rah-deck-new, --rah-grade-hard) in the .rah-next scope; documented the data-viz ramp rule in DESIGN.md; detector now fully quiet.
+- Progress data honesty (the eyes-on find): the fortnight chart said "46 retrievals across the fortnight" next to "18 retrievals all time" - impossible. byDay/reviewsThisWeek read DailyStat.reviews, which carries legacy-era items (days 20749-20751: 22 "reviews", ZERO ReviewLog rows); the all-time stat reads ReviewLog. Route now derives the chart + week counts from ReviewLog (same unit as all-time; shape unchanged), accuracy keeps its own documented DailyStat convention on BOTH sides of the division. Live-verified: byDay sums 18 = totalReviews 18.
+- False positive caught in my own audit: home's "Take the placement test" CTA is CORRECT - the live PG DB has placementPhase=none, PlacementResult=0 (the B2/done I first saw came from the stale legacy SQLite mirror, not the web store).
+- Evidence-hygiene hole closed at the class level: a boot-regression run silently paid coach rewards (+8 xp, streak touch) and wrote 2 ChatMsg rows per run (/api/coach-agent awards on every completed turn; the battery POSTs it). Reverted today's delta (xp 499->491, streak 2->1, lastActive 20758->20757, DailyStat 20758 row deleted, ChatMsg 55/56 deleted); coach-agent now dry-runs when x-rah-probe: 1 (real reply, zero writes, zero rewards); the battery sends the header. Proof: battery ALL PASS on rebuilt prod with ledger byte-identical (491/1/20757, 38 chats).
+- Screenshots: db/evidence/ui/verify-110/ (desktop+mobile home/review/write/tutor/progress/settings); progress-after shows the corrected caption "18 retrievals across the fortnight, best day 15" consistent with all-time.
+- Builds: _oKFsTMw7n8t5TKvZPchG (progress fix), Z1bS3KEU0SL1ucksY1i3Y (hygiene guard), both gate PASSED, swapped onto :3000; tsc/eslint clean; 19-surface sweep ALL-PASS; boot-regression ALL PASS.
+
+Stage Summary:
+- P1 verify-by-eyes pass shipped: detector quiet, MCQ chips on-token, progress chart unit-honest, batteries hygiene-safe. The learner ledger stands at the honest baseline (xp 491, streak 1, 18 reviews, 38 chats).

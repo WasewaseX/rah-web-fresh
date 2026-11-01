@@ -61,7 +61,7 @@ const DIR_LABEL: Record<string, string> = {
 
 const GRADES = [
   { r: 1, label: "Again", key: "1", color: "var(--danger)" },
-  { r: 2, label: "Hard", key: "2", color: "#b7791f" },
+  { r: 2, label: "Hard", key: "2", color: "var(--rah-grade-hard)" },
   { r: 3, label: "Good", key: "3", color: "var(--accent)" },
   { r: 4, label: "Easy", key: "4", color: "var(--accent-deep)" },
 ];
@@ -498,7 +498,7 @@ export default function ReviewView({ boot, onDone, go }: { boot: Boot; onDone: (
                     key={`${i}-tile`}
                     onClick={() => setPicked((p) => [...p, i])}
                     className="rounded-xl px-3 py-2 text-[14px] font-bold transition-transform active:scale-95"
-                    style={{ background: "#f2f1ea", border: "1px solid var(--line)" }}
+                    style={{ background: "var(--rah-field)", border: "1px solid var(--line)" }}
                   >
                     {t}
                   </button>
@@ -517,8 +517,8 @@ export default function ReviewView({ boot, onDone, go }: { boot: Boot; onDone: (
               <button
                 key={ch}
                 onClick={() => setChoice(ch)}
-                className={`rounded-2xl border-2 px-4 py-3.5 text-[15px] font-semibold transition-all active:scale-[.99] ${choice === ch ? "" : "hover:bg-black/[0.02]"}`}
-                style={{ borderColor: choice === ch ? "var(--accent)" : "var(--line)", background: choice === ch ? "var(--accent-dim, #eef6f1)" : "#fff" }}
+                className={`rounded-2xl border-2 px-4 py-3.5 text-[15px] font-semibold transition-all active:scale-[.99] ${choice === ch ? "" : "hover:bg-white/[0.04]"}`}
+                style={{ borderColor: choice === ch ? "var(--accent)" : "var(--line)", background: choice === ch ? "var(--accent-dim)" : "var(--rah-field)" }}
               >
                 <Fa>{ch}</Fa>
               </button>

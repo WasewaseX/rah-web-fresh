@@ -18,6 +18,13 @@ colors:
   signal-red: "#ff6b81"
   line-hairline: "rgba(255, 255, 255, 0.07)"
   primary-ink: "#0b1220"
+  strand-listening: "#3d9970"
+  strand-reading: "#2e8b74"
+  strand-speaking: "#57b28a"
+  strand-writing: "#7cc5a3"
+  strand-other: "#a8d9c1"
+  deck-new: "#d9d7cd"
+  grade-hard: "#b7791f"
 typography:
   display:
     fontFamily: "var(--font-geist-sans), system-ui, sans-serif"
@@ -104,6 +111,7 @@ A restrained midnight palette: one blue light source, three semantic signals, la
 **The One Light Rule.** Signal blue is the only element that may demand action on a screen. If two competing blues fight for attention, one of them is wrong.
 **The Earned Color Rule.** Green/gold/red appear only as measurements of real learner data — never as decoration.
 **No Purple Gradient Rule.** The holder's standing ban: no purple gradients, no generic AI aesthetics, no decorative pills, no fake metrics.
+**Data-viz ramp rule.** Chart fills use the tokenized strand ramp (`--rah-strand-*`, one hue per strand; review strand = signal blue) and the deck-state tones (`--rah-deck-new` parchment for new, gold for young, blue for mature) — ramp colors are measurements, never decoration.
 
 ## Typography
 

@@ -67,6 +67,7 @@
      values. Defaults = Rah Midnight. */
   --rah-primary: #4e8cff;
   --rah-primary-deep: #2650a3;
+  --rah-primary-action: #2f62c4; /* Task 113: AA-safe action blue - white text 5.5:1 (raw primary is 3.2:1) */
   --rah-accent: #4cc9f0;
   --rah-bg: #10131a;
   --rah-surface: #1a1f2b;
@@ -336,7 +337,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: var(--rah-primary);
+  background: var(--rah-primary-action);
   color: #ffffff;
   font-weight: 800;
   font-size: 14px;
@@ -345,7 +346,7 @@
   border-radius: 12px;
   border: none;
   cursor: pointer;
-  box-shadow: 0 10px 22px -8px rgba(78, 140, 255, 0.55);
+  box-shadow: 0 10px 22px -8px rgba(0, 0, 0, 0.55);
   transition: filter 0.15s ease, transform 0.06s ease;
 }
 .rah-next .btn-primary:hover { filter: brightness(1.08); }

@@ -133,7 +133,7 @@ export default function Login({ onSignedIn }: { onSignedIn: (user: { email: stri
     return (
       <div className="flex min-h-screen items-center justify-center bg-[var(--rah-bg)] px-4">
         <div className="w-full max-w-sm text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-[var(--rah-primary)] to-[#2f62c4] text-2xl font-black text-white shadow-[0_16px_40px_-12px_rgba(78,140,255,.6)]">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-[var(--rah-primary-action)] to-[#2650a3] text-2xl font-black text-white shadow-[0_16px_40px_-12px_rgba(0,0,0,.6)]">
             R
           </div>
           <h1 className="text-2xl font-black tracking-tight text-[#f2f5fa]">Rah</h1>
@@ -148,7 +148,7 @@ export default function Login({ onSignedIn }: { onSignedIn: (user: { email: stri
     <div className="flex min-h-screen items-center justify-center bg-[var(--rah-bg)] px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-[var(--rah-primary)] to-[#2f62c4] text-2xl font-black text-white shadow-[0_16px_40px_-12px_rgba(78,140,255,.6)]">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-[var(--rah-primary-action)] to-[#2650a3] text-2xl font-black text-white shadow-[0_16px_40px_-12px_rgba(0,0,0,.6)]">
             R
           </div>
           <h1 className="text-2xl font-black tracking-tight text-[#f2f5fa]">Rah</h1>

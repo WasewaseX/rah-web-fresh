@@ -106,7 +106,7 @@ export default function PwaBootstrap() {
         <div className="text-xs text-[#8b96a9]">Own window, works offline, one tap from your home screen.</div>
       </div>
       <button
-        className="rounded-xl bg-[var(--rah-primary)] px-3 py-1.5 text-sm font-bold text-white"
+        className="rounded-xl bg-[#2f62c4] px-3 py-1.5 text-sm font-bold text-white"
         onClick={async () => {
           try {
             await installEvt.prompt();

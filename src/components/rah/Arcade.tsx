@@ -64,7 +64,7 @@ export default function ArcadeView({ state, onChange }: { state: AppState; onCha
         {(() => {
           const active = TABS.find((t) => t.id === tab);
           return active ? (
-            <div className="w-full pb-1 text-[11px] text-[#7d889c]">
+            <div className="w-full pb-1 text-[12px] text-[#7d889c]">
               <span className="font-bold">{NAMING[active.id].name}</span> — {active.gloss}
             </div>
           ) : null;
@@ -129,7 +129,7 @@ export default function ArcadeView({ state, onChange }: { state: AppState; onCha
                     </div>
                     <div className="min-w-0">
                       <div className={`text-sm font-extrabold ${got ? "text-[#ffe3b3]" : "text-[#8b96a9]"}`}>{a.title}</div>
-                      <div className="truncate text-[11px] text-[#7d889c]">{a.desc}</div>
+                      <div className="truncate text-[12px] text-[#7d889c]">{a.desc}</div>
                     </div>
                   </div>
                 );

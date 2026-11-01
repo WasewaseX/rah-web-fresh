@@ -8,6 +8,7 @@ colors:
   midnight-card-grad-end: "#121826"
   rah-primary: "#4e8cff"
   rah-primary-deep: "#2650a3"
+  rah-primary-action: "#2f62c4"
   rah-accent-cyan: "#4cc9f0"
   ink-high: "#f2f5fa"
   ink-mid: "#dbe3f0"
@@ -67,10 +68,11 @@ components:
     textColor: "{colors.ink-high}"
     rounded: "{rounded.card}"
   button-primary:
-    backgroundColor: "{colors.rah-primary}"
+    backgroundColor: "{colors.rah-primary-action}"
     textColor: "#ffffff"
     rounded: "{rounded.control}"
     padding: "11px 18px"
+    edge: "rah-3d hard offset 0 4px 0 0 {colors.rah-primary-deep} - INTENTIONAL tactile press edge (Duolingo-style), not a slop shadow"
   button-primary-hover:
     backgroundColor: "{colors.rah-primary}"
   chip:

@@ -595,7 +595,7 @@ export default function ReviewView({ boot, onDone, go }: { boot: Boot; onDone: (
                   style={{ borderColor: "var(--line)", background: "var(--rah-field)" }}
                 >
                   <div className="text-[14px] font-bold" style={{ color: g.color }}>{g.label}</div>
-                  <div className="text-[11.5px] font-semibold" style={{ color: "var(--muted)" }}>{ivlLabel(previews[g.r - 1])}</div>
+                  <div className="text-[12px] font-semibold" style={{ color: "var(--muted)" }}>{ivlLabel(previews[g.r - 1])}</div>
                 </button>
               ))}
             </div>

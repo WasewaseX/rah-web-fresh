@@ -189,7 +189,7 @@ export default function PairsGame({ onExit }: { onExit: () => void }) {
                     isMatched
                       ? "bg-[#2fc273]/[0.14] text-[#7fe0ac] [--rah-edge:#1d8f52]"
                       : isSel
-                        ? "bg-[var(--rah-primary)] text-white [--rah-edge:var(--rah-primary-deep)]"
+                        ? "bg-[#2f62c4] text-white [--rah-edge:var(--rah-primary-deep)]"
                         : "bg-[#232b3a] text-[#f2f5fa] [--rah-edge:#171d29] hover:bg-[#2a3242]"
                   }`}
                 >
@@ -214,7 +214,7 @@ export default function PairsGame({ onExit }: { onExit: () => void }) {
                       : isWrong
                         ? "rah-shake bg-[#ff6b81]/[0.16] text-[#ffa3b1]"
                         : isSel
-                          ? "bg-[var(--rah-primary)] text-white"
+                          ? "bg-[#2f62c4] text-white"
                           : "bg-[#232b3a] text-[#f2f5fa] hover:bg-[#2a3242]"
                   }`}
                 >

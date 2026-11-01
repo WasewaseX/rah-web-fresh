@@ -343,12 +343,12 @@ export default function RahApp() {
       {/* Desktop rail */}
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-white/[0.06] bg-gradient-to-b from-[#0e1421] via-[#101725] to-[#0d1119] px-4 py-6 md:flex">
         <div className="mb-9 flex items-center gap-3 px-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--rah-primary)] to-[#2f62c4] text-lg font-black text-white shadow-[0_8px_20px_-6px_rgba(78,140,255,.55)]">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--rah-primary-action)] to-[#2650a3] text-lg font-black text-white shadow-[0_8px_20px_-6px_rgba(0,0,0,.55)]">
             R
           </div>
           <div>
             <div className="text-lg font-black tracking-tight text-[#f2f5fa]">Rah</div>
-            <div className="text-[11px] font-semibold text-[#7d889c]">B2 to C1, your road</div>
+            <div className="text-[12px] font-semibold text-[#7d889c]">B2 to C1, your road</div>
           </div>
         </div>
         <nav className="flex flex-col gap-1">
@@ -372,7 +372,7 @@ export default function RahApp() {
                 <Icon className="h-[18px] w-[18px]" />
                 {v.label}
                 {v.id === "review" && state && state.due > 0 && (
-                  <span className="ml-auto rounded-full bg-[var(--rah-primary)] px-2 py-0.5 text-[11px] font-bold text-white shadow-[0_4px_10px_-2px_rgba(78,140,255,.6)]">
+                  <span className="ml-auto rounded-full bg-[#2f62c4] px-2 py-0.5 text-[12px] font-bold text-white shadow-[0_4px_10px_-2px_rgba(0,0,0,.5)]">
                     {state.due}
                   </span>
                 )}
@@ -388,7 +388,7 @@ export default function RahApp() {
             <SettingsIcon className="h-4 w-4 text-[#8b96a9]" />
             <div>
               <div className="text-xs font-bold text-[#dbe3f0]">AI engine</div>
-              <p className="text-[11px] text-[#8b96a9]">Built-in engine or your own API — your choice.</p>
+              <p className="text-[12px] text-[#8b96a9]">Built-in engine or your own API — your choice.</p>
             </div>
           </button>
           <button
@@ -399,18 +399,18 @@ export default function RahApp() {
               <GraduationCap className="h-3.5 w-3.5" />
               Coach sidebar
             </div>
-            <p className="mt-1.5 text-[11px] leading-relaxed text-[#8b96a9]">
+            <p className="mt-1.5 text-[12px] leading-relaxed text-[#8b96a9]">
               The agent rides along on every tab: reads your state, writes files, runs code, acts.
             </p>
           </button>
-          {user && <div className="px-2 text-[10px] font-semibold text-[#5d6879]">Signed in as {user.email}</div>}
+          {user && <div className="px-2 text-[12px] font-semibold text-[var(--muted-foreground)]">Signed in as {user.email}</div>}
         </div>
       </aside>
 
       {/* Mobile top bar */}
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-white/[0.06] bg-[var(--rah-bg)]/85 px-4 py-3 backdrop-blur-xl md:hidden">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--rah-primary)] to-[#2f62c4] text-base font-black text-white">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--rah-primary-action)] to-[#2650a3] text-base font-black text-white">
             R
           </div>
           <span className="text-lg font-black tracking-tight">Rah</span>
@@ -446,7 +446,7 @@ export default function RahApp() {
                 <Flame className="h-3 w-3" /> {state.chain.chain}-chain · {state.chain.mult}x
               </Chip>
             )}
-            <span className="text-[12.5px] font-semibold" style={{ color: "var(--muted)" }}>
+            <span className="text-[12.5px] font-semibold" style={{ color: "var(--muted-foreground)" }}>
               {state.game ? <>Lv {state.game.level.level} · {state.game.level.name}</> : "Rookie"} · {state.learner.streak}-day streak · {state.today.xp} XP today
             </span>
           </div>
@@ -457,7 +457,7 @@ export default function RahApp() {
             <span className="h-6 w-6 animate-spin rounded-full border-2 border-[#2a3242] border-t-[var(--rah-primary)]" />
             {/* Task 109: text-first loading (craft floor) - a bare spinner on a
                blank page reads as broken; naming the wait reads as honest. */}
-            <span className="text-[13px] font-medium" style={{ color: "var(--muted)" }}>Laying out today's road...</span>
+            <span className="text-[13px] font-medium" style={{ color: "var(--muted-foreground)" }}>Laying out today's road...</span>
           </div>
         ) : (
           <div key={view} className="rah-rise">
@@ -550,8 +550,8 @@ export default function RahApp() {
                 key={v.id}
                 onClick={() => go(v.id)}
                 onPointerDown={() => prefetchView(v.id)}
-                className={`flex min-w-[64px] flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 text-[10px] font-bold transition-colors ${
-                  active ? "bg-[var(--rah-primary)]/[0.14] text-[#9dc0ff]" : "text-[#6e7a8e]"
+                className={`flex min-w-[64px] flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 text-[12px] font-bold transition-colors ${
+                  active ? "bg-[var(--rah-primary)]/[0.14] text-[#9dc0ff]" : "text-[#7d889c]"
                 }`}
               >
                 <Icon className="h-5 w-5" />
@@ -587,9 +587,9 @@ export default function RahApp() {
               <Sparkles className="h-4 w-4" />
             </div>
             <div>
-              <div className="text-[11px] font-black uppercase tracking-[0.12em] text-[#ffd08a]">Achievement unlocked</div>
+              <div className="text-[12px] font-black uppercase tracking-[0.12em] text-[#ffd08a]">Achievement unlocked</div>
               <div className="text-sm font-extrabold text-[#f2f5fa]">{t.title}</div>
-              <div className="text-[11px] text-[#a9b4c6]">{t.desc}</div>
+              <div className="text-[12px] text-[#a9b4c6]">{t.desc}</div>
             </div>
           </div>
         ))}

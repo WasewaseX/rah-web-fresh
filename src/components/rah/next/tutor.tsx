@@ -403,7 +403,7 @@ function ChatTab() {
             Send
           </button>
         </div>
-        <div className="text-[11.5px] mt-2 text-center" style={{ color: "var(--muted)" }}>
+        <div className="text-[12px] mt-2 text-center" style={{ color: "var(--muted)" }}>
           Enter sends, Shift+Enter breaks a line. Powered by the built-in engine, no key required.
         </div>
       </div>
@@ -561,7 +561,7 @@ function ScanTab() {
           </div>
           <div className="mt-2 flex items-end gap-3">
             <div className="display text-[38px] leading-none" style={{ color: "var(--accent-deep)" }}>{scan.band}</div>
-            <div className="pb-1.5 text-[11.5px]" style={{ color: "var(--muted)" }}>provisional CEFR band, practice estimate</div>
+            <div className="pb-1.5 text-[12px]" style={{ color: "var(--muted)" }}>provisional CEFR band, practice estimate</div>
           </div>
           <div className="mt-3 text-[13.5px] leading-relaxed" style={{ color: "var(--text)" }}>{scan.verdict}</div>
           {scan.strengths?.length > 0 && (

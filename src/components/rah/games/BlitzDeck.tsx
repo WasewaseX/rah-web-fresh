@@ -297,7 +297,7 @@ export default function BlitzDeck({ state, onChange, onExit }: { state: AppState
                   <>
                     <button
                       onClick={() => say(q.card.en)}
-                      className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[var(--rah-primary)] to-[#2f62c4] text-white shadow-[0_10px_24px_-8px_rgba(78,140,255,.6)] transition-transform hover:scale-105"
+                      className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[var(--rah-primary-action)] to-[#2650a3] text-white shadow-[0_10px_24px_-8px_rgba(0,0,0,.55)] transition-transform hover:scale-105"
                       aria-label="Play audio"
                     >
                       ▶

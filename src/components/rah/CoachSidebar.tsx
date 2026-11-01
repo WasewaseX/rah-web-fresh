@@ -313,11 +313,11 @@ export default function CoachSidebar({
         <button
           onClick={() => onOpenChange(true)}
           aria-label="Open coach sidebar"
-          className="fixed right-4 bottom-20 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[var(--rah-primary)] to-[#2f62c4] text-white shadow-[0_12px_32px_-8px_rgba(78,140,255,.7)] transition-transform hover:scale-105 active:scale-95 md:bottom-5"
+          className="fixed right-4 bottom-20 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[var(--rah-primary)] to-[#2f62c4] text-white shadow-[0_12px_32px_-8px_rgba(0,0,0,.6)] transition-transform hover:scale-105 active:scale-95 md:bottom-5"
         >
           <GraduationCap className="h-6 w-6" />
           {state && state.due > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#ffb02e] text-[10px] font-black text-[#1a1405]">
+            <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#ffb02e] text-[11px] font-black text-[#1a1405]">
               {state.due > 99 ? "99" : state.due}
             </span>
           )}
@@ -532,12 +532,12 @@ export default function CoachSidebar({
                 <span className="rounded-full bg-[var(--rah-primary)]/[0.18] px-1.5 py-0.5 text-[9px] font-bold text-[#9dc0ff]">{files.length}</span>
               )}
             </span>
-            <span className="text-[10px] font-bold text-[#5d6879]">{wsOpen ? "hide" : "show"}</span>
+            <span className="text-[11px] font-bold text-[#8b96a9]">{wsOpen ? "hide" : "show"}</span>
           </button>
           {wsOpen && (
             <div className="mt-1 max-h-40 space-y-1 overflow-y-auto pb-1">
               {files.length === 0 && (
-                <div className="px-1 py-1.5 text-[11px] text-[#5d6879]">
+                <div className="px-1 py-1.5 text-[11px] text-[#8b96a9]">
                   Nothing yet - ask me to write a plan or make a PDF and it lands here.
                 </div>
               )}
@@ -548,7 +548,7 @@ export default function CoachSidebar({
                     <span className="truncate text-[12px] font-semibold text-[#dbe3f0]" title={`data/coach-workspace/${f.path}`}>
                       {f.path}
                     </span>
-                    <span className="shrink-0 text-[10px] text-[#5d6879]">{fmtSize(f.size)}</span>
+                    <span className="shrink-0 text-[11px] text-[#8b96a9]">{fmtSize(f.size)}</span>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
                     {!f.pdf && (
@@ -582,7 +582,7 @@ export default function CoachSidebar({
                 key={s}
                 onClick={() => void send(s)}
                 disabled={running}
-                className="shrink-0 rounded-full border border-white/[0.08] bg-[#141c2e] px-3 py-1.5 text-[11px] font-semibold text-[#9dc0ff] transition-colors hover:border-[var(--rah-primary)]/40 disabled:opacity-40"
+                className="shrink-0 rounded-full border border-white/[0.08] bg-[#141c2e] px-3 py-1.5 text-[12px] font-semibold text-[#9dc0ff] transition-colors hover:border-[var(--rah-primary)]/40 disabled:opacity-40"
               >
                 {s}
               </button>
@@ -600,7 +600,7 @@ export default function CoachSidebar({
               onChange={(e) => setInput(e.target.value)}
               placeholder={running ? "Agent is working…" : "Ask the agent to do something…"}
               disabled={running}
-              className="min-h-11 flex-1 rounded-xl border border-white/[0.08] bg-[#141c2e] px-3.5 text-[13px] text-[#f2f5fa] outline-none transition-colors placeholder:text-[#5d6879] focus:border-[var(--rah-primary)]/50 disabled:opacity-50"
+              className="min-h-11 flex-1 rounded-xl border border-white/[0.08] bg-[#141c2e] px-3.5 text-[13px] text-[#f2f5fa] outline-none transition-colors placeholder:text-[#8b96a9] focus:border-[var(--rah-primary)]/50 disabled:opacity-50"
             />
             <Btn type="submit" disabled={running || !input.trim()} className="!min-h-11 !px-3">
               <Send className="h-4 w-4" />

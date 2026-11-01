@@ -155,10 +155,9 @@ export default function SpeedRound({ onChange }: { onChange: () => void }) {
           <Spinner label="Loading the blitz" />
         ) : (
           <>
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#ffb02e]/[0.14] text-[#ffd08a]">
-              <Zap className="h-8 w-8" />
+            <div className="mt-1 flex items-center justify-center gap-2 text-xl font-black tracking-tight text-[#f2f5fa]">
+              <Zap className="h-5 w-5 text-[#ffd08a]" /> Speed Round
             </div>
-            <div className="mt-4 text-xl font-black tracking-tight text-[#f2f5fa]">Speed Round</div>
             <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-[#a9b4c6]">
               60 seconds. Chain correct answers to stack a 5x multiplier. One miss and the flame dies. Items lean on your active mistake families.
             </p>

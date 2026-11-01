@@ -28,7 +28,7 @@ export function Btn({
   const styles = {
     // Dark blue key with a deeper blue edge underneath.
     primary:
-      "rah-3d bg-[var(--rah-primary)] text-white hover:bg-[#66a0ff] [--rah-edge:var(--rah-primary-deep)]",
+      "rah-3d bg-[var(--rah-primary-action)] text-white hover:bg-[var(--rah-primary-deep)] [--rah-edge:var(--rah-primary-deep)]",
     // Emerald key for "go" moments: start a round, confirm.
     go: "rah-3d bg-[#2fc273] text-[#062012] hover:bg-[#45d687] [--rah-edge:#1d8f52]",
     ghost: "text-[#a9b4c6] hover:bg-white/5 hover:text-[#e7ecf5] rounded-xl",

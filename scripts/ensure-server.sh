@@ -72,7 +72,25 @@ if curl -sf -o /dev/null --max-time 5 http://localhost:3000/api/version; then
   # was wiped, then build-prod.sh produced BUILD_ID, and the dev server kept
   # serving while every health check passed. If a dev server answers while a
   # prod build exists, flip it - kill and fall through to the prod boot below.
-  if [ -s .next/BUILD_ID ] && pgrep -f "next dev" >/dev/null 2>&1; then
+  # Task 113 (live incident): a STALE PROD server is the same trap. The
+  # next-server process renames itself ("next-server (v16.1.3)"), so
+  # pkill-by-path never matches it; it survived three restarts while serving
+  # an in-memory build whose chunk names no longer existed on disk - the
+  # holder saw ChunkLoadError / "Application error" while every health
+  # check passed. Detect staleness: if the on-disk BUILD_ID is NEWER than
+  # the running server's boot time, the served build is not the disk build.
+  STALE=0
+  if [ -s .next/BUILD_ID ]; then
+    BUILD_MTIME="$(stat -c %Y .next/BUILD_ID 2>/dev/null || echo 0)"
+    BOOT_AT="$(curl -s --max-time 5 http://localhost:3000/api/version | python3 -c 'import json,sys,datetime
+try: print(int(datetime.datetime.fromisoformat(json.load(sys.stdin).get("startedAt","1970-01-01T00:00:00+00:00")).timestamp()))
+except Exception: print(0)' 2>/dev/null || echo 0)"
+    if [ "${BOOT_AT:-0}" -gt 0 ] && [ "${BUILD_MTIME:-0}" -gt "${BOOT_AT:-0}" ]; then
+      STALE=1
+      echo "$(date -Is) healthy but the on-disk build is NEWER than the serving process - flipping to the fresh build"
+    fi
+  fi
+  if { [ -s .next/BUILD_ID ] && pgrep -f "next dev" >/dev/null 2>&1; } || [ "$STALE" -eq 1 ]; then
     echo "$(date -Is) healthy but DEV is serving while a prod build exists - flipping to the release build"
     pkill -f "next dev" 2>/dev/null
     pkill -f "next-server" 2>/dev/null

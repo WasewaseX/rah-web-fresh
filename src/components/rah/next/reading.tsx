@@ -73,7 +73,7 @@ export default function ReadingView({ boot, onDone }: { boot: Boot; onDone: () =
 
         <div className="card-rah p-6 mt-5">
           <div className="font-bold text-[15px] mb-1">Turn anything you read into cards</div>
-          <p className="text-[13px] mb-4 leading-relaxed" style={{ color: "var(--muted)" }}>
+          <p className="max-w-[65ch] text-[13px] mb-4 leading-relaxed" style={{ color: "var(--muted)" }}>
             Paste an article, a Reddit thread, a newsletter. The built-in engine pulls the 6 to 12 most
             valuable B2/C1 items out of it and adds them to your review deck with Farsi glosses. Anything you read becomes
             study material in one click.
@@ -81,7 +81,7 @@ export default function ReadingView({ boot, onDone }: { boot: Boot; onDone: () =
           <textarea
             value={importText}
             onChange={(e) => setImportText(e.target.value)}
-            className="w-full rounded-2xl border p-4 min-h-[100px] text-[14px]"
+            className="w-full rounded-2xl border p-4 min-h-[100px] text-[14px] placeholder:text-[#98a2b3]"
             style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
             placeholder="Paste English text here, two paragraphs or more."
           />
@@ -124,7 +124,7 @@ export default function ReadingView({ boot, onDone }: { boot: Boot; onDone: () =
   if (mode === "extensive" && r) {
     const done = checked;
     return (
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-[72ch] mx-auto">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <span className="chip chip-accent">{r.level}</span>
@@ -224,7 +224,7 @@ export default function ReadingView({ boot, onDone }: { boot: Boot; onDone: () =
     const para = paragraphs[paraIdx] ?? "";
     const last = paraIdx >= paragraphs.length - 1;
     return (
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-[72ch] mx-auto">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <span className="chip chip-accent">{r.level}</span>

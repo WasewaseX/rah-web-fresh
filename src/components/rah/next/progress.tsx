@@ -134,7 +134,7 @@ export default function ProgressView({ boot }: { boot: Boot }) {
           </div>
           <div className="mt-1.5 flex gap-1.5">
             {d.byDay.map((x) => (
-              <span key={x.day} className="flex-1 text-center text-[9.5px]" style={{ color: "var(--muted)" }}>
+              <span key={x.day} className="flex-1 text-center text-[11px]" style={{ color: "var(--muted)" }}>
                 {x.day % 7 === 0 ? new Date(x.day * 86400000).toLocaleDateString("en", { weekday: "short" }).slice(0, 2) : ""}
               </span>
             ))}
@@ -153,7 +153,7 @@ export default function ProgressView({ boot }: { boot: Boot }) {
              a card with a title and nothing under it. Key on the strands map
              itself - an empty map means nothing to show in this window. */}
           {!Object.keys(d.strands).length ? (
-            <p className="text-[13px]" style={{ color: "var(--muted)" }}>No strand time logged in the last 7 days. Review sessions, listening, reading, speaking and writing all land here as minutes.</p>
+            <p className="max-w-[42rem] text-[13px]" style={{ color: "var(--muted)" }}>No strand time logged this week. Review, listening, reading, speaking and writing each land here as minutes.</p>
           ) : (
             <>
               <div className="flex h-4 rounded-full overflow-hidden mb-4">
@@ -196,7 +196,7 @@ export default function ProgressView({ boot }: { boot: Boot }) {
         <div className="card-rah p-6">
           <div className="font-bold text-[14.5px] mb-4">Accuracy by retrieval direction</div>
           {Object.keys(d.dirs).length === 0 ? (
-            <p className="text-[13px]" style={{ color: "var(--muted)" }}>Take a review session and your weakest direction shows up here.</p>
+            <p className="max-w-[42rem] text-[13px]" style={{ color: "var(--muted)" }}>Take a review session and your weakest direction shows up here.</p>
           ) : (
             Object.entries(DIR_LABELS).map(([k, label]) =>
               d.dirs[k] !== undefined ? (
@@ -249,8 +249,8 @@ export default function ProgressView({ boot }: { boot: Boot }) {
             ))}
           </div>
           <div className="flex gap-6 mt-2">
-            <span className="text-[11.5px] flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: "var(--accent)" }} /> listening</span>
-            <span className="text-[11.5px] flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: "var(--gold)" }} /> reading</span>
+            <span className="text-[12px] flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: "var(--accent)" }} /> listening</span>
+            <span className="text-[12px] flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: "var(--gold)" }} /> reading</span>
           </div>
         </div>
       ) : null}

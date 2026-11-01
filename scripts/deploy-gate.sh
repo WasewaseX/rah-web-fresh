@@ -47,9 +47,39 @@ if ! bash scripts/build-prod.sh; then
 fi
 
 step "3/6 flip to production + server health"
+# Task 113: next-server renames its process title, so pkill-by-path misses
+# it and a stale in-memory build can survive the "flip". The gate REQUIRES
+# the fresh build to actually boot: kill every server identity first, then
+# let ensure-server revive from disk and health-check it.
+pkill -f "next dev" 2>/dev/null || true
+pkill -f "next-server" 2>/dev/null || true
+pkill -f "standalone/server.js" 2>/dev/null || true
+sleep 2
 if ! bash scripts/ensure-server.sh; then
   echo "GATE FAIL: ensure-server failed"; exit 1
 fi
+# Staleness guard: the serving process must be YOUNGER than the build.
+BUILD_MTIME="$(stat -c %Y .next/BUILD_ID 2>/dev/null || echo 0)"
+BOOT_AT="$(curl -s --max-time 5 http://127.0.0.1:3000/api/version | python3 -c 'import json,sys,datetime
+try: print(int(datetime.datetime.fromisoformat(json.load(sys.stdin).get("startedAt","1970-01-01T00:00:00+00:00")).timestamp()))
+except Exception: print(0)' 2>/dev/null || echo 0)"
+if [ "${BOOT_AT:-0}" -le "${BUILD_MTIME:-0}" ]; then
+  echo "GATE FAIL: server predates the build it should serve (stale process survived)"
+  exit 1
+fi
+# Every chunk the served HTML references must exist on disk (the Task 113
+# ChunkLoadError class - HTML 200 + healthy /api/version with broken JS).
+curl -s http://127.0.0.1:3000/ | grep -oE 'chunks/[a-z0-9]+\.js' | sort -u | sed 's|^chunks/||' > /tmp/gate-served-chunks.txt
+CHUNK_BAD=0
+while read -r c; do
+  [ -n "$c" ] || continue
+  if [ ! -f ".next/standalone/.next/static/chunks/$c" ]; then
+    echo "GATE FAIL: served chunk missing on disk: $c"
+    CHUNK_BAD=1
+  fi
+done < /tmp/gate-served-chunks.txt
+[ "$CHUNK_BAD" -eq 0 ] || exit 1
+echo "   chunk integrity: $(wc -l < /tmp/gate-served-chunks.txt) served refs, all present"
 curl -sf -o /dev/null --max-time 10 http://127.0.0.1:3000/api/version || { echo "GATE FAIL: /api/version unhealthy"; exit 1; }
 echo "   local production healthy: $(curl -s http://127.0.0.1:3000/api/version | head -c 120)"
 

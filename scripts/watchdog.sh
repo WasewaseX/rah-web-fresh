@@ -35,9 +35,17 @@ while true; do
   sleep 15
   TICK=$((TICK + 1))
 
-  if [ $((TICK % 240)) -eq 0 ] && [ -f db/custom.db ]; then
+  if [ $((TICK % 240)) -eq 0 ]; then
     echo "$(date -Is) watchdog: hourly db-sync" >> watchdog.log
     bash scripts/db-sync.sh >> watchdog.log 2>&1 || true
+    # Task 110 (2026-11-01 recycle): a recycle restored the PG cluster from a
+    # platform snapshot ~6 days stale - the learner's most recent study day
+    # existed only in the daily PG dump, and the daily dump shipped to the
+    # vault only ONCE per day. The hour window is the design bound now: every
+    # hourly tick also refreshes the PG dump and pushes the vault copy, so a
+    # recycle can never again lose more than ~1h of learner data.
+    bash scripts/pg-survival.sh dump >> watchdog.log 2>&1 || bash scripts/alert.sh CRITICAL pg-survival "hourly PG dump failed" || true
+    bash scripts/vault-sync.sh >> watchdog.log 2>&1 || true
   fi
 
   now=$(date +%s)

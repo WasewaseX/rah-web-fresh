@@ -31,5 +31,7 @@ TOKEN=$(curl -s -c - -X POST "$BASE/api/auth/verify" -H "Content-Type: applicati
   -d "{\"email\":\"$EMAIL\",\"code\":\"$CODE\"}" | grep rah_session | awk '{print $NF}')
 [ -n "$TOKEN" ] || { echo "verify did not set rah_session"; exit 3; }
 
+agent-browser open "$BASE/" >/dev/null 2>&1 || true
+agent-browser wait --load networkidle >/dev/null 2>&1 || true
 agent-browser cookies set rah_session "$TOKEN" >/dev/null
 echo "session injected (${#TOKEN} bytes, via $MODE)"

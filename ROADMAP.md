@@ -52,3 +52,4 @@ Voice shadowing → structured listening library → cross-device writing drafts
 3. Evidence hygiene — probes never count as learning; cleanup verified after every battery.
 4. Claims-vs-diff audit — every "done" claim verified against the tree/API/runtime before it is trusted.
 5. Contracts frozen unless a task explicitly repairs them (Tasks 106–108 doctrine: both sides of a contract change ship together, additively where possible).
+6. **Deploy at last, verified healthy (holder directive, 2026-11-01)** — every session CLOSES with `bash scripts/deploy-gate.sh`: fresh production build → port 3000 flipped to the standalone → real-browser smoke that FAILS on any client-side exception (a JSON health endpoint cannot see a crashed client bundle — the Task 113 incident) → commit/push → preview freshness. No session ends on a dev server.

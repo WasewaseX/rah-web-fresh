@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { SectionTitle, Note } from "./bits";
 import { MINIMAL_PAIRS, PAIR_FOCUS, STRESS_ITEMS, LINK_ITEMS } from "@/lib/content";
 import { speak } from "./speech";
@@ -16,16 +16,22 @@ export default function SoundView({ onDone }: { onDone: () => void }) {
   const [round, setRound] = useState(0);
   const [score, setScore] = useState(0);
   const [lastResult, setLastResult] = useState<null | { ok: boolean; word: string }>(null);
-  const [queue, setQueue] = useState<string[]>([]);
+  // Task 112: the queue seeds in the initializer - the old mount effect ran
+  // setState synchronously (react-hooks/set-state-in-effect, CI #31) and the
+  // stale exhaustive-deps disable sat on the wrong line to boot. Mode, round,
+  // score and lastResult already initialize to the "pairs" defaults; the
+  // seeded shuffle is the only real mount work, so it belongs in useState.
+  const [queue, setQueue] = useState<string[]>(() =>
+    seededShuffle(MINIMAL_PAIRS.map((p) => p.id), Date.now() >>> 0).slice(0, 10)
+  );
   const [playing, setPlaying] = useState(false);
 
   const pairQueue = queue.filter((id) => id.startsWith("p"));
   const stressQueue = queue.filter((id) => id.startsWith("s"));
   const linkQueue = queue.filter((id) => id.startsWith("k"));
 
-  // Task 109: `start` is declared below, so the mount effect referenced it
-  // before declaration once the stale eslint-disable was removed. Declared
-  // first now - same behavior, honest order.
+  // Task 109: `start` is declared before its first use below - same behavior,
+  // honest order. Called only from user events (never a mount effect).
   const start = (m: Mode) => {
     setMode(m);
     setRound(0);
@@ -35,10 +41,6 @@ export default function SoundView({ onDone }: { onDone: () => void }) {
     if (m === "stress") setQueue(seededShuffle(STRESS_ITEMS.map((p) => p.id), Date.now() >>> 0).slice(0, 8));
     if (m === "reduce") setQueue(LINK_ITEMS.map((p) => p.id));
   };
-
-  useEffect(() => {
-    start("pairs");
-  }, []);
 
   const say = async (text: string) => {
     setPlaying(true);

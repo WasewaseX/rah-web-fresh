@@ -1987,3 +1987,6 @@ Work Log:
 
 Stage Summary:
 - Second Impeccable iteration shipped: One Light restored on every surface (one blue per view), FAB/rail collision gone, the progress chart now draws what its caption claims, cursor-pointer + capture-warmup class fixes in. Detector 0, boot-regression ALL PASS, learner ledger honest (499 xp / 40 chats incl. one genuine holder turn).
+
+Task 112 postscript (CI #31 red -> green):
+- CI #31 failed on the Task 112 push: `eslint .` 1 error - react-hooks/set-state-in-effect at sound.tsx:40, exposed by removing the "unused" eslint-disable. Forensics: the directive `eslint-disable-next-line react-hooks/exhaustive-deps` sat AFTER the setState line (so it guarded `}, []);` - genuinely unused) and exhaustive-deps is OFF in eslint.config.mjs; the error rule was a different one entirely. The honest fix replaces suppression: the mount effect's only real work was seeding the queue, so the seed moved into the useState initializer (same seeded shuffle, same 10 items, mode/round/score/lastResult already initialize to the pairs defaults) and the effect is deleted. Verified on the shipped build: Sound renders "Round 1 of 10 - Short i vs long ee" from the initializer-seeded queue; boot-regression ALL PASS; eslint . = 0 errors (exit 0), tsc clean, build OdcY5Rhb_t9Q8alD1Zj-T gate PASSED and live on :3000.

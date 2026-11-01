@@ -394,7 +394,7 @@ function ChatTab() {
                 send();
               }
             }}
-            className="flex-1 resize-none rounded-2xl px-4 py-3 text-[14.5px] max-h-32"
+            className="min-h-[72px] flex-1 resize-none rounded-2xl px-4 py-3 text-[14.5px] max-h-32"
             style={{ background: "transparent", border: "none", outline: "none" }}
             placeholder="Write in English. Mistakes welcome, that is the point."
             rows={1}

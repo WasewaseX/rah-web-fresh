@@ -25,6 +25,16 @@ colors:
   strand-other: "#a8d9c1"
   deck-new: "#d9d7cd"
   grade-hard: "#b7791f"
+  scrollbar-thumb: "#2a3242"
+  scrollbar-thumb-hover: "#39445a"
+  shadow-ink: "rgba(0, 0, 0, 0.6)"
+  perk-gold: "#ffd08a"
+  perk-mint: "#7fe0ac"
+  perk-sky: "#9de6fb"
+  mail-bg: "#16233e"
+  mail-band: "#2a3a5c"
+  mail-link: "#9dc0ff"
+  mail-muted: "#5d6879"
 typography:
   display:
     fontFamily: "var(--font-geist-sans), system-ui, sans-serif"
@@ -106,6 +116,10 @@ A restrained midnight palette: one blue light source, three semantic signals, la
 - **Surface** (#1a1f2b) and its card gradient (#151c2b→#121826): cards, sheets, sidebar.
 - **Ink High** (#f2f5fa) / **Ink Mid** (#dbe3f0) / **Ink Soft** (#a9b4c6) / **Ink Faint** (#8b96a9): the four-level text ladder. Body text never sits below Ink Soft on interactive surfaces.
 - **Hairline** (rgba(255,255,255,.07)): every border in the app. Two hairlines never stack.
+- **Browser surfaces** (scrollbar-thumb #2a3242, hover #39445a): the parts the browser draws still carry the palette.
+- **shadow-ink** (rgba(0,0,0,.6)): the one deep card shadow's ink; depth comes from tonal layering plus this single shadow.
+- **Perk tones** (perk-gold #ffd08a, perk-mint #7fe0ac, perk-sky #9de6fb): tinted highlights on earned battle-card perk names — tints of the gold/green/cyan signals, never new hues.
+- **Mail medium** (mail-bg #16233e, mail-band #2a3a5c, mail-link #9dc0ff, mail-muted #5d6879): the login-code email renders inside mail clients where app tokens don't reach; it keeps the same midnight family.
 
 ### Named Rules
 **The One Light Rule.** Signal blue is the only element that may demand action on a screen. If two competing blues fight for attention, one of them is wrong.

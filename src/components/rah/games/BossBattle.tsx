@@ -275,7 +275,7 @@ export default function BossBattle({ onChange }: { onChange: () => void }) {
                   dir="ltr"
                   autoComplete="off"
                 />
-                <Btn type="submit" variant="go" disabled={!input.trim()}>
+                <Btn type="submit" variant="primary" disabled={!input.trim()}>
                   Strike
                 </Btn>
               </form>

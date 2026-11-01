@@ -1965,3 +1965,25 @@ Work Log:
 
 Stage Summary:
 - P1 verify-by-eyes pass shipped: detector quiet, MCQ chips on-token, progress chart unit-honest, batteries hygiene-safe. The learner ledger stands at the honest baseline (xp 491, streak 1, 18 reviews, 38 chats).
+
+---
+Task ID: 112
+Agent: Super Z (main)
+Task: P1 polish-iteration pass #2 - the two cited skills (pbakaus/impeccable v4.8.0 in-repo + nextlevelbuilder/ui-ux-pro-max-skill) driven against fresh 3-viewport evidence.
+
+Work Log:
+- Fresh evidence first: e2e-login + ui-capture (14 surfaces x desktop 1440 / tablet 768 / mobile 390), 7 contact sheets reviewed by eyes, plus pixel-sampling (PIL) to separate real drift from downscaled-sheet misreads - the suspected "blue meta chips" on speak/listen/read cards turned out to be already-muted ink (no fix needed, no code churn).
+- One Light Rule enforcement (the sweep's P1): reading pick cards rendered 9 simultaneous blue segment fills (Extensive/Intensive styled as a selected state when both are direct actions) -> both segments now quiet tonal (.seg-quiet, hover raises); sound mode pill, grammar step rail and checkpoint stations demoted from blue fill to the same raised-tonal selected recipe (.seg-on tokens) so the view's ONE primary keeps the blue; arcade start/submit CTAs re-homed from green "go" / gold "warm" to signal-blue primary across 8 game surfaces (SpeedRound, Gauntlet, VoiceArena, Duel, Dungeon, PairsGame, Flow, BossBattle); VoiceArena record button now wears Honest Red per DESIGN.md ("recording = live and needs care"); BlitzDeck verdict buttons keep their semantic colors (Again/Good/Easy = measurement, not decoration).
+- Coach FAB vs mobile rail collision (P0-adjacent): the floating coach button sat at bottom-5 (20px) - INSIDE the ~62px bottom nav - covering the Reading tab on every mobile screen. Now bottom-20 on mobile, md:bottom-5 on desktop.
+- Progress fortnight chart geometry lie (P1): bars were percentage-height divs inside AUTO-height flex columns, so every percentage collapsed to minHeight - "best day 15" rendered as 2-4px dashes. Bars are now direct children of a definite-height row (h-32), weekday labels on their own row. Screenshot: the 15-day bar is full height, matching the caption.
+- Tutor composer clip (P2): 1-row textarea clipped the wrapped placeholder on 390px; min-h-[72px] ends the clip at every width.
+- ui-ux-pro-max pre-delivery checklist item shipped globally: cursor:pointer on every clickable (Tailwind v4 preflight leaves buttons at default) - @layer base rule in globals.css.
+- Capture harness race fixed: the first navigation after e2e-login's cookie injection rendered the logged-out Login screen (desktop AND tablet home captured pre-session; mobile, captured last, was fine). ui-capture.sh now warms the session with one open before the loops. Desktop home now captures the real road.
+- Detector driven twice: after the pass, `impeccable detect src` reported ONE finding (seg-quiet radius 10px off the DESIGN.md rounded scale) -> fixed to 12px (control token) -> detector now 0 findings. The 10 Task-111-era color advisories were retired by DOCUMENTING the intentional additions in DESIGN.md (browser scrollbar surfaces, card shadow ink, battle-card perk tints, mail-medium palette) - documented intent, not drift.
+- Boot-regression runner repaired at the class level: run-boot-regression-prod.sh still minted its throwaway session in SQLite (db/custom.db, dead since the PG cutover) -> "no such table: User" on every run. Re-homed onto live PostgreSQL (mint -> drive -> delete, same contract), and honored the Task 107 RAH_SESSION contract (RAW token; the check adds the cookie name itself - my first mint double-prefixed and 401'd).
+- Batteries: boot-regression ALL PASS x2 on the shipped build (GET /api/state learner=present, coach-agent 200 with x-rah-probe dry-run). Evidence hygiene verified in the ledger: zero ChatMsg/DailyStat rows at battery timestamps; the +8xp / streak 2 / day-20758 delta traces to a REAL holder turn ("yo", 07:51 UTC, through the live UI) and was left untouched - probes never count, learner actions always do.
+- Builds: mi4sKq9zwwhcoDO_o1sye and Ujow2fYGkZyM8lNgKG79d (radius token), both gate PASSED, swapped onto :3000; eslint 0 errors; tsc clean.
+- Screenshots: db/evidence/ui/sheets/sheet-p2-{d1,d2,d3,d4,m1,m2,m3}.png (before), sheet-p2-{d1v2,d2v2,m1v2}.png (after), verify-112/desktop-read.png (shipped artifact).
+
+Stage Summary:
+- Second Impeccable iteration shipped: One Light restored on every surface (one blue per view), FAB/rail collision gone, the progress chart now draws what its caption claims, cursor-pointer + capture-warmup class fixes in. Detector 0, boot-regression ALL PASS, learner ledger honest (499 xp / 40 chats incl. one genuine holder turn).

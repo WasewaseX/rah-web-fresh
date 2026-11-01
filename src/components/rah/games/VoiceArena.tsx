@@ -191,7 +191,7 @@ export default function VoiceArena({ onChange }: { onChange: () => void }) {
                 No speech recognition here - you can still train by typing what you said after each line.
               </p>
             )}
-            <Btn variant="go" onClick={startSession} className="mt-6">
+            <Btn variant="primary" onClick={startSession} className="mt-6">
               <Mic className="h-4 w-4" /> Enter the arena
             </Btn>
           </>
@@ -221,7 +221,7 @@ export default function VoiceArena({ onChange }: { onChange: () => void }) {
               ? "Respectable shadowing. The endings are where accuracy dies - exaggerate them."
               : "Slow the playback to 0.8x mentally and over-pronounce the word endings for a few sessions."}
         </p>
-        <Btn variant="go" onClick={startSession} className="mt-6">
+        <Btn variant="primary" onClick={startSession} className="mt-6">
           <Mic className="h-4 w-4" /> Five fresh reps
         </Btn>
       </Card>
@@ -260,7 +260,7 @@ export default function VoiceArena({ onChange }: { onChange: () => void }) {
                 </Btn>
               </div>
             ) : (
-              <Btn variant="go" onClick={record} disabled={busy}>
+              <Btn variant="danger" onClick={record} disabled={busy}>
                 <Mic className="h-4 w-4" /> {transcript ? "Re-record" : "Say it back"}
               </Btn>
             )}
@@ -301,7 +301,7 @@ export default function VoiceArena({ onChange }: { onChange: () => void }) {
 
             {last.sound && <SoundPanel sound={last.sound} />}
             <div className="mt-5 text-center">
-              <Btn variant="go" onClick={next}>
+              <Btn variant="primary" onClick={next}>
                 <Play className="h-4 w-4" /> {rep + 1 >= Math.min(REPS, drills.length) ? "Finish session" : "Next rep"}
               </Btn>
             </div>

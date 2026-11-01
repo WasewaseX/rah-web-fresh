@@ -38,7 +38,6 @@ export default function SoundView({ onDone }: { onDone: () => void }) {
 
   useEffect(() => {
     start("pairs");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const say = async (text: string) => {
@@ -71,7 +70,7 @@ export default function SoundView({ onDone }: { onDone: () => void }) {
           key={m}
           onClick={() => start(m as Mode)}
           className="text-[13px] font-bold rounded-full px-4 py-2 transition-colors"
-          style={mode === m ? { background: "var(--accent)", color: "#fff" } : { background: "var(--rah-field)", color: "var(--muted)", border: "1px solid var(--line)" }}
+          style={mode === m ? { background: "var(--rah-callout-hover)", color: "var(--ink)", border: "1px solid rgba(255, 255, 255, 0.18)" } : { background: "var(--rah-field)", color: "var(--muted)", border: "1px solid var(--line)" }}
         >
           {label}
         </button>

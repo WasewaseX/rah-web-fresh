@@ -150,7 +150,7 @@ export default function Duel({ onChange }: { onChange: () => void }) {
             <div className="text-sm text-[#a9b4c6]">
               Same eight items, same clock. The rival&apos;s score for this run is already sealed ({data.rivalScore} points of par). You need more than {data.parHits} hits.
             </div>
-            <Btn variant="go" onClick={start}>
+            <Btn variant="primary" onClick={start}>
               <Play className="h-4 w-4" /> Draw
             </Btn>
           </div>

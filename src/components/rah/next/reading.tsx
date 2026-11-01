@@ -50,17 +50,18 @@ export default function ReadingView({ boot, onDone }: { boot: Boot; onDone: () =
               </div>
               <div className="font-bold text-[15.5px] mb-1">{x.title}</div>
               <div className="text-[13px] mb-4" style={{ color: "var(--muted)" }}>{x.glossary.length} glossed words · {x.questions.length} checks</div>
-              <div className="mt-auto flex rounded-xl border overflow-hidden" style={{ borderColor: "var(--line)" }}>
+              {/* Task 112 (One Light Rule): these two are direct actions, not a
+                 selected state - nine simultaneous blue fills fought the view's
+                 one primary CTA. Both segments go quiet; hover raises. */}
+              <div className="mt-auto flex gap-2">
                 <button
-                  className="flex-1 text-[12.5px] font-bold px-3 py-2 transition-colors"
-                  style={{ background: "var(--accent)", color: "#fff" }}
+                  className="seg-quiet"
                   onClick={() => { setRid(x.id); setMode("extensive"); setReading(0); setGloss({}); setAnswers({}); setChecked(false); }}
                 >
                   Extensive
                 </button>
                 <button
-                  className="flex-1 text-[12.5px] font-bold px-3 py-2 transition-colors"
-                  style={{ background: "var(--rah-field)", color: "var(--muted)" }}
+                  className="seg-quiet"
                   onClick={() => { setRid(x.id); setMode("intensive"); setParaIdx(0); setRecon(""); setShowOriginal(false); }}
                 >
                   Intensive

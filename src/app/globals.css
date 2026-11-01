@@ -123,6 +123,12 @@
   a {
     text-underline-offset: 3px;
   }
+  /* Task 112 (ui-ux-pro-max pre-delivery checklist): Tailwind v4 preflight
+     leaves buttons at cursor:default - every clickable must point. */
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
   html {
     color-scheme: dark;
   }
@@ -360,6 +366,32 @@
 .rah-next .display {
   letter-spacing: -0.02em;
   font-weight: 900;
+}
+
+/* Task 112 (One Light Rule): mode/step selectors are position markers, not
+   actions - the raised tonal state carries selection without spending the
+   screen's one blue on it. The blue stays on the view's primary action. */
+.rah-next .seg-quiet {
+  flex: 1;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--rah-field);
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.rah-next .seg-quiet:hover {
+  background: var(--rah-callout-hover);
+  color: var(--ink);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+.rah-next .seg-on {
+  background: var(--rah-callout-hover);
+  color: var(--ink);
+  border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
 /* ============================================================

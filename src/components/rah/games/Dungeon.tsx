@@ -150,7 +150,7 @@ export default function Dungeon({ onChange }: { onChange: () => void }) {
             )}
           </div>
         ) : (
-          <Btn variant="go" onClick={load}>
+          <Btn variant="primary" onClick={load}>
             <Play className="h-4 w-4" /> Re-enter
           </Btn>
         )}

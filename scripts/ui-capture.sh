@@ -9,6 +9,14 @@ mkdir -p "$DIR"
 
 SURFACES=(home review write speak listen read tutor grammar sound placement arcade progress checkpoint settings)
 
+# Task 112: the first navigation after e2e-login's cookie injection raced the
+# session bootstrap - desktop/tablet home captured the logged-out Login screen
+# while later loops (by then session-warm) rendered the real road. One warmup
+# open before the loops settles the session for every capture.
+agent-browser open "$BASE/#home" >/dev/null 2>&1 || true
+agent-browser wait --load networkidle >/dev/null 2>&1 || true
+sleep 1.5
+
 capture_viewport() {
   local W=$1 H=$2 NAME=$3
   mkdir -p "$DIR/$NAME"

@@ -63,7 +63,7 @@ export default function GrammarView({ onDone }: { onDone: () => void }) {
               key={s}
               onClick={() => setStep(i)}
               className="text-[12.5px] font-bold rounded-full px-3.5 py-1.5 transition-colors"
-              style={step === i ? { background: "var(--accent)", color: "#fff" } : { background: "var(--rah-field)", color: "var(--muted)", border: "1px solid var(--line)" }}
+              style={step === i ? { background: "var(--rah-callout-hover)", color: "var(--ink)", border: "1px solid rgba(255, 255, 255, 0.18)" } : { background: "var(--rah-field)", color: "var(--muted)", border: "1px solid var(--line)" }}
             >
               {i + 1}. {s}
             </button>

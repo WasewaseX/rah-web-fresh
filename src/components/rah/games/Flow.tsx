@@ -132,7 +132,7 @@ export default function Flow({ onChange }: { onChange: () => void }) {
         {phase === "idle" && (
           <div className="flex flex-col gap-3">
             <div className="text-sm text-[#a9b4c6]">The queue aims at your active leak tags. Skip nothing, rush nothing: 80%+ accuracy pays a +30 bonus and extends your momentum chain.</div>
-            <Btn variant="go" onClick={start}>
+            <Btn variant="primary" onClick={start}>
               <Play className="h-4 w-4" /> Begin flow
             </Btn>
           </div>

@@ -313,7 +313,7 @@ export default function CoachSidebar({
         <button
           onClick={() => onOpenChange(true)}
           aria-label="Open coach sidebar"
-          className="fixed bottom-5 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[var(--rah-primary)] to-[#2f62c4] text-white shadow-[0_12px_32px_-8px_rgba(78,140,255,.7)] transition-transform hover:scale-105 active:scale-95"
+          className="fixed right-4 bottom-20 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[var(--rah-primary)] to-[#2f62c4] text-white shadow-[0_12px_32px_-8px_rgba(78,140,255,.7)] transition-transform hover:scale-105 active:scale-95 md:bottom-5"
         >
           <GraduationCap className="h-6 w-6" />
           {state && state.due > 0 && (

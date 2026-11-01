@@ -114,7 +114,7 @@ export default function Gauntlet({ onChange }: { onChange: () => void }) {
             </Btn>
           </div>
         ) : state.done || !next ? (
-          <Btn variant="go" onClick={load}>
+          <Btn variant="primary" onClick={load}>
             <Play className="h-4 w-4" /> Enter the gauntlet
           </Btn>
         ) : (

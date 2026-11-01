@@ -166,7 +166,9 @@ export default function SpeedRound({ onChange }: { onChange: () => void }) {
               <Chip tone="amber">best {best}</Chip>
               <Chip tone="violet">best combo {bestCombo}x</Chip>
             </div>
-            <Btn variant="warm" onClick={start} className="mt-6">
+            {/* Task 112 (One Light Rule): the action color is signal blue; gold
+               stays reserved for earned memory signals. */}
+            <Btn variant="primary" onClick={start} className="mt-6">
               <Play className="h-4 w-4" /> Start the blitz
             </Btn>
           </>
@@ -196,7 +198,7 @@ export default function SpeedRound({ onChange }: { onChange: () => void }) {
               ? "Fast and accurate. Push the combo earlier next run."
               : "Speed without the combo is just noise. Accuracy first, the flame follows."}
         </p>
-        <Btn variant="warm" onClick={start} className="mt-6">
+        <Btn variant="primary" onClick={start} className="mt-6">
           <Play className="h-4 w-4" /> Run it again
         </Btn>
       </Card>
@@ -272,7 +274,7 @@ export default function SpeedRound({ onChange }: { onChange: () => void }) {
                   dir="ltr"
                   autoComplete="off"
                 />
-                <Btn type="submit" variant="go" disabled={!input.trim()}>
+                <Btn type="submit" variant="primary" disabled={!input.trim()}>
                   Fire
                 </Btn>
               </form>

@@ -148,7 +148,7 @@ export default function PairsGame({ onExit }: { onExit: () => void }) {
           <Chip tone="amber">+{xpGain ?? 0} XP sprint bonus</Chip>
         </div>
         <div className="mt-7 flex justify-center">
-          <Btn variant="go" onClick={onExit}>
+          <Btn variant="primary" onClick={onExit}>
             <Undo2 className="h-4 w-4" /> Back to review
           </Btn>
         </div>

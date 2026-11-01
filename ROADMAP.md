@@ -1,6 +1,6 @@
 # Rah — Roadmap
 
-*Living document. Updated at the end of every task group. Current as of Task 110 (2026-11-01).*
+*Living document. Updated at the end of every task group. Current as of Task 112 (2026-11-01).*
 
 ## Where the project stands
 
@@ -10,9 +10,9 @@ The recovered feature layer (Tasks 104–106) is live on all 12 surfaces + tutor
 
 ## Phase P1 — GUI excellence (Groups A–E SHIPPED; polish-iteration pass ACTIVE, Tasks 109–110+)
 
-**Status:** all five groups shipped 2026-10-31 (commits fc8a0f3 → 2861a71, CI #23/#24 green, 19-surface sweeps ALL-PASS, 3-viewport screenshots under `db/evidence/ui/{after-a,after-bc,after-d,desktop,tablet,mobile}`). Task 110 reconciled the ledger after the recycle (data restore + hourly vault protection) and restored this document. What remains of P1: verify-by-eyes iteration — fresh screenshots, the skill's own audit/critique detectors, fix what they and the eye catch, per-group gates as below.
+**Status:** all five groups shipped 2026-10-31 (commits fc8a0f3 → 2861a71, CI #23/#24 green, 19-surface sweeps ALL-PASS, 3-viewport screenshots under `db/evidence/ui/{after-a,after-bc,after-d,desktop,tablet,mobile}`). Task 110 reconciled the ledger after the recycle (data restore + hourly vault protection) and restored this document. Task 111 ran the first verify-by-eyes iteration (detector-driven token re-homing, progress unit-honesty, battery probe hygiene). Task 112 ran the second (2026-11-01), now also driven by the holder-cited ui-ux-pro-max-skill checklist: One Light Rule enforced everywhere (9 reading segment fills + sound/grammar/checkpoint selected states demoted to raised-tonal, 8 arcade CTAs re-homed to signal blue, VoiceArena record in Honest Red), coach FAB lifted clear of the mobile rail, fortnight chart bars fixed (percentage-vs-auto-height collapse), tutor composer unclipped, global cursor:pointer, capture-harness session warmup, boot-regression runner re-homed onto PostgreSQL, detector 0 findings. What remains of P1: keep iterating — fresh sweeps, both skills' detectors, fix what they and the eye catch.
 
-Method: the **Impeccable** skill (pbakaus/impeccable, installed at `.github/skills/impeccable/`, v4.8.0) — PRODUCT.md + DESIGN.md captured; every group follows the skill's playbooks (typeset → layout → animate → harden/adapt per surface group), with the craft-floor rules read before every edit and the 62-rule slop detector as the ban list (no purple gradients, no pills-for-decoration, no generic AI aesthetics, no fake metrics).
+Method: the **Impeccable** skill (pbakaus/impeccable, installed at `.github/skills/impeccable/`, v4.8.0) — PRODUCT.md + DESIGN.md captured; every group follows the skill's playbooks (typeset → layout → animate → harden/adapt per surface group), with the craft-floor rules read before every edit and the 62-rule slop detector as the ban list (no purple gradients, no pills-for-decoration, no generic AI aesthetics, no fake metrics). Since Task 112 the **ui-ux-pro-max-skill** (nextlevelbuilder) pre-delivery checklist rides along as the second gate: cursor-pointer on clickables, reflow without clipping, focus states, reduced motion, 375/768/1024/1440 responsive proof.
 
 Verification per group: production build + 19-surface browser sweep + boot-regression + real screenshots at **desktop 1440 / tablet 768 / mobile 390** compared before/after. Backend contracts are frozen: no route payload changes in P1.
 

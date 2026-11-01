@@ -117,16 +117,26 @@ export default function ProgressView({ boot }: { boot: Boot }) {
       <div className="grid md:grid-cols-2 gap-4 mb-5">
         <div className="card-rah p-6">
           <div className="font-bold text-[14.5px] mb-4">Retrievals, last 14 days</div>
-          <div className="flex items-end gap-1.5 h-36">
+          {/* Task 112: the bars used to be percentage-height divs inside
+             auto-height flex columns, so every percentage resolved against an
+             indefinite box and collapsed to its minHeight - a best-day-15
+             fortnight rendered as 2px dashes. Bars are now direct children of
+             a definite-height row; the weekday labels moved to their own row. */}
+          <div className="flex items-end gap-1.5 h-32">
             {d.byDay.map((x) => (
-              <div key={x.day} className="flex-1 flex flex-col items-center gap-1.5">
-                <div
-                  className="w-full rounded-t-md transition-all"
-                  style={{ height: `${(x.count / maxDay) * 100}%`, minHeight: x.count ? 4 : 2, background: x.count ? "var(--accent)" : "var(--rah-dot)" }}
-                  title={`${x.count} retrievals`}
-                />
-                <span className="text-[9.5px]" style={{ color: "var(--muted)" }}>{x.day % 7 === 0 ? new Date(x.day * 86400000).toLocaleDateString("en", { weekday: "short" }).slice(0, 2) : ""}</span>
-              </div>
+              <div
+                key={x.day}
+                className="flex-1 rounded-t-md transition-all"
+                style={{ height: `${(x.count / maxDay) * 100}%`, minHeight: x.count ? 4 : 2, background: x.count ? "var(--accent)" : "var(--rah-dot)" }}
+                title={`${x.count} retrievals`}
+              />
+            ))}
+          </div>
+          <div className="mt-1.5 flex gap-1.5">
+            {d.byDay.map((x) => (
+              <span key={x.day} className="flex-1 text-center text-[9.5px]" style={{ color: "var(--muted)" }}>
+                {x.day % 7 === 0 ? new Date(x.day * 86400000).toLocaleDateString("en", { weekday: "short" }).slice(0, 2) : ""}
+              </span>
             ))}
           </div>
           {reviews14 === 0 ? (

@@ -1,69 +1,54 @@
 # Rah — Roadmap
 
-Single-learner English-learning app (B2 → C1) for a Farsi-speaking learner.
-Next.js standalone production build · Prisma · PostgreSQL 16.2 (pgserver wheel, TCP 5433) · Bun.
-Public repo: `WasewaseX/rah-web-fresh` · Private data vault: `WasewaseX/vault` (never receives public-repo code, never ships learner data to the public repo).
-
-Last updated: 2026-11-01 (Task 110).
-
----
+*Living document. Updated at the end of every task group. Current as of Task 110 (2026-11-01).*
 
 ## Where the project stands
 
-Shipped and verified (CI green, 19-surface sweep ALL-PASS on production):
+The recovered feature layer (Tasks 104–106) is live on all 12 surfaces + tutor's 5 tabs; the learner-reported Progress crash is fixed and verified at tree/wire/runtime; the Writing core loop's 3 broken legs are repaired (Task 108); every strand's write path is verified end-to-end with evidence hygiene held. Green CI is not trusted without a live claim-vs-tree audit — that gate stays permanent.
 
-- **Core loop**: FSRS-5 review (218-card deck), placement, four strands (writing / speaking / listening / reading), tutor chat with 7-day plan + diagnosis + clinic + exam tabs, grammar, sound & rhythm, arcade, checkpoints, progress (full additive contract), AI settings.
-- **Task 107**: persisted e2e batteries — `scripts/e2e-surface-sweep.sh` (19 surfaces), `scripts/e2e-login.sh`, boot-regression harness (cookie bug fixed).
-- **Task 108**: Writing core loop repaired (3 broken legs: graded feedback render, history, revision-chain save); track write paths for checkpoint/listening/speaking/grammar verified live on prod.
-- **Task 109**: holder lockout repair — owner-email allowlist (`RAH_OWNER_EMAILS`) bypasses the deployment lock; deterministic owner access code (`RAH_ACCESS_CODE`, timing-safe, IP-throttled); owner emails unify onto ONE canonical identity (no data split); login screen gained the access-code path + embedded-frame hint.
-- **Task 110**: recycle recovery — platform restore rolled the DB back ~6 days; surgical restore of the documented Oct-31 state (xp 491 / streak 1 / 18 reviews); hourly PG dump + vault push (loss window now ≤ 1 h); e2e-login browser warmup fix.
+**The verdict that set the current phase:** *the next phase is about making the complete learning experience dependable and improving its teaching quality — not rebuilding infrastructure.*
 
-Learner evidence baseline (honest, no synthetic history): xp 491 · streak 1 · 18 lifetime reviews · 38 tutor msgs · writing 0 · speaking 0 · listening 0.
+## Phase P1 — GUI excellence (Groups A–E SHIPPED; polish-iteration pass ACTIVE, Tasks 109–110+)
 
----
+**Status:** all five groups shipped 2026-10-31 (commits fc8a0f3 → 2861a71, CI #23/#24 green, 19-surface sweeps ALL-PASS, 3-viewport screenshots under `db/evidence/ui/{after-a,after-bc,after-d,desktop,tablet,mobile}`). Task 110 reconciled the ledger after the recycle (data restore + hourly vault protection) and restored this document. What remains of P1: verify-by-eyes iteration — fresh screenshots, the skill's own audit/critique detectors, fix what they and the eye catch, per-group gates as below.
 
-## Active mandate: the Impeccable GUI overhaul
+Method: the **Impeccable** skill (pbakaus/impeccable, installed at `.github/skills/impeccable/`, v4.8.0) — PRODUCT.md + DESIGN.md captured; every group follows the skill's playbooks (typeset → layout → animate → harden/adapt per surface group), with the craft-floor rules read before every edit and the 62-rule slop detector as the ban list (no purple gradients, no pills-for-decoration, no generic AI aesthetics, no fake metrics).
 
-Install and apply the **Impeccable** design vocabulary (https://github.com/pbakaus/impeccable) to rah-web-fresh. Audit the ENTIRE app, then redesign and polish every learning surface to exceptional professional product quality.
+Verification per group: production build + 19-surface browser sweep + boot-regression + real screenshots at **desktop 1440 / tablet 768 / mobile 390** compared before/after. Backend contracts are frozen: no route payload changes in P1.
 
-Phases (each ends with: `tsc --noEmit` + eslint + `scripts/build-prod.sh` + prod swap + 19-surface sweep + boot-regression + CI green):
+| Group | Surfaces | Focus |
+|---|---|---|
+| A | Shell/nav + Home/Today + shared bits | typography ladder, hierarchy, spacing rhythm, nav clarity, ambient light coherence |
+| B | Review + Writing + Speaking | the core produce-check-repair loops; state feedback; focus flow; recording UX |
+| C | Listening + Reading + Grammar + Sound | study rhythm, media layouts, lesson progress honesty |
+| D | Progress + Placement + Checkpoint + Tutor + Arcade + Settings | data storytelling (honest charts), forms, tutor payload cards, settings calm |
+| E | Cross-cutting | empty/loading/error states, interaction feedback, a11y (focus rings, RTL Farsi, reduced-motion), 3-viewport adaptation pass |
 
-1. **Install + init** — `npx impeccable install`; `.impeccable/PRODUCT.md` (constraints below); `.impeccable/DESIGN.md` documenting the existing token layer (`var(--rah-*)`, `var(--muted)`, `var(--line)`…). No new runtime dependencies.
-2. **Audit** — baseline browser screenshots of every surface at desktop (1440), tablet (834), mobile (390); `critique`/`audit` findings; list concrete defects per surface (hierarchy, spacing, type scale, empty/loading/error states, feedback, a11y).
-3. **Design-system consolidation** — one coherent token set: type scale, spacing rhythm, radii, elevation, color roles (dark UI), motion tokens. Extend the existing CSS-variable layer; no UI library, no Tailwind plugin additions.
-4. **Per-surface redesign sprints** — order: shell+nav → Today/home → Review → Writing → Tutor → Reading/Listening/Speaking → Grammar/Sound → Placement/Checkpoint → Progress/Arcade/Settings. Screenshot-iterate until visibly excellent. Preserve ALL backend contracts; no purple gradients, no pill spam, no fake metrics, no generic AI aesthetics.
-5. **Responsive + a11y + states pass** — mobile-first layouts for every surface; keyboard/focus/ARIA review; empty, loading, error and offline states everywhere; interaction feedback (hover/active/pressed, optimistic where safe).
-6. **Hardening** — `polish`/`harden`/`adapt` review, final sweep at all three viewports, learner-evidence unchanged, ship.
+Each group lands as its own commit + CI green + before/after screenshots under `db/evidence/ui/`.
 
-Rules that bound all of the above: **$0 budget** (no paid APIs, no domains), **4 GB box** (no big models, no bundle bloat), single-learner singleton, evidence hygiene (probes reverted, no synthetic history), claims-vs-diff audit gate (every "done" claim verified against the live tree/server).
+## Phase P2 — Teaching quality (next after P1)
 
----
+1. Farsi-specific explanations deepened in review feedback (contrastive grammar: articles, countability, prepositions for Persian speakers).
+2. Writing examiner: register-goal conditioning surfaced in the UI (the goal dial is wired; the learner never sees it).
+3. Collocation training in the FSRS loop (the deck has collocations; the review directions don't target them yet).
+4. Calibrated IELTS-style feedback on the exam tab (band descriptors the learner can act on).
+5. Checkpoint scores feeding the daily plan visibly (measurement → plan bend, made visible).
 
-## Feature queue (post-blockers, in order)
+## Phase P3 — Feature queue (post-P2, holder-approved items)
 
-1. Voice shadowing (speaking strand depth)
-2. Structured listening library
-3. Cross-device writing drafts
-4. Farsi-specific explanations tuned by diagnosis data
-5. Collocation training on the FSRS rail
-6. Calibrated IELTS-style feedback with band rubrics
-7. PDF / EPUB / web-page import into readings
-8. Versioned curriculum (content packs with migration safety)
+Voice shadowing → structured listening library → cross-device writing drafts → PDF/EPUB/web import → versioned curriculum. Deliberately NOT planned: local Whisper, phoneme scoring, new inference server, Redis, paid APIs, domain purchase.
 
-Deliberately NOT on the list: local Whisper, phoneme scoring, a second inference server, Redis, any paid API.
+## Holder-blocked (parked, awaiting the holder)
 
----
+- **A-6 production login mail** — needs the holder's domain decision ($0 rule means no purchase without consent).
+- **Old GitHub PAT revoke** (ends `…Gf23`) — consent gate; new PAT (`…VVVS`) active and recorded in the vault.
+- **Real-device test pass** — iPhone checklist ready (DEVICE-TEST-CHECKLIST.md, offline tests A–F); emulation is not a substitute.
+- **Multi-week learner evidence** — time-gated; the evidence timeline log accumulates honestly.
 
-## Holder-blocked items (do not act without the holder)
+## Permanent engineering rules
 
-- **A-6 login decision** — no domain purchase; preview-URL access stays.
-- Old PAT revoke (ends `…Gf23`) — ends sessions authenticated by it.
-- Real-phone testing of mobile layouts and audio capture.
-
-## Infrastructure doctrine (do not regress)
-
-- Builds: foreground `scripts/build-prod.sh` (hard-guards BUILD_ID, artifact-secret gate) → `scripts/dev-or-prod.sh` swap; background `nohup` builds die with the shell.
-- After every sandbox recycle: `bash scripts/ensure-watchdog.sh`, then rebuild + swap (the platform supervisor respawns dev-mode on :3000 until a standalone build exists).
-- `.env` wins over platform env (Task 98); env restored from `upload/rah-backups/env-rah-latest` on recycle (Task 100).
-- Data survival: hourly PG dump + vault push (Task 110), daily snapshot + integrity repair; the public repo NEVER receives learner data (REG-2).
-- Auth: registration locked; owner aliases resolve to one canonical identity; devCode stays dev-only; access code lives only in `.env`.
+1. $0 budget — no paid APIs, no domain purchase.
+2. 4 GB deployment — no large models, no bundle bloat, no unnecessary dependencies.
+3. Evidence hygiene — probes never count as learning; cleanup verified after every battery.
+4. Claims-vs-diff audit — every "done" claim verified against the tree/API/runtime before it is trusted.
+5. Contracts frozen unless a task explicitly repairs them (Tasks 106–108 doctrine: both sides of a contract change ship together, additively where possible).

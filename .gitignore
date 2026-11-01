@@ -145,3 +145,8 @@ scripts/out/
 prisma/migrations.sqlite.bak.20261025-095733/
 prisma/schema.prisma.bak.*
 .env.bak.*
+
+# Impeccable design-system artifacts (skill itself is reinstallable via npx; engine binary stays out)
+!PRODUCT.md
+!DESIGN.md
+!.impeccable/

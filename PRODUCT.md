@@ -23,7 +23,7 @@ Honest-evidence tutoring that no engagement-optimized competitor could copy with
 ## Operating Context
 
 - Deployment: Next.js standalone production build on a 4 GB-RAM sandbox; PostgreSQL 16 via local pgserver (TCP 5433); Bun/node toolchain. Supervisor scripts revive services after workspace recycles.
-- Budget: strictly $0 — no paid APIs, no domain purchase. Mail delivery is sandbox-limited (one real recipient; login codes for production are A-6-blocked pending the holder's domain decision).
+- Budget: strictly $0 — no paid APIs, no domain purchase. Mail delivery is sandbox-limited: Resend's sandbox delivers ONLY to the account owner's address (geministudent@atomicmail.io, verified live Task 109); a deterministic owner access code (RAH_ACCESS_CODE) covers the holder when mail fails (Task 109).
 - Learner identity: exactly one row (`Learner.id = "me"`, createdAt 2026-10-20). Registration locked.
 - Evidence hygiene: automated test/probe activity must never count as learning progress; probe rows are deleted and ledger deltas reverted after every battery.
 - The learner reads English UI copy with Farsi support text (`.fa-text`, RTL) for explanations and error reasons.
@@ -44,7 +44,7 @@ Honest-evidence tutoring that no engagement-optimized competitor could copy with
 
 ## Evidence on Hand
 
-- Real learner rows (2026-10-31): streak 1 (honest 5-day-idle rollover; best 6), 18 lifetime retrievals, 40 tutor messages, 0 writing/speaking/listening submissions — the empty strands are real absences the UI must represent honestly.
+- Real learner rows (2026-11-01, post-recycle restore): streak 1, xp 491, 18 lifetime retrievals, 38 tutor messages, 0 writing/speaking/listening submissions — the empty strands are real absences the UI must represent honestly.
 - Visual evidence: 19-surface browser sweep logs (db/evidence/surface-sweep-latest.log); screenshots to be regenerated per design group under db/evidence/ui/.
 - Prior audit gates: every API payload the UI consumes is verified in tree and on the wire (Tasks 106–108).
 

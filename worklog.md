@@ -1929,3 +1929,21 @@ Verification (all live on :3000 production):
 
 Stage Summary:
 - The lock now only ever stops strangers. The holder can always log in: emailed code at geministudent@atomicmail.io (deliverable) OR the access code from chat (works for both owner aliases, mail outage or not). Sign-ups stay locked for everyone else (single-learner singleton; RAH_OPEN_REGISTRATION=1 remains the documented multi-user escape hatch, off by default).
+
+---
+Task ID: 110
+Agent: Super Z (main)
+Task: Sandbox revival after recycle + full data-loss recovery + ROADMAP committed.
+
+Work Log:
+- Recycle signature: platform supervisor respawned next dev on :3000, .next/BUILD_ID + standalone wiped, and the PG cluster came back from a platform snapshot ~6 DAYS stale (xp 483/streak 6/lastActive 20751 vs the verified Oct-31 baseline xp 491/streak 1/20757; User.email reverted to filixah964; Sessions=0).
+- Quantified the rollback: content tables intact (18 reviews, 38 chats, 0 writing/speaking/listening) - stale rows were exactly Learner counters, the missing DailyStat day-20757 row, and User identity.
+- Searched recovery sources: vault history stops at Oct-24 SQLite snapshots (legacy schema, no xp column); the only PG dump in the vault is TODAY's (rolled-back) - the Oct-31 dump was overwritten locally before shipping and the daily cadence never pushed a newer one. Oct-31 delta declared unrecoverable from dumps; restored from the DOCUMENTED Task-108 baseline instead (no fabrication): Learner xp=491/streak=1/lastActive=20757, DailyStat 20757 (reviews=1, correct=0, xp=8 - consistent with the app's 8xp/review rate and the documented 491 total), User email/name canonicalized to geministudent@atomicmail.io.
+- learner-evidence.sh reading after restore: xp=491 streak=1 reviews=18 tutor_msgs=38 writing=0 speaking=0 listening=0 - matches the honest baseline exactly.
+- Root-cause fix for the loss window: watchdog hourly tick now ALSO runs pg-survival dump + vault-sync (was daily-only; SQLite hourly sync was gated on db/custom.db which is absent in the PG era, so hourly ticks were no-ops). Recycles can now lose at most ~1h of learner data.
+- e2e-login.sh: opens the app before cookie injection (fresh browser had no page -> CDP "Invalid cookie fields").
+- Rebuilt prod (BUILD_ID 7P-BancPdR-iYKjQl59my, gate PASSED), swapped onto :3000; first sweep had 2 cold-server timing failures (#today/#home main=0), live diagnosis showed full render (main=1322) -> warm re-run ALL-PASS.
+- Committed 53653e9 (watchdog + e2e-login) - CI #27; ROADMAP.md added in this task's commit.
+
+Stage Summary:
+- Sandbox fully revived: prod standalone serving, login battery green (access-code + wrong-code + stranger paths), 19-surface sweep ALL-PASS, learner state = documented baseline, hourly vault protection shipped. ROADMAP.md now carries the Impeccable GUI mandate phases, feature queue, holder-blocked items and infra doctrine.

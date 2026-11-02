@@ -5,6 +5,7 @@ import { awardXp, progressQuest } from "@/lib/arcade";
 import { runCoach } from "@/lib/agent/run";
 import { recordMistakes } from "@/lib/mistakes";
 import { contentScope } from "@/lib/scope";
+import { flattenCoach } from "@/lib/coach-agent/history";
 import type { ProfileJson } from "@/lib/ai";
 
 import { aiRateLimit } from "@/lib/rate-limit";
@@ -86,16 +87,5 @@ function safeParse(s: string): unknown {
     return JSON.parse(s);
   } catch {
     return null;
-  }
-}
-
-// Stored coach envelopes are flattened for the model's history: only the
-// spoken English turn matters, not the machinery.
-function flattenCoach(content: string): string {
-  try {
-    const p = JSON.parse(content) as { reply?: string };
-    return p.reply ?? content.slice(0, 900);
-  } catch {
-    return content.slice(0, 900);
   }
 }

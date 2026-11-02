@@ -1,7 +1,15 @@
 // The verifier. Every envelope passes through here before the learner sees
-// it. It kills the failure modes the learner actually hit: Farsi leaking into
-// English lines, AI-sign phrases, refusal text where an exam should be, and
-// count drift between announced and graded items.
+// it. It kills the failure modes the learner actually hit: AI-sign phrases,
+// refusal text where an exam should be, and count drift between announced
+// and graded items.
+//
+// Audit 2026-11-03, P1: this file used to DELETE every sentence containing
+// Persian script from the English reply - silently destroying legitimate
+// mixed-language explanations, quoted learner text and examples. The fix
+// preserves content: Persian sentences found in the reply are MOVED into the
+// fa_note field (the dedicated Farsi channel) instead of deleted, and the
+// English reply stays English. The verifier improves the answer; it never
+// rewrites it into something incomplete.
 
 import type { CoachEnvelope } from "./types";
 
@@ -22,29 +30,45 @@ const BANNED: [RegExp, string][] = [
   [/want me to (?:create|make|generate|prepare|write)[^.]*\.?/gi, ""],
 ];
 
-function sanitizeReply(s: string): string {
+// Returns the English-only reply PLUS any Persian it had to relocate. Nothing
+// the model wrote is ever dropped on the floor.
+export function sanitizeReply(s: string): { reply: string; movedFa: string } {
   let out = s;
   for (const [re, sub] of BANNED) out = out.replace(re, sub);
-  // Farsi inside the English field is a hard failure: split it out.
+  let movedFa = "";
   if (PERSIAN.test(out)) {
-    out = out
-      .split(/(?<=[.!?\u061F])\s+/)
-      .filter((seg) => !PERSIAN.test(seg))
-      .join(" ");
+    const english: string[] = [];
+    const persian: string[] = [];
+    for (const seg of out.split(/(?<=[.!?\u061F])\s+/)) {
+      const t = seg.trim();
+      if (!t) continue;
+      (PERSIAN.test(t) ? persian : english).push(t);
+    }
+    out = english.join(" ");
+    movedFa = persian.join(" ").trim();
   }
-  return out.replace(/\s{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+  out = out.replace(/\s{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+  return { reply: out, movedFa };
 }
 
 export function verifyEnvelope(env: CoachEnvelope): CoachEnvelope {
   const out: CoachEnvelope = { ...env };
 
-  // Reply: English only, no AI-sign leakage, sane length.
-  out.reply = sanitizeReply(String(out.reply ?? ""));
+  // Reply: English, no AI-sign leakage, sane length. Persian sentences move
+  // to the Farsi channel instead of being deleted (audit P1).
+  const { reply, movedFa } = sanitizeReply(String(out.reply ?? ""));
+  out.reply = reply;
+  if (movedFa) {
+    const existing = String(out.fa_note ?? "").trim();
+    out.fa_note = (existing ? `${existing} ${movedFa}` : movedFa).slice(0, 400);
+  }
   if (out.reply.length > 1600) out.reply = out.reply.slice(0, 1570).replace(/\s\S*$/, "") + " ...";
+  if (out.fa_note && out.fa_note.length > 400) out.fa_note = out.fa_note.slice(0, 397) + "...";
 
-  // Farsi tail only when corrections exist (or the skill legitimately explains).
+  // Farsi tail only when corrections exist (or the skill legitimately explains)
+  // - but NEVER strip content the sanitizer just relocated there.
   const explainers = new Set(["correct", "translate", "chat", "explain", "minimal-pairs", "coach-report", "summarize", "daily-challenge", "socratic", "roleplay", "debate"]);
-  if ((out.corrections?.length ?? 0) === 0 && !explainers.has(out.skill)) out.fa_note = "";
+  if (!movedFa && (out.corrections?.length ?? 0) === 0 && !explainers.has(out.skill)) out.fa_note = "";
 
   // Exam consistency: announced count IS graded count, always.
   if (out.exam) out.exam.count = out.exam.items.length;

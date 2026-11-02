@@ -1,12 +1,20 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { runAgent } from "@/lib/skills/agent";
+import { coachAgentPost } from "@/lib/coach-agent/serve";
 import { isLegacyChat, type Envelope } from "@/lib/skills/types";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 120;
+export const maxDuration = 180;
 
-// History: every row normalized to a Envelope so the UI renders one shape.
+// AUDIT 2026-11-03, P0-1 - resolved. This endpoint used to run a SECOND,
+// competing agent implementation (src/lib/skills/agent.ts: regex router +
+// duplicated history + envelopes-in-history). That stack is deleted. POST now
+// executes the ONE canonical loop (coach-agent/serve.ts) - byte-for-byte the
+// same agent /api/coach-agent serves - and announces its deprecated status in
+// a response header. No client in the app calls this URL any more; it exists
+// so external bookmarks and probes keep working against the real agent.
+
+// History: every row normalized so the UI renders one shape.
 export async function GET() {
   const rows = await db.chatMsg.findMany({ orderBy: { id: "asc" }, take: 200 });
   const messages = rows.map((r) => {
@@ -25,45 +33,8 @@ export async function GET() {
   return NextResponse.json({ messages });
 }
 
-// The agent endpoint. Server-sent events stream every step as it happens:
-// the UI shows the work, not a spinner with a secret inside.
 export async function POST(req: Request) {
-  const { message } = await req.json().catch(() => ({ message: "" }));
-  const text = String(message ?? "").trim();
-  if (!text) return NextResponse.json({ error: "message required" }, { status: 400 });
-
-  const encoder = new TextEncoder();
-  const stream = new ReadableStream<Uint8Array>({
-    async start(controller) {
-      const emit = (e: unknown) => {
-        try {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(e)}\n\n`));
-        } catch {
-          // client vanished mid-run; the agent keeps its own persistence
-        }
-      };
-      try {
-        await runAgent(text, emit as never);
-      } catch (e) {
-        emit({ type: "error", message: `The coach hit a snag: ${(e as Error).message}` });
-      } finally {
-        try {
-          controller.close();
-        } catch {
-          // already closed
-        }
-      }
-    },
-  });
-
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream; charset=utf-8",
-      "Cache-Control": "no-cache, no-transform",
-      Connection: "keep-alive",
-      "X-Accel-Buffering": "no",
-    },
-  });
+  return coachAgentPost(req, { deprecated: true });
 }
 
 export async function DELETE() {

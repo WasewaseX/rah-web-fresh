@@ -15,10 +15,13 @@ import type { ProfileJson } from "@/lib/ai";
 export const MAX_STEPS = 6;
 
 export interface AgentCommand {
-  type: "navigate" | "refresh" | "toast" | "open_placement" | "start_review";
+  type: "navigate" | "refresh" | "toast" | "open_placement" | "start_review" | "set_theme";
   view?: string;
   title?: string;
   desc?: string;
+  // set_theme only: the validated token JSON is copied from the tool's own
+  // result by the loop - the model never authors these values.
+  tokens?: string;
 }
 
 export interface AgentEvent {
@@ -80,11 +83,13 @@ RULES:
 6. reply is spoken to the learner: warm, direct, no meta-talk about tools or JSON. Mention artifacts you created by name ("I wrote week-1-plan.md").
 7. The learner's app language is English; they are learning English at their measured level. Stay on mission: measurable progress to C1.
 8. Never invent tool results. Never fake file contents. If you did not run it, you do not know it.
-9. STUDY MODE - how you teach, every explanation (screen-related or not):
-   (1) DIAGNOSE first: quote what the learner typed/picked (current_screen, or their own words) and name the misunderstanding behind it ("You picked X - you are treating the team as many individuals").
-   (2) STEPWISE: 2-4 short numbered steps, one idea each, no walls of text.
-   (3) CHECK: end with ONE question that PROVES understanding (never "does that make sense?" - e.g. "So which verb: 'The committee ___ meet on Fridays'?").
-   Guide toward understanding instead of merely producing an answer. This never waives rule 1: state questions still require read_state FIRST, even if history already holds a similar answer - state changes between asks.`;
+9. RESPONSE POLICY - read the room, then pick the behaviour that fits THIS message:
+   - Direct question ("what does X mean", "why is my answer wrong", "just give me the answer"): answer it completely and plainly FIRST, with an example. A short check question may follow, but it NEVER replaces the answer. Never answer a question with only a question.
+   - Teaching a pattern or reviewing their production (STUDY MODE): (1) DIAGNOSE first: quote what the learner typed/picked and name the misunderstanding behind it. (2) STEPWISE: 2-4 short numbered steps, one idea each. (3) CHECK: end with ONE question that PROVES understanding (never "does that make sense?").
+   - Frustration, "you already said that", "that's not what I asked": acknowledge it in one line, change the approach, move on. Never repeat the same explanation twice.
+   - "Keep it short": one to two lines. Default replies stay compact (2-5 sentences), but completeness beats brevity when the learner asked for detail or a full correction.
+   - Greeting or small talk: one warm line, then at most a light nudge back to practice.
+   This policy never waives rule 1: state questions still require read_state FIRST, even if history already holds a similar answer - state changes between asks.`;
 }
 
 interface TurnDecision {
@@ -290,6 +295,14 @@ export async function runAgent(
   const UNREACHABLE = "The model is unreachable right now (quota or network). Your message stands; try again in a moment.";
   let nudges = 0; // thought-only / junk turns: feed the model back on track instead of dead-ending
   let stateEnforced = 0; // read_state enforcement: one deterministic retry per run
+  // Audit P1: app actions the CLIENT must perform are merged in by the LOOP
+  // from verified tool results - the model triggers them, it cannot fake them.
+  let themeCommand: AgentCommand | null = null;
+  const withTheme = (cmds: AgentCommand[]): AgentCommand[] => {
+    const out = themeCommand ? [...cmds, themeCommand] : cmds;
+    themeCommand = null;
+    return out;
+  };
 
   for (let step = 0; step < MAX_STEPS; step++) {
     // Review feature #15 (the 7.4/10 wave): the learner can STOP a long run.
@@ -343,11 +356,12 @@ export async function runAgent(
         continue;
       }
       const reply = sanitizeReply(String(turn.reply ?? ""), "I ran out of useful moves; rephrase and I will take another run at it.");
-      push({ type: "final", reply, commands: turn.commands ?? [] });
+      const commands = withTheme(Array.isArray(turn.commands) ? turn.commands : []);
+      push({ type: "final", reply, commands });
       return {
         reply,
         corrections: Array.isArray(turn.corrections) ? turn.corrections : [],
-        commands: Array.isArray(turn.commands) ? turn.commands : [],
+        commands,
         steps,
         toolsUsed,
       };
@@ -389,6 +403,14 @@ export async function runAgent(
     steps[steps.length - 1] = { label: def.name, detail: result.summary, ok: result.ok };
     push({ type: "observe", label: result.summary, detail: result.detail?.slice(0, 300), ok: result.ok });
 
+    // A successful set_theme is converted into a client command HERE, from the
+    // tool's own validated data - the repaint is guaranteed to match what was
+    // persisted, and a failed tool never produces a command.
+    if (def.name === "set_theme" && result.ok && result.data && typeof result.data === "object") {
+      const tokens = (result.data as { tokens?: unknown }).tokens;
+      if (tokens) themeCommand = { type: "set_theme", tokens: JSON.stringify(tokens) };
+    }
+
     messages.push({ role: "assistant", content: raw });
     messages.push({
       role: "user",
@@ -417,6 +439,7 @@ export async function runAgent(
     String(turn.reply ?? "") || (turn.thought ?? ""),
     "I ran my step budget before finishing; ask me to continue and I will pick up where I left off.",
   );
-  push({ type: "final", reply, commands: turn.commands ?? [] });
-  return { reply, corrections: Array.isArray(turn.corrections) ? turn.corrections : [], commands: Array.isArray(turn.commands) ? turn.commands : [], steps, toolsUsed };
+  const commands = withTheme(Array.isArray(turn.commands) ? turn.commands : []);
+  push({ type: "final", reply, commands });
+  return { reply, corrections: Array.isArray(turn.corrections) ? turn.corrections : [], commands, steps, toolsUsed };
 }

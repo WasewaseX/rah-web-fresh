@@ -33,6 +33,10 @@ export interface ToolResult {
   ok: boolean;
   summary: string; // one line for the step trace UI
   detail?: string; // full observation fed back to the model (truncated by the loop)
+  // Machine-readable payload the LOOP (not the model) may turn into a client
+  // command - e.g. set_theme returns the validated tokens so the sidebar can
+  // repaint. The model never authors these values, it can only trigger them.
+  data?: unknown;
 }
 
 export type ToolArgs = Record<string, unknown>;
@@ -261,6 +265,41 @@ async function makePdf(args: ToolArgs): Promise<ToolResult> {
   }
 }
 
+// ---------- set_theme: repaint the app for real ----------
+
+// Audit 2026-11-03 + holder transcript ("make the Ui theme green" answered
+// with "I don't have the ability"): the live agent loop had NO theme surface.
+// This tool resolves the request through the same validated parser the theme
+// skill and the tutor intent use, persists the tokens on Learner.theme (the
+// exact column /api/theme and the tutor path write), and returns them as
+// structured data - the loop converts a successful run into a set_theme
+// command the sidebar executes, so the repaint is INSTANT and real. Never
+// claim a repaint without this tool's ok result.
+async function setTheme(args: ToolArgs): Promise<ToolResult> {
+  const wanted = String(args.theme ?? args.preset ?? args.color ?? "").trim();
+  if (!wanted) return { ok: false, summary: "set_theme needs a theme, color, or 'reset'" };
+  const { parseThemeRequest, presetById, PRESETS } = await import("@/lib/agent/theme");
+  const req = parseThemeRequest(wanted);
+  const preset = req.preset ? presetById(req.preset) : undefined;
+  const tokens = req.tokens ?? preset?.tokens;
+  if (!tokens) {
+    return {
+      ok: false,
+      summary: `No theme matched "${wanted}"`,
+      detail: `Presets: ${PRESETS.map((p) => p.id).join(", ")}. Ask the learner for one of those, a plain color word (green, blue, sunset, violet, rose), or hex codes.`,
+    };
+  }
+  const { db } = await import("@/lib/db");
+  await db.learner.update({ where: { id: "me" }, data: { theme: JSON.stringify(tokens) } });
+  const name = preset?.name ?? "your custom palette";
+  return {
+    ok: true,
+    summary: `Theme applied: ${name} - the whole app repaints now and it survives reloads`,
+    detail: `Persisted to the learner profile. The client received the validated tokens and repaints immediately. Tell the learner it is done in plain words; do not repeat hex codes at them.`,
+    data: { tokens, preset: preset?.id ?? null },
+  };
+}
+
 // ---------- registry ----------
 
 export interface ToolDef {
@@ -285,6 +324,7 @@ export const TOOL_TIERS: Record<string, ToolTier> = {
   web_search: "network",
   page_reader: "network",
   coach_skill: "state", // runs the full skill engine - can touch learner state
+  set_theme: "state", // repaints the whole app and persists the choice
   triage_flags: "state", // resolve mutates the flag queue
 };
 export function toolTier(name: string): ToolTier {
@@ -359,8 +399,14 @@ export const TOOLS: ToolDef[] = [
   {
     name: "coach_skill",
     desc: "Run one of Rah's built-in teaching skills on a message (chat correction, roleplay, exam generation, drill, socratic, ...). Use when the learner asks for a lesson-type interaction.",
-    args: '{"message": "/quiz present perfect"}',
+    args: '{"message": "/test present perfect"}',
     run: coachSkill,
+  },
+  {
+    name: "set_theme",
+    desc: "Repaint the ENTIRE app in a new theme, live. Accepts a preset name (midnight, ocean, forest, sunset, violet, rose), a plain color word (green, blue, orange, purple, pink, red), or 'reset' for the default. Use whenever the learner asks to change the theme/colors/look - never claim you cannot.",
+    args: '{"theme": "green"}',
+    run: setTheme,
   },
   {
     name: "triage_flags",

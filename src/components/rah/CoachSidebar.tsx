@@ -12,6 +12,7 @@ import { X, Send, GraduationCap, Wrench, Eye, BrainCircuit, FileText, ArrowRight
 import { Chip, Btn } from "./ui";
 import { clearRahToken } from "@/lib/rah-fetch";
 import { getCoachActivity } from "@/lib/activity-store";
+import { applyTheme, type RahTheme } from "@/lib/theme-bus";
 import type { ViewId } from "./App";
 import type { AppState } from "./App";
 
@@ -26,10 +27,13 @@ export interface CoachMessage {
 }
 
 export interface AgentCommand {
-  type: "navigate" | "refresh" | "toast" | "open_placement" | "start_review";
+  type: "navigate" | "refresh" | "toast" | "open_placement" | "start_review" | "set_theme";
   view?: string;
   title?: string;
   desc?: string;
+  // set_theme only: validated token JSON produced by the server loop from the
+  // tool's own result - never model-authored.
+  tokens?: string;
 }
 
 interface LiveStep {
@@ -197,6 +201,16 @@ export default function CoachSidebar({
         refresh();
       } else if (cmd.type === "toast" && cmd.title) {
         toast({ title: cmd.title, desc: cmd.desc ?? "" });
+      } else if (cmd.type === "set_theme" && cmd.tokens) {
+        // Audit 2026-11-03: the agent can actually repaint the app. Tokens are
+        // validated server side (set_theme tool) and painted here through the
+        // same theme bus the app shell and tutor use, so the change is instant
+        // and identical to a settings-driven repaint.
+        try {
+          applyTheme(JSON.parse(cmd.tokens) as RahTheme);
+        } catch {
+          // malformed tokens: the persisted profile still repaints on next state load
+        }
       }
     },
     [go, refresh, toast],

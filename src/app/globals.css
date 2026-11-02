@@ -127,6 +127,15 @@
   textarea {
     caret-color: var(--rah-primary);
   }
+  /* Task 116 (mobile sweep advisory): the browser's default dark-mode
+     placeholder gray measured 4.49:1 on field surfaces - just under the AA
+     floor. Give placeholders an owned, secondary-but-legible voice:
+     --muted (#8b96a9) clears 4.8:1 on every field token in the app. */
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--muted);
+    opacity: 1;
+  }
   a {
     text-underline-offset: 3px;
   }

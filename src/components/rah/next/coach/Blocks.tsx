@@ -128,7 +128,7 @@ export function ExamTaker({
           onChange={(e) => setAnswer(e.target.value)}
           rows={6}
           placeholder="Write your answer (about 150 words)..."
-          className="mt-4 w-full rounded-2xl border-2 border-[#2a3242] bg-[#141924] px-4 py-3 text-sm text-[#f2f5fa] outline-none transition-colors placeholder:text-[#5c6678] focus:border-(--accent)"
+          className="mt-4 w-full rounded-2xl border-2 border-[#2a3242] bg-[#141924] px-4 py-3 text-sm text-[#f2f5fa] outline-none transition-colors placeholder:text-[#8b96a9] focus:border-(--accent)"
         />
       ) : (
         q.type !== "mcq" && (
@@ -140,7 +140,7 @@ export function ExamTaker({
               if (e.key === "Enter" && !isLast) setIdx((i) => i + 1);
             }}
             placeholder={q.type === "cloze" ? "Type the missing word..." : "Type your answer..."}
-            className="mt-4 min-h-12 w-full rounded-2xl border-2 border-[#2a3242] bg-[#141924] px-4 text-sm text-[#f2f5fa] outline-none transition-colors placeholder:text-[#5c6678] focus:border-(--accent)"
+            className="mt-4 min-h-12 w-full rounded-2xl border-2 border-[#2a3242] bg-[#141924] px-4 text-sm text-[#f2f5fa] outline-none transition-colors placeholder:text-[#8b96a9] focus:border-(--accent)"
           />
         )
       )}
@@ -265,7 +265,7 @@ export function DrillCard({ drill, onDone }: { drill: Drill; onDone: (o: DrillOu
             }
           }}
           placeholder="Your answer..."
-          className="mt-3 min-h-12 w-full rounded-2xl border-2 border-[#2a3242] bg-[#141924] px-4 text-sm text-[#f2f5fa] outline-none transition-colors placeholder:text-[#5c6678] focus:border-(--accent)"
+          className="mt-3 min-h-12 w-full rounded-2xl border-2 border-[#2a3242] bg-[#141924] px-4 text-sm text-[#f2f5fa] outline-none transition-colors placeholder:text-[#8b96a9] focus:border-(--accent)"
         />
       )}
 

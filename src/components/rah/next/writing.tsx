@@ -6,10 +6,35 @@ import { SectionTitle, Note } from "./bits";
 import { WRITE_PROMPTS } from "@/lib/content";
 import { wordCount } from "@/lib/fsrs";
 
+// P2 teaching quality (roadmap item 2): the register goal has conditioned the
+// examiner since Task 85 (WRITING_GOALS in @/lib/ai), but the learner never
+// saw the dial. Mirrored here as literals on purpose: @/lib/ai is server-side
+// (env, SDK) and must not enter the client bundle. /api/writing re-validates
+// the value, so this list can never drift into an invalid goal.
+type WritingGoal = "exam" | "work" | "casual";
+const REGISTER_DIAL: { id: WritingGoal; label: string; copy: string }[] = [
+  {
+    id: "exam",
+    label: "Exam board",
+    copy: "An exam board reads this: strict academic register, formal hedging, no contractions, discourse markers expected.",
+  },
+  {
+    id: "work",
+    label: "Workplace",
+    copy: "A colleague reads this: concise professional register, clear asks and deadlines, polite directness.",
+  },
+  {
+    id: "casual",
+    label: "Casual",
+    copy: "A friend reads this: natural rhythm and everyday idioms are a strength. Register is judged loosely; sound human.",
+  },
+];
+
 // The repair cycle: write, get feedback, understand WHY, rewrite, then use
 // the corrected structure twice in fresh sentences. Never copy, always repair.
 interface Feedback {
   level?: string;
+  goal?: string | null;
   scores?: { task: number; organization: number; range: number; accuracy: number };
   verdict?: string;
   errors?: { bad: string; good: string; fa: string; type?: string }[];
@@ -40,6 +65,7 @@ export default function WritingView({ boot, onDone }: { boot: Boot; onDone: () =
   const [reuse, setReuse] = useState(["", ""]);
   const [showModel, setShowModel] = useState(false);
   const [selfCheck, setSelfCheck] = useState<Record<string, boolean>>({});
+  const [goal, setGoal] = useState<WritingGoal>("exam");
   const [history, setHistory] = useState<Sample[]>([]);
   const [lastId, setLastId] = useState<number | null>(null);
 
@@ -109,6 +135,26 @@ export default function WritingView({ boot, onDone }: { boot: Boot; onDone: () =
         {header}
         <p className="text-[17px] leading-relaxed mb-5">{prompt.prompt}</p>
         <div className="card-rah p-6">
+          {/* P2 item 2: the register dial, learner-facing at last. The choice
+             travels to /api/writing and scales how strictly register is
+             judged - visible conditioning, never a hidden scorer. */}
+          <div className="mb-4">
+            <div className="text-[12.5px] font-bold mb-2">Who grades this?</div>
+            <div className="flex gap-2">
+              {REGISTER_DIAL.map((g) => (
+                <button
+                  key={g.id}
+                  className={`seg-quiet ${goal === g.id ? "seg-on" : ""}`}
+                  onClick={() => setGoal(g.id)}
+                >
+                  {g.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[12.5px] mt-2" style={{ color: "var(--muted)" }}>
+              {REGISTER_DIAL.find((g) => g.id === goal)?.copy}
+            </p>
+          </div>
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -135,8 +181,9 @@ export default function WritingView({ boot, onDone }: { boot: Boot; onDone: () =
                       // goal} - the old promptId/action body graded the essay
                       // against an EMPTY prompt. r.ok + j.error, and the
                       // result arrives at the top level (no {ok,feedback}
-                      // wrapper ever existed).
-                      body: JSON.stringify({ prompt: prompt.prompt, text }),
+                      // wrapper ever existed). P2: goal now travels so the
+                      // examiner grades the register the learner declared.
+                      body: JSON.stringify({ prompt: prompt.prompt, text, goal }),
                     });
                     const j = await r.json();
                     if (r.ok && j && !j.error) {
@@ -199,8 +246,9 @@ export default function WritingView({ boot, onDone }: { boot: Boot; onDone: () =
         {feedback ? (
           <>
             <div className="card-rah p-6 mb-4">
-              <div className="flex items-center gap-3 mb-3">
+              <div className="flex items-center gap-3 mb-3 flex-wrap">
                 <span className="display text-[24px] font-bold" style={{ color: "var(--accent-deep)" }}>{feedback.level}</span>
+                {feedback.goal ? <span className="chip">graded as {feedback.goal} register</span> : null}
                 <span className="text-[13px]" style={{ color: "var(--muted)" }}>{feedback.verdict}</span>
               </div>
               {feedback.scores ? (

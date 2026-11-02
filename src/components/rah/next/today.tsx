@@ -86,7 +86,7 @@ function MissionCard({ go }: { go: (v: string) => void }) {
           <button
             key={s.id}
             onClick={() => go(s.view)}
-            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-[rgba(255,255,255,0.04)]"
+            className="flex w-full min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-[rgba(255,255,255,0.04)]"
           >
             {s.done ? (
               <CheckCircle2 className="h-5 w-5 shrink-0" style={{ color: "#6ee7b7" }} />
@@ -99,7 +99,11 @@ function MissionCard({ go }: { go: (v: string) => void }) {
               </span>
             )}
             <span className="min-w-0 flex-1">
-              <span className={`block truncate text-[13.5px] font-bold ${s.done ? "line-through opacity-60" : ""}`}>{s.label}</span>
+              {/* Task 119 fix: truncate (nowrap) inside a grid item made the
+                 grid's min-content the full label width - the card blew past
+                 the 390px viewport and the whole page scrolled sideways. Wrap
+                 instead: nothing is lost, nothing overflows. */}
+              <span className={`block text-[13.5px] font-bold leading-snug ${s.done ? "line-through opacity-60" : ""}`}>{s.label}</span>
               <span className="block text-[11.5px] font-semibold" style={{ color: "var(--muted)" }}>
                 {s.progress}
               </span>

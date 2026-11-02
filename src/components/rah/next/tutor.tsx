@@ -18,6 +18,7 @@
 // onto the Blocks contracts (tutor/types) - nothing in Blocks changes.
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { applyTheme, type RahTheme } from "@/lib/theme-bus";
 import { CalendarDays, Crosshair, GraduationCap, MessageCircle, Stethoscope } from "lucide-react";
 import type { Boot } from "@/app/page";
 import { SectionTitle } from "./bits";
@@ -326,6 +327,9 @@ function ChatTab() {
       });
       const j = await r.json();
       if (j.ok) {
+        // Task 119: the theme intent returns real tokens - paint them NOW so
+        // "make the UI theme green" visibly repaints the app in the same turn.
+        if (j.turn?.theme !== undefined) applyTheme((j.turn.theme ?? null) as RahTheme | null);
         setTurns((t) => [
           ...t,
           { role: "assistant", reply: j.turn.reply, corrections: j.turn.corrections ?? [], fa_note: j.turn.fa_note },

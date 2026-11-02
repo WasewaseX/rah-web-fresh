@@ -562,9 +562,13 @@ export default function RahApp() {
         className="fixed inset-x-0 bottom-0 z-20 border-t border-white/[0.06] bg-[#12161f]/90 backdrop-blur-xl md:hidden"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
-        {/* Task 109: pr-16 keeps the tail labels clear of the floating Arcade
-           button that hovers above this rail's right edge. */}
-        <div className="flex overflow-x-auto pl-2 pr-16 py-1.5">
+        {/* Task 109: pr-16 keeps the tail tiles clear of the floating Arcade
+           button that hovers above this rail's right edge. Task 119: twelve
+           one-word labels cannot fit 390px without colliding ("Listening" is
+           wider than any honest tile), so the rail is icon-first and the
+           ACTIVE tab carries its label - no collisions, floor kept, snap
+           points make the scroll deliberate. */}
+        <div className="flex snap-x snap-mandatory overflow-x-auto pl-2 pr-16 py-1.5">
           {VIEWS.map((v) => {
             const Icon = v.icon;
             const active = view === v.id;
@@ -573,12 +577,13 @@ export default function RahApp() {
                 key={v.id}
                 onClick={() => go(v.id)}
                 onPointerDown={() => prefetchView(v.id)}
-                className={`flex min-w-[64px] flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 text-[12px] font-bold transition-colors ${
-                  active ? "bg-[var(--rah-primary)]/[0.14] text-[#9dc0ff]" : "text-[#7d889c]"
+                aria-label={v.label}
+                className={`flex min-w-[48px] snap-start flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 text-[11.5px] font-bold transition-colors ${
+                  active ? "min-w-[72px] bg-[var(--rah-primary)]/[0.14] text-[#9dc0ff]" : "text-[#7d889c]"
                 }`}
               >
-                <Icon className="h-5 w-5" />
-                {v.label}
+                <Icon className="h-5 w-5 shrink-0" />
+                {active ? v.label : null}
               </button>
             );
           })}

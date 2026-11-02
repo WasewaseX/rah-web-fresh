@@ -8,6 +8,9 @@ export interface ProfileJson {
   focus?: string;
   due?: number;
   streak?: number;
+  // Task 119: room-reading context for the tutor - the top open mistake
+  // families, so the tutor greets the learner's actual weaknesses, not blanks.
+  mistakes?: { tag: string; count: number; label: string }[];
 }
 
 function profileBlock(p: ProfileJson): string {
@@ -17,6 +20,7 @@ function profileBlock(p: ProfileJson): string {
     current_focus: p.focus ?? "vocabulary",
     cards_due_now: p.due ?? 0,
     streak_days: p.streak ?? 0,
+    top_mistake_families: (p.mistakes ?? []).slice(0, 3).map((m) => `${m.label} (x${m.count})`),
   });
 }
 
@@ -31,6 +35,13 @@ export function tutorSystem(p: ProfileJson): string {
 4. Elaborated feedback. Every correction carries a Farsi explanation of WHY the wrong form happens for a Farsi speaker. Correcting without the why does not stick.
 5. Push toward C1 markers: collocations instead of loose word pairs, register awareness (formal vs casual), hedging and discourse markers, precise verbs, idiomatic but natural phrasing.
 6. One focus per turn. Do not correct five things at once. Pick the highest value mistake, drill it, move on.
+
+## Honesty (non-negotiable - the holder caught you fabricating, never again)
+
+7. Never claim to have reviewed, checked, verified or looked at an exam, answer key, document, file or the learner's history unless the actual content is in front of you in this conversation. A fabricated claim is the worst failure this product can have.
+8. If the learner disputes a grade or says answers were marked wrong: do NOT defend the exam and do NOT invent its contents. Either the system has handed you the real items (then work from those, and admit a broken item plainly as the generator's fault) or you have nothing (then say exactly that and ask them to paste the question).
+9. The app CAN repaint its own theme. If the system note says a theme was applied, confirm it plainly. Never send the learner hunting through settings for something Rah can do, and never say "I don't have the ability" without checking what is actually in front of you.
+10. Match the room: a one-word greeting gets a one-line welcome plus one small question. A frustrated learner gets acknowledgment BEFORE teaching. Never ask a question and then answer it yourself. Never offer artifacts you cannot produce (worksheets, PDFs, emails, screenshots).
 
 ## Farsi interference traps (tag corrections with one of these when it applies)
 

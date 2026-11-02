@@ -145,7 +145,8 @@ An item is NOT answerable (ok=false) when ANY holds:
 (b) AMBIGUOUS KEY: several natural, equally correct answers exist and the accept list does not cover them (open vocabulary blanks like "a distinct ___" where flavor/aroma/taste all fit; "which verb collocates" with multiple candidates; definition questions with several possible terms);
 (c) TRIVIA / WORLD KNOWLEDGE: the item tests facts, terms, or general education instead of English structure, collocation, register, or meaning in context;
 (d) UNFAIR MCQ: another choice is as defensible as the key, or the key cannot be chosen without guessing;
-(e) BROKEN KEY: the key is grammatically wrong in its sentence, or does not fit the blank.
+(e) BROKEN KEY: the key is grammatically wrong in its sentence, or does not fit the blank;
+(f) STEM-KEY CONTRADICTION: the key does not actually satisfy what the stem asks, even if the key sentence is grammatical on its own. The classic real-world failure (holder report, Task 119): "Which sentence correctly uses the definite article?" keyed to a sentence that contains NO definite article - or an MCQ where every choice is ungrammatical, so no answer can be correct. Reject (ok=false) whenever the key would not survive a competent teacher reading the stem and the key side by side.
 
 keepTag: items may carry a "tag" naming the mistake family they hunt (e.g. articles). keepTag=false when the item does not GENUINELY force that exact weakness - a tag slapped on an unrelated item poisons the healing loop. The item itself can still be fine (ok=true).
 
@@ -165,31 +166,45 @@ ${items
 export async function vetItems(items: ItemForVetting[]): Promise<Map<string, VetVerdict>> {
   const out = new Map<string, VetVerdict>();
   if (items.length === 0) return out;
-  try {
-    const raw = await aiJson<{ vetted?: { id?: string; ok?: boolean; keepTag?: boolean; reason?: string }[] }>(
-      vetSystem(items),
-      [{ role: "user", content: `Vet all ${items.length} items now. Judge answerability strictly; an unfair item teaches nothing.` }],
-      () => ({}),
-      // Deep mode: the vet runs once per exam and is the last line before the
-      // learner; a missed ambiguous key costs a whole item. Spend the tokens.
-      { deep: true, temperature: 0.1 },
-    );
-    for (const it of items) {
-      const v = (raw.vetted ?? []).find((x) => String(x.id ?? "") === it.id);
-      if (!v) {
-        out.set(it.id, { ok: true, keepTag: true, reason: "" });
-        continue;
+  // Two attempts: the vet is the last line before the learner, and the
+  // holder's broken-key incident (Task 119) shipped exactly on the run where
+  // the first (and then only) attempt failed. A second try is cheap insurance.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const raw = await aiJson<{ vetted?: { id?: string; ok?: boolean; keepTag?: boolean; reason?: string }[] }>(
+        vetSystem(items),
+        [
+          {
+            role: "user",
+            content:
+              attempt === 0
+                ? `Vet all ${items.length} items now. Judge answerability strictly; an unfair item teaches nothing.`
+                : `Retry. Vet all ${items.length} items now. Read every stem next to its key (rule f: stem-key contradiction) and judge strictly.`,
+          },
+        ],
+        () => ({}),
+        // Deep mode: the vet runs once per exam and is the last line before the
+        // learner; a missed ambiguous key costs a whole item. Spend the tokens.
+        { deep: true, temperature: 0.1 },
+      );
+      for (const it of items) {
+        const v = (raw.vetted ?? []).find((x) => String(x.id ?? "") === it.id);
+        if (!v) {
+          out.set(it.id, { ok: true, keepTag: true, reason: "" });
+          continue;
+        }
+        out.set(it.id, {
+          ok: v.ok !== false,
+          keepTag: v.keepTag !== false,
+          reason: String(v.reason ?? "").trim(),
+        });
       }
-      out.set(it.id, {
-        ok: v.ok !== false,
-        keepTag: v.keepTag !== false,
-        reason: String(v.reason ?? "").trim(),
-      });
+      return out;
+    } catch {
+      // fall through to the retry; on the second failure, trust the
+      // deterministic layer and deliver
     }
-  } catch {
-    // The gate must never stall generation: on failure, trust the
-    // deterministic layer and deliver.
-    for (const it of items) out.set(it.id, { ok: true, keepTag: true, reason: "" });
   }
+  for (const it of items) out.set(it.id, { ok: true, keepTag: true, reason: "" });
   return out;
 }

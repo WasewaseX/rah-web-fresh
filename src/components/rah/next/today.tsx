@@ -1,7 +1,9 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
 import type { Boot } from "@/app/page";
 import { Bar, Note, Ring, StrandIcon } from "./bits";
+import { confetti, xpBurst } from "./celebrate";
 import { ArrowRight, CheckCircle2, Flame, Zap } from "lucide-react";
 
 const TIPS = [
@@ -13,6 +15,125 @@ const TIPS = [
   "Collocations beat single words: make a decision, not do a decision.",
   "Speak the same task three times. The third version is the one that sticks.",
 ];
+
+type MissionStep = { id: string; label: string; progress: string; done: boolean; view: string };
+type MissionState = { day: number; due: number; xp: number; steps: MissionStep[]; allDone: boolean; claimed: boolean; reward: number };
+
+// The Daily English Mission (roadmap §9): four connected actions computed
+// server-side from the learner's real state, one XP reward per day, claimable
+// only when every step is measured as done. Styling follows the Task 117
+// doctrine: neutral surfaces, the single accent owns progress, green stays
+// semantic (done), gold stays XP.
+function MissionCard({ go }: { go: (v: string) => void }) {
+  const [m, setM] = useState<MissionState | null>(null);
+  const [claiming, setClaiming] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const r = await fetch("/api/mission", { cache: "no-store" });
+      if (!r.ok) return;
+      setM((await r.json()) as MissionState);
+    } catch {
+      /* offline: the card stays quiet; the outbox still covers learning actions */
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const claim = useCallback(async () => {
+    setClaiming(true);
+    try {
+      const r = await fetch("/api/mission", { method: "POST" });
+      const j = (await r.json()) as { ok?: boolean; reward?: number };
+      if (j.ok && (j.reward ?? 0) > 0) {
+        xpBurst(j.reward as number);
+        confetti(40);
+      }
+      await load();
+    } catch {
+      /* keep state; the learner can retry */
+    } finally {
+      setClaiming(false);
+    }
+  }, [load]);
+
+  if (!m) return null;
+  const doneCount = m.steps.filter((s) => s.done).length;
+  const pct = Math.round((doneCount / m.steps.length) * 100);
+
+  return (
+    <div className="card-rah rah-lift rah-rise p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="display text-[19px] font-black">Today&apos;s English mission</div>
+        <span
+          className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12.5px] font-extrabold"
+          style={{ background: "rgba(255, 176, 46, 0.14)", color: "#ffd08a", border: "1px solid rgba(255, 176, 46, 0.28)" }}
+          title="Banked once all four steps are measured as done"
+        >
+          <Zap className="h-3.5 w-3.5" />
+          +{m.reward} XP
+        </span>
+      </div>
+      <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed" style={{ color: "var(--muted)" }}>
+        One connected session, built from your due queue and today&apos;s real activity. The reward lands only when the work is measured as
+        done - not for opening the app.
+      </p>
+
+      <div className="mt-4 grid gap-2">
+        {m.steps.map((s, i) => (
+          <button
+            key={s.id}
+            onClick={() => go(s.view)}
+            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-[rgba(255,255,255,0.04)]"
+          >
+            {s.done ? (
+              <CheckCircle2 className="h-5 w-5 shrink-0" style={{ color: "#6ee7b7" }} />
+            ) : (
+              <span
+                className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-black"
+                style={{ border: "1.5px solid var(--line)", color: "var(--muted)" }}
+              >
+                {i + 1}
+              </span>
+            )}
+            <span className="min-w-0 flex-1">
+              <span className={`block truncate text-[13.5px] font-bold ${s.done ? "line-through opacity-60" : ""}`}>{s.label}</span>
+              <span className="block text-[11.5px] font-semibold" style={{ color: "var(--muted)" }}>
+                {s.progress}
+              </span>
+            </span>
+            <ArrowRight className="h-4 w-4 shrink-0" style={{ color: "var(--muted)" }} />
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-4">
+        <Bar pct={pct} color="var(--rah-primary-action)" />
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        {m.claimed ? (
+          <span
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12.5px] font-extrabold"
+            style={{ background: "rgba(52, 211, 153, 0.12)", color: "#6ee7b7", border: "1px solid rgba(52, 211, 153, 0.3)" }}
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" /> mission complete - +{m.reward} XP banked
+          </span>
+        ) : m.allDone ? (
+          <button className="btn-primary text-[13px]" onClick={() => void claim()} disabled={claiming}>
+            {claiming ? "Banking…" : `Claim +${m.reward} XP`}
+          </button>
+        ) : (
+          <span className="text-[12.5px] font-semibold" style={{ color: "var(--muted)" }}>
+            {doneCount}/{m.steps.length} done - the +{m.reward} XP unlocks when all four land.
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function TodayView({ boot, go }: { boot: Boot; go: (v: string) => void }) {
   const pct = boot.protocol.totalPlanned ? Math.round((boot.protocol.donePlanned / boot.protocol.totalPlanned) * 100) : 0;
@@ -80,6 +201,8 @@ export default function TodayView({ boot, go }: { boot: Boot; go: (v: string) =>
           </div>
         </div>
       </div>
+
+      <MissionCard go={go} />
 
       {!boot.learner.onboarded ? (
         <div className="card-rah rah-lift mb-5 flex flex-wrap items-center gap-5 p-6">

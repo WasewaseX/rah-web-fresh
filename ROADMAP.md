@@ -1,55 +1,161 @@
 # Rah — Roadmap
 
-*Living document. Updated at the end of every task group. Current as of Task 112 (2026-11-01).*
+*Checkbox ledger, rewritten 2026-11-03 (Task 118) from the holder's full product assessment (2026-11-02, sections 1–10). **How to read:** a ticked box was verified against the tree and the live runtime before ticking (rule 4) — the line names its evidence. An unticked box is genuinely open, with the already-built basis named. **Overall completion vs the original goal: ~70%** (the assessment's independent estimate: 68–72%).*
 
-## Where the project stands
+Live preview: `https://preview-chat-d027ce73-8b7f-4fc0-910a-b2c665a663c0.space-z.ai` — single-learner deployment; the access code lives in `.env` only and is never committed.
 
-The recovered feature layer (Tasks 104–106) is live on all 12 surfaces + tutor's 5 tabs; the learner-reported Progress crash is fixed and verified at tree/wire/runtime; the Writing core loop's 3 broken legs are repaired (Task 108); every strand's write path is verified end-to-end with evidence hygiene held. Green CI is not trusted without a live claim-vs-tree audit — that gate stays permanent.
+---
 
-**The verdict that set the current phase:** *the next phase is about making the complete learning experience dependable and improving its teaching quality — not rebuilding infrastructure.*
+## 1 · Original-goal ledger (assessment section 1)
 
-## Phase P1 — GUI excellence (Groups A–E SHIPPED; polish-iteration pass ACTIVE, Tasks 109–110+)
+- [x] **Adaptive vocabulary + FSRS** — `CardState`/`UserCard`/`ReviewLog`/`GradeAck`, review view with four directions; collocation-specific directions not yet targeted (→ §Teaching-quality #3).
+- [x] **B2–C1 curriculum + mastery** — `/api/curriculum`, `SkillLevel`/`SkillBand`/`TagMastery`, mastery surface.
+- [x] **Reading from learner-provided material** — `/api/materials`, `Material`/`MaterialCard`, reading view.
+- [x] **Anki import/export** — `/api/import` + `/api/export`.
+- [x] **Writing correction + revision history** — `/api/writing`, `WritingSub`; register dial shipped 2026-11-02 (Task 116): exam/work/casual examiner conditioning, echoed in feedback.
+- [x] **AI coach + learner memory** — `/api/coach` + `/api/coach-agent`, `ChatMsg`, `MistakeFamily`; greeting/small-talk misroute fixed and verified live (Task 167 gate: "hi" → chat skill, 19-word reply).
+- [x] **Exam practice** — `/api/exam`, `Exam`/`ExamRun`/`QuizItem`. *Caveat: scoring not human-calibrated (§4 C-5).*
+- [x] **Speaking + pronunciation, word-level measured** — `/api/speak` + `/api/asr`, `SpeakSession`/`SpeakingAttempt`/`SoundLog`. *Caveat: word-level tier only; phoneme scoring deliberately out (validation doc).*
+- [x] **Offline review + sync** — outbox (`lib/offline.ts`, `OfflineBadge`), idempotent grade receipts. *Caveat: real-phone validation outstanding (§2.3, holder-blocked).*
+- [x] **Progress, XP, quests, goals** — `DailyStat`/`Quest`/`Goal`/`Achievement`/`GameStat`/`League`/`Rival`; `/api/progress` aggregates reviews+writing+speaking+listening (verified in route source).
+- [x] **PostgreSQL + recovery** — 43 models at 127.0.0.1:5433; restore-tested through two real recycles (Tasks 114, 116) with learner data intact.
+- [x] **Monitoring + deployment recovery** — `/api/version`, ensure-server chunk-integrity staleness check, 6-road deploy gate.
+- [ ] **Reliable production email login** — **holder-blocked** (domain decision; $0 rule bars purchase without consent). Access-code login is the working path (`LoginCode`/`Session`); Resend integration + `MailLog` exist but sandbox restricts recipients.
+- [ ] **Multi-week proof of learning improvement** — time-gated; evidence timeline accumulates honestly (`PILOT-PROTOCOL.md`).
 
-**Status:** all five groups shipped 2026-10-31 (commits fc8a0f3 → 2861a71, CI #23/#24 green, 19-surface sweeps ALL-PASS, 3-viewport screenshots under `db/evidence/ui/{after-a,after-bc,after-d,desktop,tablet,mobile}`). Task 110 reconciled the ledger after the recycle (data restore + hourly vault protection) and restored this document. Task 111 ran the first verify-by-eyes iteration (detector-driven token re-homing, progress unit-honesty, battery probe hygiene). Task 112 ran the second (2026-11-01), now also driven by the holder-cited ui-ux-pro-max-skill checklist: One Light Rule enforced everywhere (9 reading segment fills + sound/grammar/checkpoint selected states demoted to raised-tonal, 8 arcade CTAs re-homed to signal blue, VoiceArena record in Honest Red), coach FAB lifted clear of the mobile rail, fortnight chart bars fixed (percentage-vs-auto-height collapse), tutor composer unclipped, global cursor:pointer, capture-harness session warmup, boot-regression runner re-homed onto PostgreSQL, detector 0 findings. **Task 113 ran the third iteration (2026-11-01) — the first with the DOM-level detector on the authenticated app (12 views, real browser via CDP): shell dark-on-dark text fixed (color: var(--muted) misuse in App/CoachSidebar → muted-foreground), all AA contrast failures repaired (btn-primary + Install + PairsGame moved to the new documented `rah-primary-action` #2f62c4, 5.5:1; review due pill deep blue), every colored blue glow replaced with neutral elevation, functional text floors enforced (FAB badge 11px, mobile rail 11px, sidebar meta 11-12px, fortnight chart weekday labels 9.5→11px, arcade/review meta 12px), reading placeholder lifted to 5.2:1, fortnight caption reworded + measure capped, BlitzDeck tile 64→48px.** Also Task 113 root-caused a deployment-failure class: next-server renames its process title so pkill-by-path misses it — a stale in-memory build survived three restarts serving HTML that referenced deleted chunk names (the holder's "Application error" class); ensure-server now detects a serving process older than the on-disk BUILD_ID and flips, and deploy-gate kills every server identity before reviving + verifies every served chunk exists on disk. What remains of P1: keep iterating — fresh sweeps, both skills' detectors, fix what they and the eye catch. **Task 114 (2026-11-01)** was recycle recovery only (git pull + artifact tar restore + drift-record fix; no code diff, evidence folded into e07f404). **Task 115 (2026-11-01) — the visual stimulation wave, holder-directed ("the app still lacks visual stimulation"):** strand identity v2 (every study strand owns a vivid hue pair + glyph tile, mapped in DESIGN.md, replacing the four-indistinguishable-greens ramp), `StrandIcon` tile system in bits.tsx, Today rebuilt (ambient hero with solid-ink display headline + streak flame + XP pills, strand-colored plan cards with glowing hover lift and sheen progress bars, icon'd quick stats), dependency-free celebration layer (`next/celebrate.tsx`: XP-delta burst on every XP gain, confetti on level-up, both reduced-motion-safe), icon'd quiet header line, Login first-impression glow + strand strip, gradient Bar with sheen sweep, EmptyState faces. Contrast floors from Task 113 untouched; all new motion stills under prefers-reduced-motion. Detector round-trip: the first mobile sweep caught 4 AI-tell findings on the new hero (gradient text, cyan-on-dark pill/wash, kicker-above-heading, chromatic breathe halo) — all repaired in the same task (solid #cfe0ff ink headline, neutral-gold XP pill on hairline border, kicker deleted, breathe shadow neutralized, cyan radial dropped); a second round flagged the review strand's cyan gradient — the strand re-hued to lime (tell-hue constraint now documented in DESIGN.md); text-wrap:pretty added for the straggler advisory. Sweep tooling hardened: the DOM sweep now verifies the authed shell before scanning (the first mobile run silently swept the LOGIN page 12×) and the capture harness got the same fix. **Infra repair found by the gate (Task 115): the Task 113 staleness heuristic in ensure-server (BOOT_AT vs BUILD_ID mtime) could never fire because /api/version's startedAt is a rolling per-serve timestamp — a 19:52 stale next-server survived the 20:02 release serving HTML that named chunks the new build had wiped (ChunkLoadError → "Application error", the exact holder-seen incident class), caught only by the new authed-shell browser gate. ensure-server now detects staleness the honest way: every chunk the served HTML references must exist on disk; verified live.** **Task 116 (2026-11-02) — recycle recovery + P2 item 2 shipped:** the recycle wiped `.next` again (site dark, holder: "site wasnt deployed"); rebuilt production from HEAD c18e15c and flipped :3000 to the standalone (version endpoint green, drift OK, learner data intact). Desktop 1440 and mobile 390 DOM sweeps both 12/12 views, 0 anti-patterns (one intentional-neobrutalism advisory on Arcade's offset shadow, waived by direction). Mobile sweep's one real advisory — the Writing textarea's browser-default placeholder gray measured 4.49:1 — repaired at the root: an owned global `::placeholder` token (var(--muted), ≥4.8:1 on every field surface) plus the Blocks.tsx `#5c6678` placeholders (≈3.0:1) lifted to the same token. P2 item 2 (register dial) shipped as described in the ledger below. Gate roads 1-5 GREEN (fresh build `WjTRd2EK6lLf4_-_wOl0Q`, chunk integrity 13/13, real-browser smoke: 0 client errors, title+nav ok, pushed e6cde35); road 6 FAILED CLOSED on a platform-side fault, not ours: every ALB node fronting `preview-chat-*.space-z.ai` now presents `CN=*.z.ai` (checked all 3 IPs) so the preview hostname fails TLS verification - while a cert-bypassed request through the same public URL returns the app's real version JSON (dirty:0), proving gateway routing and the deployed app are healthy. Diagnosis for the platform: the *.space-z.ai cert vanished from the ALB during a rotation; until it returns, browsers see a certificate warning on the preview URL (Advanced > proceed works) and the gate's road 6 will keep failing honestly. **Task 117 (2026-11-02) — professional UI wave + logo + coach misroute fix, holder-directed ("different colored buttons dont suit the ui and are unprofessional / make a logo / why is the ai doesnt work correctly"):** (1) Professional identity system: identity moves to the GLYPH, hue retires from controls - StrandIcon tiles now share one neutral raised surface (#2d3648 to #232b3c, hairline, ink glyph), the 16 --rah-strand-* tokens are deleted, Today plan cards wear neutral pills + the single accent bar (strand-colored pills, bars and hover glows gone), and the Progress stacked chart steps the accent by LIGHTNESS with new legend swatches (the old chart colored by insertion order while the legend sorted by minutes - nobody could match them). Full button tier set added: btn-primary (one accent) / btn-quiet (neutral raised) / btn-danger (destructive). DESIGN.md strand doctrine rewritten; strandColors shimmed to the accent for compile safety. (2) Logo: "Rah" (road) - accent tile + white geometric R, as LogoMark/Logo components, public/logo.svg + logo-square.svg, and the PNG icon set (192/512/maskable/apple-touch) re-rendered from the same geometry via scripts/render-logo.sh; integrated into the Login first impression (both states), desktop rail and mobile top bar (the old CSS-text R tiles are gone). (3) Coach misroute root-caused from the learner's own history (msg 59: "hi" answered by skill=agent with the exact collocation lecture the holder pasted - the planner inherited topical bias from recent history): deterministic SMALL_TALK gate in runCoach (after modeFlow so active scenes still own their turns), planner rules now say greetings/one-word answers always get chat and to route on THIS message only, basePersona gains rules 7-9 (no lectures, capability honesty - never offer worksheets/PDFs, greeting behavior), and the verifier strips "would you like me to create/make..." offers. Verified live: the pre-fix paste is preserved in ChatMsg history (msg 59/60), a probe "hi" post-fix returns skill=chat with a 19-word Socratic reply; probe hygiene CLEAN (rows deleted, XP restored to 507, probe script fixed for future use). Detector round-trip: desktop 1440 sweep 12/12 views, 0 anti-patterns (the standing Arcade neobrutalism advisory remains waived); register dial verified live in the DOM (default Exam board, switches to Casual copy on click); browser shots of Today/Progress/Login/mobile in /tmp/shots-117, 0 client errors.
+## 2 · Three critical fixes (assessment section 2)
 
-Method: the **Impeccable** skill (pbakaus/impeccable, installed at `.github/skills/impeccable/`, v4.8.0) — PRODUCT.md + DESIGN.md captured; every group follows the skill's playbooks (typeset → layout → animate → harden/adapt per surface group), with the craft-floor rules read before every edit and the 62-rule slop detector as the ban list (no purple gradients, no pills-for-decoration, no generic AI aesthetics, no fake metrics). Since Task 112 the **ui-ux-pro-max-skill** (nextlevelbuilder) pre-delivery checklist rides along as the second gate: cursor-pointer on clickables, reflow without clipping, focus states, reduced motion, 375/768/1024/1440 responsive proof.
+### 2.1 Authentication + account security (P0)
+- [x] Working login path: access-code, sessioned (`Session`), registration locked (single-learner by design).
+- [x] GitHub PAT rotated; runbook exists (`CREDENTIAL-ROTATION-RUNBOOK.md`); new PAT active, old revoke consent-gated.
+- [ ] Resend key rotation **finished** — runbook + `MailLog` + `EMAIL-OPERATIONS.md` exist; the final rotation/delivery step is open.
+- [ ] Real email delivery to the learner's address — **blocked** (holder domain decision).
 
-Verification per group: production build + 19-surface browser sweep + boot-regression + real screenshots at **desktop 1440 / tablet 768 / mobile 390** compared before/after. Backend contracts are frozen: no route payload changes in P1.
+### 2.2 Privacy + deployment integrity (P0)
+- [x] New repo clean; credentials server-only; artifact secret gate in place.
+- [x] Exact validated production build restores after a recycle — proven twice (Tasks 114, 116): git pull → artifact tar → BUILD_ID → chunk integrity.
+- [x] No learner data or secrets in public artifacts (evidence hygiene rule + secret gate).
+- [ ] Old archived repository exposure — monitored only; any change needs holder approval (consent gate).
 
-| Group | Surfaces | Focus |
+### 2.3 End-to-end learner reliability (P1)
+- [x] All 12 learning surfaces tested together — DOM sweeps at desktop 1440 + mobile 390, 12/12 views, 0 anti-patterns (Tasks 116, 117).
+- [x] Production build + real-browser regression — deploy-gate road 4 **fails** on any client-side exception.
+- [x] Writing/speaking/listening activity reaches progress reports — `/api/progress` aggregates all strands (verified).
+- [ ] Seven physical-phone offline scenarios — **holder-blocked**; checklists ready (`DEVICE-TEST-CHECKLIST.md`, `OFFLINE-TEST-PROTOCOL.md`).
+
+## 3 · Three critical features to add (assessment section 3 — the next builds)
+
+- [ ] **Goal-bound voice shadowing** — listen → imitate → word-level compare → recurring errors become FSRS items. Basis live: Sound Lab word tier, `SpeakSession`, mistake families.
+- [ ] **Structured B2–C1 listening library** — graded clips, several accents, transcripts, replayable segments, comprehension questions, vocabulary extraction. Basis live: listening strand with rounds + `ListeningLog`.
+- [ ] **Cross-device writing + improvement history** — server-saved drafts, conflict resolution, rubric-linked before/after deltas. Basis live: `WritingSub` revisions already server-side.
+
+## 4 · Ten polish items (assessment section 4 = C-1…C-10 in `TASK-95-BACKLOG.md`)
+
+- [ ] **C-1 Review queue** — FSRS queue live; "why due now" explanation, new-vs-revision distinction, scheduling confidence open.
+- [ ] **C-2 Talk conversation** — talk mode live; mic recovery, interruption handling, mobile-browser behavior, typed fallback open.
+- [ ] **C-3 Sound Lab** — word-level measured tier live; measured-vs-inferred separation, confidence display, replayable examples open.
+- [ ] **C-4 AI coach evidence** — capability honesty + no-undeliverable-offers shipped (Task 117, rules 7–9 + verifier strip); full evidence panel (tools ran, what changed, resume) open.
+- [ ] **C-5 Exam generation/grading** — exam loop live; distractor-plausibility tests + rubric calibration vs human-rated answers open.
+- [ ] **C-6 CEFR placement** — placement + `PlacementResult` history live; skill-specific sample counts + explicit uncertainty display open.
+- [ ] **C-7 Mistake memory** — `MistakeFamily` + forgiveness live; per-error decline-over-time surfacing to the learner open.
+- [ ] **C-8 XP/gems/quests/games** — economy live; anti-farming battery + reward-tied-to-measured-practice audit open (Mission §9 adopts this rule by design).
+- [ ] **C-9 Writing workspace** — revisions live; cross-device drafts (→ §3.3) + rubric score explanations + before/after deltas open.
+- [ ] **C-10 Progress dashboard honesty** — unit honesty + durable checkpoints done (Task 111 / A-4); activity-vs-test separation + explicit "insufficient evidence" states open.
+
+## 5 · Competitor mechanics → Rah adaptations (assessment section 5; research docs exist)
+
+- **Duolingo** (`DUOLINGO-RE.md`): [x] streaks · [x] quests · [x] leagues · [x] rival · [ ] daily mission connecting systems (→ §9) · [ ] streak protection + missed-day restart plan.
+- **ELSA Speak** (`ELSA-SPEAK-RE.md`, `ELSA-PLAN.md`): [x] word-level measured pronunciation with honest labels · [x] repeated attempts + error capture (`SoundLog`) · [ ] guided exercise loop with categorized recurring-error retry (→ §3.1 shadowing).
+- **LingQ** (`LINGQ-RE.md`): [x] import real content · [x] save vocabulary from material (`Material`/`MaterialCard`) · [ ] every saved expression auto-connected to the review queue + curriculum.
+
+## 6 · Data domains (assessment section 6 — one PostgreSQL, 43 models, `PG-DECISION.md`)
+
+- [x] **Mastery + review history** — `CardState`, `UserCard`, `ReviewLog`, `GradeAck`, `SkillLevel`, `DailyStat`, `PlacementResult`.
+- [x] **Mistake memory + content** — `MistakeFamily`, `TagMastery`, `MistakeForgiven`, `WritingSub`, `QuizItem`, `Exam`, `Material`, `MaterialCard`, `ContentFlag`.
+- [x] **Durable activity history** — `SpeakSession`, `SpeakingAttempt`, `ListeningLog`, `Checkpoint`, `Quest`, `Achievement`, `SessionLog`, `RunState`, `Briefing`, `TutorReport`.
+- [x] Redis/Valkey correctly absent (single-instance ADR); object storage only if durable audio outgrows current arrangement (watch item).
+
+## 7 · API capabilities (assessment section 7 — server routes only, no secrets in browser)
+
+- [x] **Structured LLM** — coach/agent/writing/exam/tutor behind routes; register-goal conditioning (`WRITING_GOALS`); JSON validation on writing feedback. *Open: daily cost caps + evaluation harness.*
+- [x] **Speech assessment** — `/api/asr` word-level with confidence, honest measurement labels (`PRONUNCIATION-VALIDATION.md`).
+- [ ] **Transactional email** — Resend + `MailLog` exist; sandbox recipient restriction unresolved (blocked with §2.1).
+
+## 8 · Optimization ledger (assessment section 8 — no Redis, no big models, $0)
+
+- [x] Lazy-load secondary surfaces — `dynamic()` imports for Arcade/Placement/Writing/Listening/Speaking/Reading (verified in `App.tsx`).
+- [x] Shared shell, persistent state, instant transitions — single `App.tsx` shell.
+- [x] Offline: bounded outbox, idempotent sync, visible pending state (`OfflineBadge`).
+- [x] Dashboard aggregates instead of per-event queries — `DailyStat` + strand aggregation.
+- [x] Deployment avoids rebuilds on recycle — validated-artifact restore doctrine.
+- [x] Security: credentials server-only, artifact secret gate.
+- [ ] DB slow-query sweep + targeted indexes — not yet audited (data volume still small; revisit at growth).
+- [ ] AI response caching for safe deterministic results.
+- [ ] Audio upload compression + server-side duration caps (client caps exist; server limits unverified).
+- [ ] Real-device microphone/keyboard/touch-target pass (→ §2.3).
+
+## 9 · Retention hook — The Daily English Mission (assessment section 9, its #1 recommendation)
+
+**Rule: XP is awarded only when the learning action is measured as done.** No new currencies, no superficial rewards.
+
+- [x] Today opens on a mission built from real weak spots + due reviews — **SHIPPED 2026-11-03 (Task 118)**: mission card on Today, four steps computed server-side from the FSRS due queue (canonical due filter, target = min(due, 8)), today's ListeningLog / SpeakSession / WritingSub counts, and the top open MistakeFamily for the speaking step.
+- [x] Step 1 · clear the due review queue (FSRS). Step 2 · one listening round. Step 3 · one speaking attempt aimed at a recurring error. Step 4 · one short writing applying today's expressions.
+- [x] Completion → +50 XP once per day — **SHIPPED**: claim is atomic (the `Setting` row `mission:<day>` primary key is the ledger; double-submit rolls back, zero XP); honest 400 refusal while incomplete; verified live with XP unchanged on the negative path.
+- [ ] Weekly recap: what measurably improved.
+- [x] Streak protection — already live (freeze banking absorbs one missed day; `touchStreak`).
+- [ ] Missed day → supportive restart plan (no guilt).
+- Basis live: Today plan cards, hero signals, `DailyStat` per-strand counters, FSRS due queue, `MistakeFamily`, XP/streak engine.
+
+## 10 · Execution order (assessment section 10, merged with Rah's P1→P3 history)
+
+| # | Phase | Status |
 |---|---|---|
-| A | Shell/nav + Home/Today + shared bits | typography ladder, hierarchy, spacing rhythm, nav clarity, ambient light coherence |
-| B | Review + Writing + Speaking | the core produce-check-repair loops; state feedback; focus flow; recording UX |
-| C | Listening + Reading + Grammar + Sound | study rhythm, media layouts, lesson progress honesty |
-| D | Progress + Placement + Checkpoint + Tutor + Arcade + Settings | data storytelling (honest charts), forms, tutor payload cards, settings calm |
-| E | Cross-cutting | empty/loading/error states, interaction feedback, a11y (focus rings, RTL Farsi, reduced-motion), 3-viewport adaptation pass |
+| 1 | Email, credential, privacy blockers | [x] done except holder-blocked email delivery (§2.1) |
+| 2 | Full end-to-end test of all existing surfaces | [x] emulated complete; real-device open (§2.3) |
+| 3 | **Daily English Mission** (§9) | [x] v1 SHIPPED 2026-11-03 (Task 118); weekly recap + restart plan open |
+| 4 | Voice shadowing (§3.1) | queued |
+| 5 | Listening library (§3.2) | queued |
+| 6 | Writing draft sync + improvement history (§3.3) | queued |
+| 7 | Polish the ten (§4, C-1…C-10) | queued; items absorbed as strands ship |
+| 8 | Real-device offline + multi-week validation | ongoing, time-gated, holder-blocked |
 
-Each group lands as its own commit + CI green + before/after screenshots under `db/evidence/ui/`.
+## Teaching-quality queue (previous Phase P2 — still holder-approved)
 
-## Phase P2 — Teaching quality (next after P1)
+1. [ ] Farsi-specific contrastive explanations deepened in review feedback (articles, countability, prepositions for Persian speakers).
+2. [x] ~~Writing examiner register-goal conditioning surfaced in the UI~~ — SHIPPED 2026-11-02 (Task 116).
+3. [ ] **Collocation training in the FSRS loop** — the deck has collocations; review directions don't target them yet.
+4. [ ] Calibrated IELTS-style band feedback on the exam tab (descriptors the learner can act on).
+5. [ ] Checkpoint scores bending the daily plan, visibly.
 
-1. Farsi-specific explanations deepened in review feedback (contrastive grammar: articles, countability, prepositions for Persian speakers).
-2. ~~Writing examiner: register-goal conditioning surfaced in the UI~~ SHIPPED 2026-11-02 (Task 116): a three-way "Who grades this?" register dial (Exam board / Workplace / Casual, seg-quiet pattern) sits above the Writing textarea with one line of learner-facing register copy; the choice travels in the POST body, /api/writing re-validates it against WRITING_GOALS, and the feedback card echoes "graded as … register" so the conditioning is visible end to end.
-3. Collocation training in the FSRS loop (the deck has collocations; the review directions don't target them yet).
-4. Calibrated IELTS-style feedback on the exam tab (band descriptors the learner can act on).
-5. Checkpoint scores feeding the daily plan visibly (measurement → plan bend, made visible).
+## Deliberately NOT planned (unchanged)
 
-## Phase P3 — Feature queue (post-P2, holder-approved items)
+Local Whisper · phoneme scoring · new inference server · Redis · paid APIs · domain purchase · multi-gigabyte local models.
 
-Voice shadowing → structured listening library → cross-device writing drafts → PDF/EPUB/web import → versioned curriculum. Deliberately NOT planned: local Whisper, phoneme scoring, new inference server, Redis, paid APIs, domain purchase.
+## Holder-blocked (parked, awaiting the holder — consent gates)
 
-## Holder-blocked (parked, awaiting the holder)
-
-- **A-6 production login mail** — needs the holder's domain decision ($0 rule means no purchase without consent).
-- **Old GitHub PAT revoke** (ends `…Gf23`) — consent gate; new PAT (`…VVVS`) active and recorded in the vault.
-- **Real-device test pass** — iPhone checklist ready (DEVICE-TEST-CHECKLIST.md, offline tests A–F); emulation is not a substitute.
-- **Multi-week learner evidence** — time-gated; the evidence timeline log accumulates honestly.
+- Production login mail (domain decision, $0 rule).
+- Old GitHub PAT revoke (`…Gf23`); new PAT (`…VVVS`) active and vaulted.
+- Real-device test pass (iPhone checklist ready; emulation is not a substitute).
+- Multi-week learner evidence (time-gated; timeline log accumulates).
+- Old archived repository: monitored, no action without approval.
 
 ## Permanent engineering rules
 
-1. $0 budget — no paid APIs, no domain purchase.
-2. 4 GB deployment — no large models, no bundle bloat, no unnecessary dependencies.
-3. Evidence hygiene — probes never count as learning; cleanup verified after every battery.
-4. Claims-vs-diff audit — every "done" claim verified against the tree/API/runtime before it is trusted.
-5. Contracts frozen unless a task explicitly repairs them (Tasks 106–108 doctrine: both sides of a contract change ship together, additively where possible).
-6. **Deploy at last, verified healthy (holder directive, 2026-11-01)** — every session CLOSES with `bash scripts/deploy-gate.sh`: fresh production build → port 3000 flipped to the standalone → real-browser smoke that FAILS on any client-side exception (a JSON health endpoint cannot see a crashed client bundle — the Task 113 incident) → commit/push → preview freshness. No session ends on a dev server.
+1. **$0 budget** — no paid APIs, no domain purchase.
+2. **4 GB deployment** — no large models, no bundle bloat, no unnecessary dependencies.
+3. **Evidence hygiene** — probes never count as learning; cleanup verified after every battery.
+4. **Claims-vs-diff audit** — every "done" claim verified against tree/API/runtime before trusted (this file obeys it: ticks carry evidence).
+5. **Contracts frozen** unless a task explicitly repairs them; both sides ship together, additively where possible.
+6. **Deploy at last, verified healthy** — every session closes with `bash scripts/deploy-gate.sh` (build → prod serve → real-browser smoke → commit/push → preview freshness). No session ends on a dev server.
+
+## Execution log (condensed — full detail in `git log`)
+
+- **T104–106** recovered feature layer live on all 12 surfaces + tutor tabs; Progress crash fixed at tree/wire/runtime.
+- **T107–108** Writing core loop's three broken legs repaired; contracts doctrine established.
+- **T109–112** GUI excellence groups A–E shipped; verify-by-eyes iterations 1–2; One Light Rule enforced; ui-ux-pro-max checklist added as second gate.
+- **T113** DOM-level detector on the authed app (12 views via CDP); all AA contrast failures repaired; `rah-primary-action` token; **root-caused stale-next-server serving deleted chunks — ensure-server chunk-integrity check + gate kill-by-identity born**.
+- **T114** recycle recovery only (git pull + artifact tar + BUILD_ID; drift fixed, no code diff).
+- **T115** visual stimulation wave: strand identity v2, Today hero, celebration layer; detector round-trips caught 4 AI-tells + review cyan — all repaired same task; sweep authed-shell verification hardened; ensure-server staleness heuristic replaced by the honest chunk-existence check.
+- **T116** recycle recovery (rebuild + redeploy); owned AA placeholder token (global `::placeholder` = `var(--muted)`); **P2 #2 register dial shipped end-to-end**; gate roads 1–5 green, road 6 failed closed on a **platform-side TLS fault** (ALB serving `CN=*.z.ai` for the preview host; app proven healthy behind it) — documented, workaround: Advanced → proceed.
+- **T117** professional UI wave (holder-directed): glyph-carried identity, strand hues retired, button tiers (btn-primary/quiet/danger); **Rah logo + full icon set** (logo.svg, logo-square.svg, PNG 192/512/maskable/apple-touch from one geometry); **coach small-talk misroute root-caused and fixed** (deterministic SMALL_TALK gate, routing on this message only, capability honesty, verifier strips undeliverable offers) — verified live, probe hygiene clean.
+- **T118 (2026-11-03)** platform TLS cert **fixed** (strict verify=0, HTTP 200) — road 6 unblocked; ROADMAP.md rewritten as this checkbox ledger from the holder's assessment; **Daily English Mission v1 SHIPPED** (§9): `/api/mission` (GET real state / POST atomic claim) + mission card on Today with four live steps; one scoping bug caught and fixed by the runtime probe — cardState/listeningLog are `learnerId`-keyed while reviewLog/speakSession/writingSub/mistakeFamily are session-`userId`-keyed, and querying the latter group with `"me"` silently read empty tables (documented in the route header); the probe also caught a stale next-server serving the pre-fix build — kill-by-identity + revive (Task 113 doctrine) re-proven; negative-path claim refused with 400, XP unchanged (507) throughout.

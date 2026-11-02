@@ -156,17 +156,34 @@ export default function ProgressView({ boot }: { boot: Boot }) {
             <p className="max-w-[42rem] text-[13px]" style={{ color: "var(--muted)" }}>No strand time logged this week. Review, listening, reading, speaking and writing each land here as minutes.</p>
           ) : (
             <>
-              <div className="flex h-4 rounded-full overflow-hidden mb-4">
-                {Object.entries(d.strands).map(([k, v]) => (
-                  <div key={k} style={{ width: `${(v / totalStrandMin) * 100}%`, background: k === "review" ? "var(--accent)" : k === "listening" ? "var(--rah-strand-listening)" : k === "reading" ? "var(--rah-strand-reading)" : k === "speaking" ? "var(--rah-strand-speaking)" : k === "writing" ? "var(--rah-strand-writing)" : "var(--rah-strand-other)" }} />
-                ))}
-              </div>
-              {Object.entries(d.strands).sort((a, b) => b[1] - a[1]).map(([k, v]) => (
-                <div key={k} className="flex items-center justify-between py-1 text-[13px]">
-                  <span className="font-semibold">{STRAND_LABELS[k] ?? k}</span>
-                  <span style={{ color: "var(--muted)" }}>{v} min</span>
-                </div>
-              ))}
+              {/* Task 117: one hue stepped by LIGHTNESS, largest strand
+                 brightest - the old per-strand hue rainbow retired with the
+                 tile fills. Legend swatches make the mapping explicit (the
+                 old chart colored by insertion order while the legend sorted
+                 by minutes, so no viewer could match them). */}
+              {(() => {
+                const rows = Object.entries(d.strands).sort((a, b) => b[1] - a[1]);
+                const RAMP = ["#4e8cff", "#2f62c4", "#2650a3", "#1d3f82", "#16315f", "#475569"];
+                const tone = (i: number) => RAMP[Math.min(i, RAMP.length - 1)];
+                return (
+                  <>
+                    <div className="flex h-4 rounded-full overflow-hidden mb-4">
+                      {rows.map(([k, v], i) => (
+                        <div key={k} style={{ width: `${(v / totalStrandMin) * 100}%`, background: tone(i) }} />
+                      ))}
+                    </div>
+                    {rows.map(([k, v], i) => (
+                      <div key={k} className="flex items-center justify-between py-1 text-[13px]">
+                        <span className="flex items-center gap-2 font-semibold">
+                          <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-[3px]" style={{ background: tone(i) }} />
+                          {STRAND_LABELS[k] ?? k}
+                        </span>
+                        <span style={{ color: "var(--muted)" }}>{v} min</span>
+                      </div>
+                    ))}
+                  </>
+                );
+              })()}
             </>
           )}
         </div>

@@ -19,29 +19,29 @@ import {
 } from "lucide-react";
 
 /* ============================================================
-   Task 115 — visual stimulation wave.
-   StrandIcon: the vivid identity unit. Every strand owns a hue
-   pair (bright -> deep) and a glyph; the tile paints gradients
-   with a matching glow, so the home screen and progress surfaces
-   read as a colorful system instead of a wall of identical gray
-   cards. White glyphs sit on the 600-level deep stop (>=3:1
-   graphics floor).
+   Task 117 — professional identity system (holder direction:
+   "different colored buttons dont suit the ui and are
+   unprofessional"). Identity is carried by the GLYPH, never by
+   hue: every strand tile shares one neutral raised surface, so
+   plan cards, stats and the login strip read as one system.
+   Color is reserved for semantic signals (streak amber, success
+   green, danger red) and the single app accent on actions.
    ============================================================ */
-type StrandSpec = { icon: LucideIcon; deep: string; bright: string; glow: string; label: string };
+type StrandSpec = { icon: LucideIcon; label: string };
 const STRANDS: Record<string, StrandSpec> = {
-  review: { icon: RotateCcw, deep: "#4d7c0f", bright: "#a3e635", glow: "rgba(163, 230, 53, 0.35)", label: "spaced retrieval" },
-  listening: { icon: Headphones, deep: "#2563eb", bright: "#60a5fa", glow: "rgba(96, 165, 250, 0.4)", label: "listening" },
-  reading: { icon: BookOpen, deep: "#7c3aed", bright: "#a78bfa", glow: "rgba(167, 139, 250, 0.4)", label: "reading" },
-  speaking: { icon: Mic, deep: "#059669", bright: "#34d399", glow: "rgba(52, 211, 153, 0.4)", label: "speaking" },
-  writing: { icon: PenLine, deep: "#d97706", bright: "#fbbf24", glow: "rgba(251, 191, 36, 0.4)", label: "writing" },
-  sound: { icon: AudioWaveform, deep: "#0d9488", bright: "#2dd4bf", glow: "rgba(45, 212, 191, 0.4)", label: "pronunciation" },
-  grammar: { icon: BookMarked, deep: "#b45309", bright: "#fbbf24", glow: "rgba(251, 191, 36, 0.35)", label: "grammar" },
-  placement: { icon: Target, deep: "#dc2626", bright: "#f87171", glow: "rgba(248, 113, 113, 0.4)", label: "placement" },
-  checkpoint: { icon: Target, deep: "#dc2626", bright: "#f87171", glow: "rgba(248, 113, 113, 0.4)", label: "checkpoint" },
-  tutor: { icon: MessageCircle, deep: "#4f46e5", bright: "#818cf8", glow: "rgba(129, 140, 248, 0.4)", label: "coach" },
-  arcade: { icon: Gamepad2, deep: "#db2777", bright: "#f472b6", glow: "rgba(244, 114, 182, 0.4)", label: "arcade" },
-  progress: { icon: BarChart3, deep: "#0d9488", bright: "#2dd4bf", glow: "rgba(45, 212, 191, 0.4)", label: "progress" },
-  other: { icon: Layers, deep: "#475569", bright: "#94a3b8", glow: "rgba(148, 163, 184, 0.35)", label: "study" },
+  review: { icon: RotateCcw, label: "spaced retrieval" },
+  listening: { icon: Headphones, label: "listening" },
+  reading: { icon: BookOpen, label: "reading" },
+  speaking: { icon: Mic, label: "speaking" },
+  writing: { icon: PenLine, label: "writing" },
+  sound: { icon: AudioWaveform, label: "pronunciation" },
+  grammar: { icon: BookMarked, label: "grammar" },
+  placement: { icon: Target, label: "placement" },
+  checkpoint: { icon: Target, label: "checkpoint" },
+  tutor: { icon: MessageCircle, label: "coach" },
+  arcade: { icon: Gamepad2, label: "arcade" },
+  progress: { icon: BarChart3, label: "progress" },
+  other: { icon: Layers, label: "study" },
 };
 
 export function StrandIcon({
@@ -67,29 +67,59 @@ export function StrandIcon({
         width: size,
         height: size,
         borderRadius: radius,
-        background: `linear-gradient(135deg, ${spec.bright} 0%, ${spec.deep} 100%)`,
-        "--tile-glow": spec.glow,
       } as React.CSSProperties}
     >
-      <Icon style={{ width: isz, height: isz }} strokeWidth={2.4} />
+      <Icon style={{ width: isz, height: isz }} strokeWidth={2.2} />
     </span>
   );
 }
 
-export function strandColors(strand: string): { deep: string; bright: string } {
-  const spec = STRANDS[strand] ?? STRANDS.other;
-  return { deep: spec.deep, bright: spec.bright };
+export function strandColors(_strand: string): { deep: string; bright: string } {
+  // Task 117: strand hues retired. Kept as a neutral shim so any straggler
+  // caller compiles; new code must use the single accent token instead.
+  return { deep: "var(--rah-primary-action)", bright: "var(--rah-primary-action)" };
 }
-export function Logo({ size = 26 }: { size?: number }) {
+
+/* Task 117 — the Rah logo. "Rah" (راه) means "the road": the mark is a
+   rounded-square tile in the app's accent with a white geometric R whose
+   leg kicks forward like a road bending out of frame. Pure SVG, no
+   fonts, no images; the PNG icon set in public/icons is rendered from
+   the same geometry. */
+export function LogoMark({ size = 26 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden role="img">
+      <defs>
+        <linearGradient id="rah-logo-g" x1="6" y1="2" x2="26" y2="30" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#4e8cff" />
+          <stop offset="0.55" stopColor="#2f62c4" />
+          <stop offset="1" stopColor="#24509f" />
+        </linearGradient>
+      </defs>
+      <rect width="32" height="32" rx="9" fill="url(#rah-logo-g)" />
+      <rect x="0.5" y="0.5" width="31" height="31" rx="8.5" fill="none" stroke="rgba(255,255,255,0.22)" />
+      <rect x="2" y="2" width="28" height="12" rx="6" fill="white" opacity="0.08" />
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M9.2 23.2V8.8h7.3c3.15 0 5.25 1.9 5.25 4.7 0 1.95-1.05 3.5-2.75 4.2l3.35 5.5h-3.95l-2.85-4.9h-2.75v4.9H9.2zm3.6-7.9h3.45c1.55 0 2.5-.85 2.5-2.15s-.95-2.15-2.5-2.15H12.8v4.3z"
+        fill="#ffffff"
+      />
+    </svg>
+  );
+}
+
+export function Logo({ size = 26, showFa = false }: { size?: number; showFa?: boolean }) {
   return (
     <span className="inline-flex items-center gap-2 select-none">
-      <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden>
-        <rect width="32" height="32" rx="9" fill="var(--accent)" />
-        <path d="M9 23V9h7.2c3 0 5 1.8 5 4.5 0 2.2-1.3 3.8-3.4 4.3L23 23h-4.2l-4.5-4.8H12.4V23H9zm3.4-7.7h3.4c1.5 0 2.4-.8 2.4-2s-.9-1.9-2.4-1.9h-3.4v3.9z" fill="#fff" />
-      </svg>
+      <LogoMark size={size} />
       <span className="display font-bold" style={{ fontSize: size * 0.85 }}>
         Rah
       </span>
+      {showFa ? (
+        <span dir="rtl" className="fa-text font-bold" style={{ fontSize: size * 0.62, color: "var(--muted)" }}>
+          راه
+        </span>
+      ) : null}
     </span>
   );
 }

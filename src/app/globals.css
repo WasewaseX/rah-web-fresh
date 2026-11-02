@@ -333,32 +333,11 @@
      of them LIGHT-era surfaces rendered on Midnight cards (review MCQ chips
      were #fff/#f2f1ea paper on the dark card). Every one re-homed here and
      documented in DESIGN.md: */
-  /* Task 115 (visual stimulation wave): strand identity v2. The old strand
-     family was four greens + parchment - calm but indistinguishable, and the
-     Today plan cards never used any of it, so the home screen read as a wall
-     of identical gray cards. Each strand now owns a vivid, distinct hue used
-     EVERYWHERE the strand appears (tiles, plan bars, progress stacked bar,
-     empty states). Values are 500->600 pairs: the 600 end carries white icons
-     at >=3:1 (graphics floor) and fills bars at AA-adjacent visibility. */
-  --rah-strand-review: #4d7c0f;
-  --rah-strand-review-bright: #a3e635;
-  --rah-strand-listening: #2563eb;
-  --rah-strand-listening-bright: #60a5fa;
-  --rah-strand-reading: #7c3aed;
-  --rah-strand-reading-bright: #a78bfa;
-  --rah-strand-speaking: #059669;
-  --rah-strand-speaking-bright: #34d399;
-  --rah-strand-writing: #d97706;
-  --rah-strand-writing-bright: #fbbf24;
-  --rah-strand-sound: #0d9488;
-  --rah-strand-sound-bright: #2dd4bf;
-  --rah-strand-grammar: #b45309;
-  --rah-strand-grammar-bright: #fbbf24;
-  --rah-strand-other: #475569;
-  --rah-strand-other-bright: #94a3b8;
-  /* The five legacy names above ARE the canonical strand tokens - progress.tsx
-     and every future consumer read these same variables, so the vivid identity
-     propagates everywhere through one definition (no shadow duplicates). */
+  /* Task 117 (holder: professional UI): the Task 115 per-strand hue ramp is
+     RETIRED - its last consumer (the progress stacked bar) now steps the
+     accent by lightness, tiles wear one neutral surface, and color on
+     controls is the single action accent plus semantic signals. Removed
+     tokens: --rah-strand-* (16 vars). See DESIGN.md strand identity map. */
   --rah-deck-new: #d9d7cd; /* parchment: cards still new, not yet in memory */
   --rah-grade-hard: #b7791f; /* pressed amber: between Again(danger) and Good(accent) */
 }
@@ -387,6 +366,47 @@
 }
 .rah-next .btn-primary:hover { filter: brightness(1.08); }
 .rah-next .btn-primary:active { transform: translateY(1px); }
+/* Task 117 (holder: "make professional buttons"): the full button tier set.
+   ONE accent owns actions (btn-primary); secondary actions are neutral
+   raised surfaces; destructive actions are quiet red. No strand hues on
+   any control, ever. */
+.rah-next .btn-quiet {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.055);
+  color: #e6ecf6;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1;
+  padding: 11px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.06s ease;
+}
+.rah-next .btn-quiet:hover { background: rgba(255, 255, 255, 0.09); border-color: rgba(255, 255, 255, 0.2); }
+.rah-next .btn-quiet:active { transform: translateY(1px); }
+.rah-next .btn-quiet:disabled { opacity: 0.45; cursor: not-allowed; }
+.rah-next .btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(220, 38, 38, 0.16);
+  color: #fca5a5;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1;
+  padding: 11px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(220, 38, 38, 0.38);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.06s ease;
+}
+.rah-next .btn-danger:hover { background: rgba(220, 38, 38, 0.26); border-color: rgba(220, 38, 38, 0.55); color: #fecaca; }
+.rah-next .btn-danger:active { transform: translateY(1px); }
 .rah-next .chip {
   display: inline-flex;
   align-items: center;
@@ -461,19 +481,22 @@
    animation is silenced under prefers-reduced-motion.
    ============================================================ */
 
-/* --- Strand icon tile: the vivid identity unit ----------------
-   A rounded gradient tile in the strand's hue carrying a white
-   lucide glyph. Used by plan cards, stats, empty states. */
+/* --- Strand icon tile: the professional identity unit ---------
+   A rounded neutral tile carrying a lucide glyph. Used by plan
+   cards, stats, empty states. */
 .rah-tile {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: none;
   border-radius: 14px;
-  color: #ffffff;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    0 6px 16px -8px var(--tile-glow, rgba(0, 0, 0, 0.5));
+  color: #dbe3f0;
+  /* Task 117: one neutral raised surface for EVERY strand tile. Identity
+     lives in the glyph; the rainbow fills retired with the hue map. Glyph
+     #dbe3f0 on #2d3648 clears the 3:1 graphics floor with room to spare. */
+  background: linear-gradient(180deg, #2d3648 0%, #232b3c 100%);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 /* --- Hover lift for interactive cards ------------------------- */

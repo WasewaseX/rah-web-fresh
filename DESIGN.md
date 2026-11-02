@@ -106,7 +106,7 @@ This is an **Operate** product (the visitor completes study tasks) with one Pers
 
 **Key Characteristics:**
 - Dark-by-design Midnight theme; a single blue accent family; green/gold/red reserved as semantic signals (correct, attention, error).
-- **Strand identity (Task 115, holder-directed):** every study strand owns a vivid hue pair (bright -> deep) used consistently across tiles, plan bars and progress charts — listening blue, reading violet, speaking green, writing amber, sound teal, review cyan, grammar bronze. The hues are CONTENT identity (navigational color coding), not action accents: the One Light Rule still governs actions — one blue per view for the thing you press. The 2026-11-01 holder directive ("the app still lacks visual stimulation") explicitly lifted the earlier single-hue restraint for strand identity.
+- **Strand identity (Task 117, holder-directed: "different colored buttons dont suit the ui and are unprofessional"):** identity is carried by the GLYPH, never by hue. Every strand tile shares one neutral raised surface (`rah-tile`: #2d3648→#232b3c, hairline border, ink glyph); plan bars and progress fills wear the single accent. The Task 115 per-strand hue pairs are RETIRED from controls, tiles, bars and charts — the rainbow reads amateur, and color is now spent only where it means something: the one action accent (One Light Rule), semantic signals (correct green, streak gold, danger red, deck-state tones). Progress/strand charts that need series separation use the accent ramp by LIGHTNESS, not by hue.
 - Two hairline layer systems: `--line` borders and one soft ambient gradient wash on the body — depth comes from tonal layering, not stacked shadows.
 - Pressable 3D buttons with a solid bottom edge that compresses on `:active` — tactile, physical, never glossy.
 - Motion is short, spring-eased and purposeful: rise-in on view change, pop on reveal, pulse only while recording, shake only on a misstep. Ambient identity loops (bar sheen sweep, hero breathe, streak flame flicker) are the one sanctioned exception to the 400ms ceiling — they carry mood, not information, and all of them go still under `prefers-reduced-motion`.
@@ -188,26 +188,26 @@ Cards 18px radius; controls (buttons, inputs, option rows) 12–16px; chips and 
 
 - **Do** keep one primary action per view; everything else is secondary (ghost/quiet).
 - **Do** show real numbers only. An empty stat shows 0 or the state is omitted, never estimated.
-- **Don't** introduce a second ACTION accent hue (One Light Rule), a glassmorphism panel, or a new chip color per section. (Amended Task 115: strand identity hues are content coding, not action accents — they are sanctioned and mapped above; purple as an ACTION color and decorative purple gradients remain banned.)
+- **Don't** introduce a second ACTION accent hue (One Light Rule), a glassmorphism panel, or a new chip color per section. (Amended Task 117: per-strand identity hues are retired everywhere — tiles, bars, chips, charts; color on controls is the single action accent plus semantic signals only. Purple as an ACTION color and decorative purple gradients remain banned.)
 - **Don't** nest cards inside cards; use hairline dividers inside a card instead.
 - **Don't** animate anything longer than 400ms except the recording pulse; honor `prefers-reduced-motion` everywhere (the backdrop already does).
 - **Don't** render Farsi without `.fa-text` + `dir="rtl"`.
 - **Don't** add a dependency for what a CSS token or 20-line keyframe can do (4 GB budget, $0 rule).
 
-### Strand identity map (Task 115)
+### Strand identity map (Task 117)
 
-`StrandIcon` (in `next/bits.tsx`) is the identity unit: a gradient tile (bright -> deep, 135deg) with a white lucide glyph and a hue-matched glow. The same pair fills the strand's progress bar (`Bar deep/bright` props) and the stacked chart in Progress. Values are 500/600-level so the deep stop carries white at the 3:1 graphics floor. Detector-driven hue constraint (Task 115): cyan gradients on dark are on the Impeccable AI-tell ban list, so the review strand wears lime, not cyan — keep future strand hues out of the cyan/violet-gradient tell families.
+`StrandIcon` (in `next/bits.tsx`) is the identity unit: ONE neutral raised tile (linear-gradient #2d3648→#232b3c, hairline border, inset highlight) carrying the strand's lucide glyph in ink (#dbe3f0, ≥3:1 on the surface). The glyph DIFFERENTIATES; the surface never does. `Bar` wears the single action accent. The per-strand hue map, the `--rah-strand-*` chart ramp and the deep/bright `Bar` props are retired (Task 117); charts needing series separation step the accent's LIGHTNESS. The logo (`Logo` in bits.tsx + `public/logo.svg` + `public/icons/*.png` rendered by `scripts/render-logo.sh`) is the accent tile with a white geometric R — "Rah" (راه) means "the road".
 
-| Strand | Deep | Bright | Glyph |
-|---|---|---|---|
-| review | #4d7c0f | #a3e635 | RotateCcw |
-| listening | #2563eb | #60a5fa | Headphones |
-| reading | #7c3aed | #a78bfa | BookOpen |
-| speaking | #059669 | #34d399 | Mic |
-| writing | #d97706 | #fbbf24 | PenLine |
-| sound | #0d9488 | #2dd4bf | AudioWaveform |
-| grammar | #b45309 | #fbbf24 | BookMarked |
-| placement/checkpoint | #dc2626 | #f87171 | Target |
-| tutor | #4f46e5 | #818cf8 | MessageCircle |
-| arcade | #db2777 | #f472b6 | Gamepad2 |
-| other | #475569 | #94a3b8 | Layers |
+| Strand | Glyph |
+|---|---|
+| review | RotateCcw |
+| listening | Headphones |
+| reading | BookOpen |
+| speaking | Mic |
+| writing | PenLine |
+| sound | AudioWaveform |
+| grammar | BookMarked |
+| placement/checkpoint | Target |
+| tutor | MessageCircle |
+| arcade | Gamepad2 |
+| other | Layers |

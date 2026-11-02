@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Task 117: maskable / apple-touch variant. Full-bleed square (no rounded
+     corners, no hairline) so platform masks and iOS squircles can crop
+     freely without shaving the mark. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <defs>
+    <linearGradient id="rah-logo-sq" x1="6" y1="2" x2="26" y2="30" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4e8cff"/>
+      <stop offset="0.55" stop-color="#2f62c4"/>
+      <stop offset="1" stop-color="#24509f"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" fill="url(#rah-logo-sq)"/>
+  <rect x="1.5" y="1.5" width="29" height="14" rx="7" fill="#ffffff" opacity="0.08"/>
+  <path fill-rule="evenodd" clip-rule="evenodd"
+    d="M9.2 23.2V8.8h7.3c3.15 0 5.25 1.9 5.25 4.7 0 1.95-1.05 3.5-2.75 4.2l3.35 5.5h-3.95l-2.85-4.9h-2.75v4.9H9.2zm3.6-7.9h3.45c1.55 0 2.5-.85 2.5-2.15s-.95-2.15-2.5-2.15H12.8v4.3z"
+    fill="#ffffff"/>
+</svg>

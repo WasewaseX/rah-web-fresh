@@ -1,7 +1,7 @@
 "use client";
 
 import type { Boot } from "@/app/page";
-import { Bar, Note, Ring, StrandIcon, strandColors } from "./bits";
+import { Bar, Note, Ring, StrandIcon } from "./bits";
 import { ArrowRight, CheckCircle2, Flame, Zap } from "lucide-react";
 
 const TIPS = [
@@ -110,22 +110,18 @@ export default function TodayView({ boot, go }: { boot: Boot; go: (v: string) =>
         </>
       )}
 
-      {/* protocol plan - each strand wears its own color now */}
+      {/* protocol plan - one professional system: identity by glyph, the
+         single accent owns progress, color stays semantic (done = green). */}
       <div className="mt-5 grid gap-4 md:grid-cols-2">
         {boot.plan.map((p, i) => {
           const done = boot.protocol.minutesByStrand[p.strand] ?? 0;
           const pctS = Math.min(100, Math.round((done / p.minutes) * 100));
-          const c = strandColors(p.strand);
           return (
             <button
               key={p.strand}
               onClick={() => go(p.view)}
               className="card-rah rah-lift rah-rise p-5 text-left"
-              style={{
-                animationDelay: `${0.04 * i}s`,
-                "--lift-glow": `${c.deep}59`,
-                "--lift-tint": `${c.deep}26`,
-              } as React.CSSProperties}
+              style={{ animationDelay: `${0.04 * i}s` }}
             >
               <div className="mb-3 flex items-center gap-3">
                 <StrandIcon strand={p.strand} size={44} />
@@ -145,14 +141,14 @@ export default function TodayView({ boot, go }: { boot: Boot; go: (v: string) =>
                 ) : (
                   <span
                     className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-extrabold"
-                    style={{ background: `${c.deep}29`, color: c.bright, border: `1px solid ${c.deep}52` }}
+                    style={{ background: "rgba(255, 255, 255, 0.045)", color: "var(--text-soft, #a0abbe)", border: "1px solid var(--line)" }}
                   >
                     {done}/{p.minutes} min
                   </span>
                 )}
               </div>
               <p className="mb-3 text-[13px] leading-relaxed" style={{ color: "var(--muted)" }}>{p.note}</p>
-              <Bar pct={pctS} deep={c.deep} bright={c.bright} />
+              <Bar pct={pctS} color="var(--rah-primary-action)" />
             </button>
           );
         })}
@@ -186,7 +182,7 @@ export default function TodayView({ boot, go }: { boot: Boot; go: (v: string) =>
       </div>
 
       {/* coach card - the AI gets a face too */}
-      <div className="card-rah rah-lift mt-5 flex flex-wrap items-center justify-between gap-4 p-5" style={{ "--lift-glow": "rgba(129, 140, 248, 0.4)" } as React.CSSProperties}>
+      <div className="card-rah rah-lift mt-5 flex flex-wrap items-center justify-between gap-4 p-5">
         <div className="flex min-w-[240px] flex-1 items-center gap-4">
           <StrandIcon strand="tutor" size={44} />
           <div>

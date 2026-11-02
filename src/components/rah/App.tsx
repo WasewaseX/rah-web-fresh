@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Chip } from "./ui";
+import { LogoMark } from "./next/bits";
 import PwaBootstrap from "./PwaBootstrap";
 import OfflineBadge from "./OfflineBadge";
 import CoachSidebar from "./CoachSidebar";
@@ -361,9 +362,7 @@ export default function RahApp() {
       {/* Desktop rail */}
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-white/[0.06] bg-gradient-to-b from-[#0e1421] via-[#101725] to-[#0d1119] px-4 py-6 md:flex">
         <div className="mb-9 flex items-center gap-3 px-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--rah-primary-action)] to-[#2650a3] text-lg font-black text-white shadow-[0_8px_20px_-6px_rgba(0,0,0,.55)]">
-            R
-          </div>
+          <LogoMark size={40} />
           <div>
             <div className="text-lg font-black tracking-tight text-[#f2f5fa]">Rah</div>
             <div className="text-[12px] font-semibold text-[#7d889c]">B2 to C1, your road</div>
@@ -428,9 +427,7 @@ export default function RahApp() {
       {/* Mobile top bar */}
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-white/[0.06] bg-[var(--rah-bg)]/85 px-4 py-3 backdrop-blur-xl md:hidden">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--rah-primary-action)] to-[#2650a3] text-base font-black text-white">
-            R
-          </div>
+          <LogoMark size={36} />
           <span className="text-lg font-black tracking-tight">Rah</span>
         </div>
         {state && (

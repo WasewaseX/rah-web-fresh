@@ -15,6 +15,11 @@ const BANNED: [RegExp, string][] = [
   [/i (?:cannot|can't|can not) (?:do|make) that[^.]*\.?/gi, ""],
   [/i(?:'m| am) sorry,? (?:but )?i (?:cannot|can't)[^.]*\.?/gi, ""],
   [/certainly!?|of course!?/gi, ""],
+  // Task 117: capability-lie offers. The coach cannot produce files; the
+  // offer always sits at the end of a reply, so stripping leaves clean text.
+  [/would you like me to (?:create|make|generate|prepare|write)[^.]*\.?/gi, ""],
+  [/shall i (?:create|make|generate|prepare|write)[^.]*\.?/gi, ""],
+  [/want me to (?:create|make|generate|prepare|write)[^.]*\.?/gi, ""],
 ];
 
 function sanitizeReply(s: string): string {

@@ -33,6 +33,11 @@ function errorEnvelope(msg: string): CoachEnvelope {
   });
 }
 
+// Task 117: full-string small-talk matcher. Anchored both ends so any real
+// content ("hi, correct this") falls through to normal routing.
+const SMALL_TALK =
+  /^(?:h+i+|h+e+y+|hello+|yo+|hiya|salam|سلام|good (?:morning|afternoon|evening)|thanks?(?: you)?(?: a lot| so much)?|thank you|ty|tysm|b+y+e+|goodbye|good night|how are you(?: doing)?\??|hows? it going\??|whats? up\??|sup\??|o+k+(?:ay)?|nice|great|cool|lol|haha+|hehe+|yes|yeah|yep|no|nope|sure|ok)\b[\s!.?،؟]*$/i;
+
 export async function runCoach(
   text: string,
   history: { role: string; content: string }[],
@@ -72,6 +77,18 @@ export async function runCoach(
   // "end". Slash commands still win, so /skills works mid-scene.
   const modeTurn = await runModeFlow(text, history, p, emit).catch(() => null);
   if (modeTurn) return verifyEnvelope(modeTurn);
+
+  // Task 117 (holder bug report: "hi" after a collocation lesson returned
+  // another collocation lecture). Root cause: the planner sees recent
+  // history, so topical bias re-routed content-free messages into the last
+  // lesson's skill. Greetings, thanks, farewells and one-word answers are
+  // ALWAYS chat turns - decided here, deterministically, after modeFlow so
+  // active roleplay/socratic scenes still own their turns.
+  if (SMALL_TALK.test(text.trim())) {
+    emit("Small talk", "routed to chat");
+    const chat = getSkill("chat")!;
+    return verifyEnvelope(await chat.run({ text, args: "", profile: p, history, emit }));
+  }
 
   const triggered = routeByTrigger(text);
   const decision = triggered ?? (await routeByPlanner(text, history));

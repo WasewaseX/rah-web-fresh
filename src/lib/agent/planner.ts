@@ -41,7 +41,7 @@ const PLANNER_SYSTEM = `You route messages inside an English-learning app. Pick 
 Skills:
 ${skillCatalog()}
 
-Rules: "chat" is the default for conversation, questions, and anything no other skill covers. Prefer a specific skill when the message clearly asks for its capability. Output ONE JSON object, nothing else: {"skill": "id", "args": "anything the skill should know, or empty string"}. No em dashes.`;
+Rules: "chat" is the default for conversation, questions, and anything no other skill covers. Prefer a specific skill when the message clearly asks for its capability. Greetings, thanks, farewells, one-word answers, and small talk ALWAYS get "chat". Route on THIS message only: never pick a teaching skill because earlier history discussed its topic. Output ONE JSON object, nothing else: {"skill": "id", "args": "anything the skill should know, or empty string"}. No em dashes.`;
 
 export async function routeByPlanner(
   text: string,

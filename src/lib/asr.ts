@@ -18,6 +18,46 @@ import ZAI from "z-ai-web-dev-sdk";
 // that would be unreachable (the body dies before the route can 413 it).
 export const MAX_AUDIO_BASE64_CHARS = 9_000_000;
 
+// Server-side DURATION cap (ROADMAP §8 optimization ledger: "server limits
+// unverified" -> now verified and enforced). The client caps recordings at
+// 120s (speaking studio) and sentence reads are seconds long; the server no
+// longer takes the client's word for it. WAV payloads (what the client
+// encodes) carry their duration in the header - parsed here deterministically
+// at zero cost. Non-WAV payloads keep the byte-ceiling proxy only.
+export const MAX_AUDIO_SECONDS = 180;
+
+/**
+ * Duration of a base64 WAV (RIFF) payload in seconds, or null when the bytes
+ * are not a parsable WAV. Reads the fmt + data chunk sizes; no decode, no
+ * allocation beyond the header slice.
+ */
+export function wavDurationSeconds(b64: string): number | null {
+  try {
+    const head = Buffer.from(b64.slice(0, 200), "base64");
+    if (head.length < 44) return null;
+    if (head.toString("ascii", 0, 4) !== "RIFF" || head.toString("ascii", 8, 12) !== "WAVE") return null;
+    const fmt = head.toString("ascii", 12, 16);
+    if (fmt !== "fmt ") return null;
+    const channels = head.readUInt16LE(22);
+    const sampleRate = head.readUInt32LE(24);
+    const bitsPerSample = head.readUInt16LE(34);
+    if (!sampleRate || !channels || !bitsPerSample) return null;
+    // The data chunk header sits after the fixed 16-byte fmt chunk (+ its size field).
+    const dataHdr = head.toString("ascii", 36, 40);
+    let dataBytes: number;
+    if (dataHdr === "data") {
+      dataBytes = head.readUInt32LE(40);
+    } else {
+      // Non-standard layout: fall back to the RIFF file size - 44 header bytes.
+      dataBytes = head.readUInt32LE(4) - 36;
+    }
+    if (!Number.isFinite(dataBytes) || dataBytes <= 0) return null;
+    return dataBytes / (sampleRate * channels * (bitsPerSample / 8));
+  } catch {
+    return null;
+  }
+}
+
 export interface TranscribeResult {
   text: string;
   provider: "zai-asr";
@@ -45,6 +85,12 @@ export async function transcribeAudio(rawBase64: string): Promise<TranscribeResu
   const b64 = stripDataUrl(String(rawBase64 ?? ""));
   if (!b64) throw new Error("No audio reached the server - record again.");
   if (b64.length > MAX_AUDIO_BASE64_CHARS) throw new Error("Audio clip too large (9MB ceiling).");
+  // Server-side duration enforcement (§8): a WAV is parsed, not trusted; the
+  // 180s ceiling matches the longest legitimate surface (2-minute monologue).
+  const secs = wavDurationSeconds(b64);
+  if (secs !== null && secs > MAX_AUDIO_SECONDS) {
+    throw new Error(`Recording is ${Math.round(secs)}s - the ceiling is ${MAX_AUDIO_SECONDS}s. Record in shorter takes.`);
+  }
 
   const zai = await client();
   const res = (await zai.audio.asr.create({ file_base64: b64 })) as { text?: string };

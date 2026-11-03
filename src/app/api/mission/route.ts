@@ -99,7 +99,93 @@ async function missionState(u: string, me: string) {
 export async function GET() {
   const [u, me] = await Promise.all([contentUserId(), getLearner()]);
   const state = await missionState(u, me.id);
-  return NextResponse.json(state);
+  const [recap, restart] = await Promise.all([weeklyRecap(u), restartPlan(u, me)]);
+  return NextResponse.json({ ...state, recap, restart });
+}
+
+// ---------- §9 open items: weekly recap + missed-day restart ----------
+
+// Weekly recap: what MEASURABLY improved — this week vs the previous one,
+// from the same tables and the same conventions the Progress dashboard uses
+// (DailyStat for reviews/correct/xp per its documented accuracy convention;
+// per-strand activity from the content tables). Zero AI, zero pep talk: a
+// line renders only when BOTH windows have data to compare.
+export async function weeklyRecap(u: string) {
+  const day = Math.floor(Date.now() / 86400000);
+  const weekStart = day - 6;
+  const prevStart = day - 13;
+
+  const [ds, listenNow, listenPrev, speakNow, speakPrev, writeNow, writePrev] = await Promise.all([
+    db.dailyStat.findMany({ where: { userId: u, day: { gte: prevStart, lte: day } } }),
+    db.listeningLog.count({ where: { learnerId: "me", createdAt: { gte: new Date(weekStart * 86400000) } } }),
+    db.listeningLog.count({ where: { learnerId: "me", createdAt: { gte: new Date(prevStart * 86400000), lt: new Date(weekStart * 86400000) } } }),
+    db.speakSession.count({ where: { userId: u, at: { gte: new Date(weekStart * 86400000) } } }),
+    db.speakSession.count({ where: { userId: u, at: { gte: new Date(prevStart * 86400000), lt: new Date(weekStart * 86400000) } } }),
+    db.writingSub.count({ where: { userId: u, at: { gte: new Date(weekStart * 86400000) } } }),
+    db.writingSub.count({ where: { userId: u, at: { gte: new Date(prevStart * 86400000), lt: new Date(weekStart * 86400000) } } }),
+  ]);
+
+  const sum = (rows: typeof ds, k: "reviews" | "correct" | "xp") => rows.reduce((a, x) => a + x[k], 0);
+  const thisWeek = ds.filter((x) => x.day >= weekStart);
+  const prevWeek = ds.filter((x) => x.day < weekStart);
+  const pct = (rows: typeof ds) => {
+    const r = sum(rows, "reviews");
+    return r > 0 ? Math.round((sum(rows, "correct") / r) * 100) : null;
+  };
+
+  const items: { id: string; label: string; now: number; prev: number; delta: number; unit: string }[] = [];
+  const push = (id: string, label: string, now: number, prev: number, unit = "") => {
+    if (now === 0 && prev === 0) return; // no data both sides -> no line, no invention
+    items.push({ id, label, now, prev, delta: now - prev, unit });
+  };
+  push("reviews", "Reviews graded", sum(thisWeek, "reviews"), sum(prevWeek, "reviews"));
+  const accNow = pct(thisWeek);
+  const accPrev = pct(prevWeek);
+  if (accNow !== null && accPrev !== null) push("accuracy", "First-try accuracy", accNow, accPrev, "%");
+  push("xp", "XP earned", sum(thisWeek, "xp"), sum(prevWeek, "xp"));
+  push("listening", "Listening rounds", listenNow, listenPrev);
+  push("speaking", "Speaking sessions", speakNow, speakPrev);
+  push("writing", "Writing submissions", writeNow, writePrev);
+
+  return { weekStart, items };
+}
+
+// Missed day -> supportive restart plan (no guilt, no fake streak). Fires
+// when the last measured activity day is before YESTERDAY (yesterday empty
+// AND the day before it too - one rest day is a rest day, not a lapse) and
+// there is anything to come back to. The plan reuses the real mission steps
+// at a reduced review target; nothing is claimed to be "recovered".
+export async function restartPlan(u: string, me: { lastActiveDay: number; streak: number }) {
+  const day = Math.floor(Date.now() / 86400000);
+  const yesterday = day - 1;
+  const beforeYesterday = day - 2;
+
+  if (me.lastActiveDay >= yesterday) return { show: false };
+
+  const [dsY, dsB, dueCount] = await Promise.all([
+    db.dailyStat.findUnique({ where: { userId_day: { userId: u, day: yesterday } } }),
+    db.dailyStat.findUnique({ where: { userId_day: { userId: u, day: beforeYesterday } } }),
+    db.cardState.count({ where: { learnerId: "me", suspended: false, state: { not: "new" }, due: { lte: day } } }),
+  ]);
+
+  const quietDays = (dsY?.reviews ?? 0) + (dsY?.xp ?? 0) === 0 && (dsB?.reviews ?? 0) + (dsB?.xp ?? 0) === 0;
+  const awayDays = day - Math.max(me.lastActiveDay, 0);
+  if (!quietDays || awayDays < 2) return { show: false };
+
+  return {
+    show: true,
+    awayDays,
+    due: dueCount,
+    message:
+      awayDays <= 3
+        ? "A few quiet days is what the schedule absorbs, not a failure. The queue held your place."
+        : `You were away ${awayDays} days - the interval math already expected that. Nothing was lost; the queue just waited.`,
+    steps: [
+      `Start with ${Math.min(4, Math.max(dueCount, 0)) || 4} reviews - short, not heroic`,
+      "One listening round to warm the ear back up",
+      "Claim today's mission when the short list is done - it counts the same",
+    ],
+  };
 }
 
 export async function POST() {

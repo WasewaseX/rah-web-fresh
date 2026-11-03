@@ -77,6 +77,7 @@ export {
   MINIMAL_PAIRS,
   STRESS_ITEMS,
   LINK_ITEMS,
+  splitSentences,
 } from "@/content/listening";
 
 export const CARD_BY_ID = cardById;

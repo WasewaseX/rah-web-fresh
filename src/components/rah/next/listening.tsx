@@ -2,12 +2,13 @@
 
 import { useRef, useState } from "react";
 import { SectionTitle, Note, Fa } from "./bits";
-import { PASSAGES, MISS_TYPES } from "@/lib/content";
+import { PASSAGES, MISS_TYPES, splitSentences } from "@/lib/content";
 import { speak, stopSpeak, speakSlow, overlapPct } from "./speech";
 
 // The 5-round decoding cycle from the research base:
-// blind listen, diagnose, transcript, re-listen, reproduce.
-type Phase = "pick" | "r1" | "r2" | "r3" | "r4" | "r5" | "end";
+// blind listen, diagnose, transcript, re-listen, reproduce — plus the library
+// v2 comprehension check and sentence-level replay segments.
+type Phase = "pick" | "r1" | "r2" | "r3" | "r4" | "r5" | "quiz" | "end";
 
 export default function ListeningView({ onDone }: { onDone: () => void }) {
   const [phase, setPhase] = useState<Phase>("pick");
@@ -19,9 +20,15 @@ export default function ListeningView({ onDone }: { onDone: () => void }) {
   const [playing, setPlaying] = useState(false);
   const [noVoice, setNoVoice] = useState(false);
   const [lastRate, setLastRate] = useState(1);
+  const [segPlaying, setSegPlaying] = useState(-1);
+  const [addedVocab, setAddedVocab] = useState<Record<string, "loading" | "done" | "exists">>({});
+  const [qIdx, setQIdx] = useState(0);
+  const [picked, setPicked] = useState<number | null>(null);
+  const [quizScore, setQuizScore] = useState<number | null>(null);
   const startRef = useRef(Date.now());
 
   const passage = PASSAGES.find((p) => p.id === pid);
+  const segments = passage ? splitSentences(passage.transcript) : [];
 
   const play = async (rate = 1) => {
     setLastRate(rate);
@@ -40,6 +47,36 @@ export default function ListeningView({ onDone }: { onDone: () => void }) {
     }).catch(() => undefined);
   };
 
+  const playSegment = async (i: number, rate = 0.85) => {
+    if (!segments[i]) return;
+    setSegPlaying(i);
+    const ok = await speak(segments[i], rate);
+    setSegPlaying(-1);
+    if (!ok) setNoVoice(true);
+  };
+
+  const addVocab = async (w: string, fa: string) => {
+    if (!passage || addedVocab[w]) return;
+    setAddedVocab((x) => ({ ...x, [w]: "loading" }));
+    // The exact passage sentence that carries the word rides onto the card.
+    const sentence = segments.find((s) => s.toLowerCase().includes(w.toLowerCase().split(" ")[0])) ?? "";
+    try {
+      const r = await fetch("/api/track", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "listenvocab", word: w, fa, passageId: passage.id, sentence }),
+      });
+      const j = await r.json();
+      setAddedVocab((x) => ({ ...x, [w]: j.created ? "done" : "exists" }));
+    } catch {
+      setAddedVocab((x) => {
+        const n = { ...x };
+        delete n[w];
+        return n;
+      });
+    }
+  };
+
   const finish = () => {
     const mins = Math.max(1, Math.round((Date.now() - startRef.current) / 60000));
     fetch("/api/track", {
@@ -47,7 +84,9 @@ export default function ListeningView({ onDone }: { onDone: () => void }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ kind: "listening", minutes: mins, meta: { passageId: pid } }),
     }).then(onDone).catch(() => undefined);
-    setPhase("end");
+    setQIdx(0);
+    setPicked(null);
+    setPhase("quiz");
   };
 
   if (phase === "pick") {
@@ -74,7 +113,7 @@ export default function ListeningView({ onDone }: { onDone: () => void }) {
                 {p.level} · ~{p.seconds}s
               </div>
               <div className="font-bold text-[15.5px]">{p.title}</div>
-              <div className="text-[13px] mt-1" style={{ color: "var(--muted)" }}>{p.vocab.length} target words, {p.features.length} sound features</div>
+              <div className="text-[13px] mt-1" style={{ color: "var(--muted)" }}>{p.vocab.length} target words, {p.features.length} sound features, {p.questions.length} questions</div>
             </button>
           ))}
         </div>
@@ -143,6 +182,24 @@ export default function ListeningView({ onDone }: { onDone: () => void }) {
             <button className="btn-ghost text-[13px]" onClick={() => play(1)}>Play at 1.0x</button>
             <button className="btn-ghost text-[13px]" onClick={() => play(0.75)}>Play at 0.75x</button>
           </div>
+          {segments.length > 1 ? (
+            <div className="mb-5">
+              <div className="text-[12.5px] font-bold mb-2" style={{ color: "var(--muted)" }}>Replay one segment at 0.85x — the exact spot that broke</div>
+              <div className="flex flex-wrap gap-1.5">
+                {segments.map((s, i) => (
+                  <button
+                    key={i}
+                    className="btn-ghost text-[12px] px-3 py-1.5"
+                    title={s.length > 90 ? s.slice(0, 90) + "…" : s}
+                    disabled={segPlaying >= 0}
+                    onClick={() => playSegment(i)}
+                  >
+                    {segPlaying === i ? "…" : `sentence ${i + 1}`}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
           <div className="grid sm:grid-cols-2 gap-2 mb-5">
             {MISS_TYPES.map((m) => (
               <button
@@ -189,7 +246,16 @@ export default function ListeningView({ onDone }: { onDone: () => void }) {
             {passage.vocab.map((v) => (
               <div key={v.w} className="flex items-baseline justify-between gap-4 py-1.5 border-b last:border-0" style={{ borderColor: "var(--line)" }}>
                 <span className="font-bold text-[14.5px]">{v.w}</span>
-                <Fa className="text-[13.5px]">{v.fa}</Fa>
+                <span className="flex items-baseline gap-3">
+                  <Fa className="text-[13.5px]">{v.fa}</Fa>
+                  <button
+                    className="btn-ghost text-[11.5px] px-2.5 py-1 whitespace-nowrap"
+                    disabled={addedVocab[v.w] === "loading"}
+                    onClick={() => addVocab(v.w, v.fa)}
+                  >
+                    {addedVocab[v.w] === "done" ? "in queue ✓" : addedVocab[v.w] === "exists" ? "already queued" : "+ review queue"}
+                  </button>
+                </span>
               </div>
             ))}
           </div>
@@ -271,15 +337,104 @@ export default function ListeningView({ onDone }: { onDone: () => void }) {
     );
   }
 
+  if (phase === "quiz" && passage) {
+    const q = passage.questions[qIdx];
+    const done = qIdx >= passage.questions.length;
+    return (
+      <div className="max-w-2xl mx-auto">
+        {header}
+        <div className="card-rah p-8">
+          {!done && q ? (
+            <>
+              <div className="display text-[22px] font-bold mb-1">Comprehension check {qIdx + 1}/{passage.questions.length}</div>
+              <p className="text-[13.5px] mb-5" style={{ color: "var(--muted)" }}>
+                Answered from the audio, not the transcript. Wrong answers name the exact line that settles it.
+              </p>
+              <p className="text-[16.5px] font-semibold leading-relaxed mb-5">{q.q}</p>
+              <div className="grid gap-2">
+                {q.choices.map((c, i) => {
+                  const isPicked = picked === i;
+                  const reveal = picked !== null;
+                  const isRight = i === q.correct;
+                  return (
+                    <button
+                      key={i}
+                      disabled={reveal}
+                      onClick={() => setPicked(i)}
+                      className="rounded-2xl border px-4 py-3 text-left text-[14px]"
+                      style={
+                        reveal && isRight
+                          ? { background: "var(--accent-dim)", borderColor: "var(--accent)" }
+                          : reveal && isPicked && !isRight
+                            ? { background: "var(--danger-dim, rgba(220,38,38,0.12))", borderColor: "var(--danger)" }
+                            : { borderColor: "var(--line)" }
+                      }
+                    >
+                      {c}
+                      {reveal && isRight ? " ✓" : ""}
+                    </button>
+                  );
+                })}
+              </div>
+              {picked !== null ? (
+                <div className="mt-4">
+                  <Note tone={picked === q.correct ? "accent" : "warn"}>
+                    {picked === q.correct ? "Right. " : "The audio says: "}{q.why}
+                  </Note>
+                </div>
+              ) : null}
+              <div className="mt-5 text-right">
+                <button
+                  className="btn-primary"
+                  disabled={picked === null}
+                  onClick={() => {
+                    if (picked === q.correct) setQuizScore((s) => (s ?? 0) + 1);
+                    setQIdx((i) => i + 1);
+                    setPicked(null);
+                  }}
+                >
+                  {qIdx + 1 < passage.questions.length ? "Next question" : "See the result"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="display text-[22px] font-bold mb-1">Comprehension: {quizScore ?? 0}/{passage.questions.length}</div>
+              <p className="text-[13.5px] mb-6" style={{ color: "var(--muted)" }}>
+                {quizScore === passage.questions.length
+                  ? "Full score - the passage is yours. Revisit it in a week and it should still hold."
+                  : "Below full score is normal at this level. The transcript round is where the misses get resolved - rerun this passage in a few days."}
+              </p>
+              <div className="flex gap-2 justify-end">
+                <button
+                  className="btn-primary"
+                  onClick={() => {
+                    if (passage && quizScore !== null) log(6, "", `${quizScore}/${passage.questions.length}`);
+                    setPhase("end");
+                  }}
+                >
+                  Done
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-xl mx-auto text-center pt-10">
       <div className="display text-[30px] font-bold mb-2">Decoding cycle complete</div>
-      <p className="text-[14px] mb-8 leading-relaxed" style={{ color: "var(--muted)" }}>
-        Five rounds: blind, diagnose, transcript, clean listen, reproduce. Missed words live in the transcript round; the
+      <p className="text-[14px] mb-4 leading-relaxed" style={{ color: "var(--muted)" }}>
+        Blind, diagnose, transcript, clean listen, reproduce, comprehension. Missed words live in the transcript round; the
         real score is how much more resolved round 4 sounded than round 1.
       </p>
+      {quizScore !== null ? (
+        <div className="text-[14px] font-bold mb-6">Comprehension check: {quizScore}/{passage?.questions.length ?? 3}</div>
+      ) : null}
       <div className="flex gap-3 justify-center">
-        <button className="btn-primary" onClick={() => setPhase("pick")}>Another passage</button>
+        <button className="btn-primary" onClick={() => { setQuizScore(null); setPhase("pick"); }}>Another passage</button>
       </div>
     </div>
   );

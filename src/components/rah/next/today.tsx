@@ -17,7 +17,18 @@ const TIPS = [
 ];
 
 type MissionStep = { id: string; label: string; progress: string; done: boolean; view: string };
-type MissionState = { day: number; due: number; xp: number; steps: MissionStep[]; allDone: boolean; claimed: boolean; reward: number };
+type RecapItem = { id: string; label: string; now: number; prev: number; delta: number; unit: string };
+type MissionState = {
+  day: number;
+  due: number;
+  xp: number;
+  steps: MissionStep[];
+  allDone: boolean;
+  claimed: boolean;
+  reward: number;
+  recap?: { weekStart: number; items: RecapItem[] };
+  restart?: { show: boolean; awayDays?: number; due?: number; message?: string; steps?: string[] };
+};
 
 // The Daily English Mission (roadmap §9): four connected actions computed
 // server-side from the learner's real state, one XP reward per day, claimable
@@ -116,6 +127,40 @@ function MissionCard({ go }: { go: (v: string) => void }) {
       <div className="mt-4">
         <Bar pct={pct} color="var(--rah-primary-action)" />
       </div>
+
+      {/* §9: missed day -> supportive restart plan. No guilt, no fake streak:
+          the queue held the learner's place and the plan is shorter on purpose. */}
+      {m.restart?.show ? (
+        <div className="mt-4 rounded-2xl p-4" style={{ background: "var(--rah-callout)" }}>
+          <div className="text-[13px] font-bold mb-1">Back after {m.restart.awayDays} quiet days</div>
+          <p className="text-[12.5px] mb-2" style={{ color: "var(--muted)" }}>{m.restart.message}</p>
+          <ul className="text-[12.5px] leading-relaxed space-y-0.5">
+            {(m.restart.steps ?? []).map((s, i) => (
+              <li key={i}>{i + 1}. {s}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {/* §9: weekly recap - what measurably improved, this week vs last, zero AI.
+          A line renders only when both windows have data to compare. */}
+      {m.recap && m.recap.items.length > 0 ? (
+        <div className="mt-4">
+          <div className="text-[12px] font-bold uppercase tracking-widest" style={{ color: "var(--muted)" }}>
+            This week vs last
+          </div>
+          <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1">
+            {m.recap.items.map((it) => (
+              <span key={it.id} className="text-[12.5px] font-semibold" title={`previous 7 days: ${it.prev}${it.unit}`}>
+                {it.label}: {it.now}{it.unit}
+                <span style={{ color: it.delta >= 0 ? "#6ee7b7" : "#ffb02e", marginInlineStart: 4 }}>
+                  {it.delta >= 0 ? "\u25b2" : "\u25bc"} {Math.abs(it.delta)}{it.unit}
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         {m.claimed ? (

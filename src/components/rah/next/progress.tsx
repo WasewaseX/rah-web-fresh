@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Boot } from "@/app/page";
 import { SectionTitle, Stat, Bar } from "./bits";
+import MindReader from "./mindreader";
 
 interface ProgressData {
   accuracy: number;
@@ -271,6 +272,8 @@ export default function ProgressView({ boot }: { boot: Boot }) {
           </div>
         </div>
       ) : null}
+
+      <MindReader />
     </div>
   );
 }

@@ -5,7 +5,12 @@ import type { SkillDef, SkillId } from "./types";
 import { CORE_SKILLS } from "./skills-core";
 import { POWER_SKILLS } from "./skills-power";
 
-export const REGISTRY: SkillDef[] = [...POWER_SKILLS, ...CORE_SKILLS];
+// REGISTRY order is routing priority (routeByTrigger iterates first-match):
+// CORE teaching skills are SPECIFIC (collocation, phrasal, idioms...) and must
+// beat the broad POWER verbs (explain, debate...). The conversations-100
+// battery caught the old power-first order misrouting "explain phrasal verbs"
+// to the generic explainer. NEVER hardcode REGISTRY.length again.
+export const REGISTRY: SkillDef[] = [...CORE_SKILLS, ...POWER_SKILLS];
 
 export function getSkill(id: string): SkillDef | undefined {
   return REGISTRY.find((s) => s.id === id);

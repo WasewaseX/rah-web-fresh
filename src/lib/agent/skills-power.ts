@@ -503,11 +503,19 @@ Output ONE JSON object, no em dash.`,
     oneLiner: "A full checkpoint exam, graded with mercy for synonyms",
     commands: ["exam", "test", "quiz-full"],
     triggers: [
-      /\b(exam|test|checkpoint|mock)\b/i,
+      // Narrowed (conversations-100 finding): the old /\b(exam|test|...)\b/ net
+      // fired on HISTORY questions ("what did I score on the last exam") and
+      // launched the builder. The builder now needs builder-shaped intent;
+      // score/result/history questions belong to exam-history.
       /generate (an? )?(exam|test)/i,
       /test (me|myself)/i,
       /quiz me/i,
       /assess.*exam/i,
+      /\b(take|start|do|run|practice|want|need|give me|build|create|make|try)\b[^.?!]*\b(exam|test|checkpoint|mock)\b/i,
+      /\b(full|new|another|quick|complete) (exam|test|checkpoint|mock)\b/i,
+      /\b(exam|test) (time|please|mode|session)\b/i,
+      /\b(test|quiz) my\b/i,
+      /\bcheckpoint\b/i,
     ],
     run: async (ctx) => {
       const steps: StepTrace[] = [];
@@ -789,7 +797,7 @@ You are building a five-day plan, one line per day, each line a concrete task wi
     name: "Exam history",
     oneLiner: "Past exams and scores",
     commands: ["history"],
-    triggers: [/(exam|test) (history|results?|scores?)/i, /past (exams|tests)/i, /how did i do on (the|my) (last|previous)/i],
+    triggers: [/(exam|test) (history|results?|scores?)/i, /past (exams|tests)/i, /how did i do on (the|my) (last|previous)/i, /what did i (score|get) on (the|my) (last|previous)/i, /\b(last|previous) (exam|test)('s)? (score|result|grade)\b/i, /my exam (score|result|grade)/i],
     run: async (ctx) => {
       const steps: StepTrace[] = [];
       steps.push({ label: "Loading graded exams", detail: "newest first" });

@@ -10,6 +10,7 @@
 
 import ZAI from "z-ai-web-dev-sdk";
 import { TOOLS, toolByName, ensureWorkspace, toolTier, TIER_BUDGETS, type ToolArgs, type ToolResult } from "./tools";
+import { compressHistory, slimScreenActivity } from "./context";
 import type { ProfileJson } from "@/lib/ai";
 
 export const MAX_STEPS = 6;
@@ -205,15 +206,11 @@ export function buildLiveContext(
 ): string {
   let line = `[live context] level=${p.level} streak=${p.streak} due=${p.due} focus=${p.focus} traps=${p.recentTraps.join(",") || "none"}`;
   if (currentView) line += ` current_view=${currentView}`;
-  if (activity && typeof activity === "object") {
-    const slim: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(activity)) {
-      if (v === undefined || v === null || v === "") continue;
-      if (Array.isArray(v)) slim[k] = v.slice(0, 8);
-      else if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") slim[k] = typeof v === "string" ? v.slice(0, 300) : v;
-    }
-    if (Object.keys(slim).length > 0) line += `\n[current screen] ${JSON.stringify(slim)}`;
-  }
+  // Audit P1 (context compression): the screen pack is slimmed by the shared
+  // bounded seam (arrays 5, objects 200 chars, line <= 900) - the model gets
+  // room-reading signal, never a JSON dump of the page.
+  const screen = slimScreenActivity(activity);
+  if (screen) line += `\n[current screen] ${screen}`;
   return line;
 }
 
@@ -262,7 +259,7 @@ async function callModel(
 // server-side nudge that demands read_state, then the run continues. Pure
 // and exported for the battery.
 export function isStateQuestion(message: string): boolean {
-  return /\b(streak|due\b|due count|my level|my xp|gems?\b|review\b.*due|my mistakes|my progress|what should i (do|practice)|how am i doing|read_state)\b/i.test(message);
+  return /\b(streak|due\b|due count|my level|my xp|\bxp\b|gems?\b|review\b.*due|my mistakes|my progress|what should i (do|practice)|how am i doing|read_state)\b/i.test(message);
 }
 
 export async function runAgent(
@@ -285,7 +282,9 @@ export async function runAgent(
 
   const messages: { role: string; content: string }[] = [
     { role: "system", content: systemPrompt() },
-    ...history.slice(-8),
+    // Audit P1 (context compression): history passes the bounded seam -
+    // 8 turns, 400 chars each, 3600 total with oldest-first eviction.
+    ...compressHistory(history),
     {
       role: "user",
       content: `${message}\n\n${buildLiveContext(p, currentView, activity)}`,

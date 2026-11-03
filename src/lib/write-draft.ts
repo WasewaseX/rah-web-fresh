@@ -85,3 +85,28 @@ export function clearWriteDraft(store: Store | null | undefined): boolean {
     return false;
   }
 }
+
+// ---------- cross-device resolution (ROADMAP §3.3) ----------
+
+export type DraftSource = "local" | "remote" | "same" | "none";
+
+// Last-write-wins on the save timestamp, with one honesty guard: identical
+// text is "same" regardless of timestamps (two devices typing the same words
+// must not fight), and a missing side never wins by default. Pure - the
+// writing view composes this with localStorage (local) and /api/write-draft
+// (remote); the battery pins every branch.
+export function resolveDrafts(
+  local: WriteDraft | null,
+  remote: WriteDraft | null,
+): { draft: WriteDraft | null; source: DraftSource } {
+  if (!local && !remote) return { draft: null, source: "none" };
+  if (!local) return { draft: remote, source: "remote" };
+  if (!remote) return { draft: local, source: "local" };
+  if (local.text === remote.text) {
+    // Same words: keep the richer metadata (newer timestamp) but do not claim
+    // a conflict was resolved.
+    const newer = local.at >= remote.at ? local : remote;
+    return { draft: newer, source: "same" };
+  }
+  return local.at >= remote.at ? { draft: local, source: "local" } : { draft: remote, source: "remote" };
+}

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { SectionTitle, Note } from "./bits";
 import { SPEAK_PROMPTS } from "@/lib/content";
+import Shadowing from "./shadowing";
 
 // Task repetition: record the same prompt, get a transcript from the
 // built-in engine, let the coach pre-fill a four-slot repair plan (one
@@ -22,6 +23,8 @@ const EMPTY_EV = { grammar: "", vocab: "", pron: "", awkward: "" };
 
 export default function SpeakingView({ onDone }: { onDone: () => void }) {
   const [phase, setPhase] = useState<Phase>("pick");
+  // Pick phase has two doors: the task-repetition studio and voice shadowing.
+  const [pickMode, setPickMode] = useState<"tasks" | "shadow">("tasks");
   const [pid, setPid] = useState("");
   const [prompt, setPrompt] = useState<(typeof SPEAK_PROMPTS)[number] | null>(null);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
@@ -186,6 +189,24 @@ export default function SpeakingView({ onDone }: { onDone: () => void }) {
           title="Speaking studio"
           sub="Passive knowledge becomes usable English only through forced production. Same task, three passes, one repair per pass."
         />
+        <div className="flex gap-2 mb-5">
+          <button
+            className="btn-ghost text-[13px]"
+            style={pickMode === "tasks" ? { borderColor: "var(--accent)", color: "var(--accent)" } : undefined}
+            onClick={() => setPickMode("tasks")}
+          >
+            Task repetition
+          </button>
+          <button
+            className="btn-ghost text-[13px]"
+            style={pickMode === "shadow" ? { borderColor: "var(--accent)", color: "var(--accent)" } : undefined}
+            onClick={() => setPickMode("shadow")}
+          >
+            Voice shadowing
+          </button>
+        </div>
+        {pickMode === "shadow" ? <Shadowing onDone={onDone} /> : null}
+        {pickMode === "tasks" ? (
         <div className="grid md:grid-cols-2 gap-4">
           {SPEAK_PROMPTS.map((p) => (
             <button
@@ -215,6 +236,7 @@ export default function SpeakingView({ onDone }: { onDone: () => void }) {
             </button>
           ))}
         </div>
+        ) : null}
       </div>
     );
   }

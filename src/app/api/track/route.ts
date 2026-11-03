@@ -59,6 +59,41 @@ export async function POST(req: Request) {
       });
       break;
     }
+    case "listenvocab": {
+      // Listening library (ROADMAP §3.2): a target word from a passage joins
+      // the FSRS queue on the learner's call. Farsi->English direction (the
+      // gloss is the prompt, the English chunk is the answer), the passage
+      // sentence rides as context, and the note marker both dedupes and
+      // carries the honest provenance. Curation, not practice: no XP here -
+      // the XP lands when the card is actually reviewed.
+      const word = String(body.word ?? "").trim().slice(0, 60);
+      const fa = String(body.fa ?? "").trim().slice(0, 200);
+      const passageId = String(body.passageId ?? "").trim().slice(0, 20);
+      const sentence = String(body.sentence ?? "").trim().slice(0, 300);
+      if (!word || !fa) {
+        return NextResponse.json({ ok: false, error: "word and gloss are required" }, { status: 400 });
+      }
+      const marker = `listen-vocab:${passageId}:${word.toLowerCase()}`;
+      const existing = await db.userCard.count({
+        where: { learnerId: learner.id, note: { startsWith: marker } },
+      });
+      if (existing > 0) {
+        return NextResponse.json({ ok: true, created: false, reason: "already in the queue" });
+      }
+      await db.userCard.create({
+        data: {
+          learnerId: learner.id,
+          kind: "fae",
+          prompt: fa,
+          answer: word,
+          en: sentence,
+          fa: fa,
+          note: `${marker} — from the listening passage "${passageId}": the gloss you could not recall at speed.`,
+          level: learner.level,
+        },
+      });
+      return NextResponse.json({ ok: true, created: true });
+    }
     case "checkpoint": {
       await db.checkpoint.create({
         data: {

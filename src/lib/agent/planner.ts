@@ -5,6 +5,7 @@
 import { aiJson } from "@/lib/ai";
 import type { SkillDef } from "./types";
 import { REGISTRY, commandMap, getSkill, skillCatalog } from "./registry";
+import { compressHistory } from "@/lib/coach-agent/context";
 
 export interface RouteDecision {
   def: SkillDef;
@@ -50,14 +51,13 @@ export async function routeByPlanner(
   try {
     // Audit P1: the planner used to see only 4 history turns truncated to 300
     // chars - enough to misread an ongoing conversation, not enough to route
-    // it. 8 turns x 400 chars gives real conversational context.
+    // it. It now draws from the SHARED bounded seam (8 turns x 400, 3600
+    // total, oldest evicted first) - same window shape as the coach loop, one
+    // implementation, no drift.
     const out = await aiJson<{ skill?: string; args?: string; confidence?: number }>(
       PLANNER_SYSTEM,
       [
-        ...history.slice(-8).map((h) => ({
-          role: h.role === "user" ? ("user" as const) : ("assistant" as const),
-          content: h.content.slice(0, 400),
-        })),
+        ...compressHistory(history),
         { role: "user", content: text },
       ],
       () => ({}),

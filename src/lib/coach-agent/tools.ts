@@ -219,7 +219,12 @@ async function coachSkill(args: ToolArgs): Promise<ToolResult> {
   const text = String(args.message ?? "").trim();
   if (!text) return { ok: false, summary: "coach_skill needs a message to route" };
   const { runCoach } = await import("@/lib/agent/run");
-  const envelope = await runCoach(text, [], undefined);
+  // The loop donates the last turns (loop.ts injects _history) so skill
+  // routing sees the conversation instead of routing cold.
+  const donated = Array.isArray(args._history)
+    ? (args._history as { role: string; content: string }[]).map((h) => ({ role: h.role, content: String(h.content ?? "") }))
+    : [];
+  const envelope = await runCoach(text, donated, undefined);
   const steps = (envelope.steps ?? []).map((s) => s.label + (s.detail ? `: ${s.detail}` : "")).join(" | ");
   return {
     ok: true,

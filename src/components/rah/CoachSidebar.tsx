@@ -441,19 +441,19 @@ export default function CoachSidebar({
           {messages.map((m) =>
             m.role === "user" ? (
               <div key={m.id} className="flex justify-end">
-                <div className="max-w-[85%] rounded-2xl rounded-br-md bg-[var(--rah-primary)]/[0.16] px-3.5 py-2.5 text-[13px] font-medium text-[#dbe7ff]">
+                <div className="max-w-[85%] rounded-2xl rounded-br-md bg-[var(--rah-primary)]/[0.16] px-3.5 py-2.5 text-[13px] font-medium text-[#dbe7ff] break-words [overflow-wrap:anywhere]">
                   {m.text}
                 </div>
               </div>
             ) : (
               <div key={m.id} className="space-y-2">
-                <div className="max-w-[92%] rounded-2xl rounded-bl-md border border-white/[0.06] bg-[#141c2e] px-3.5 py-2.5 text-[13px] leading-relaxed text-[#e8eefb]">
+                <div className="max-w-[92%] rounded-2xl rounded-bl-md border border-white/[0.06] bg-[#141c2e] px-3.5 py-2.5 text-[13px] leading-relaxed text-[#e8eefb] break-words [overflow-wrap:anywhere]">
                   {m.reply}
                 </div>
                 {m.corrections && m.corrections.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
                     {m.corrections.slice(0, 4).map((c, i) => (
-                      <span key={i} className="rounded-lg border border-[#ff6b6b]/25 bg-[#ff6b6b]/[0.08] px-2 py-1 text-[11px] text-[#ffb3b3]">
+                      <span key={i} className="rounded-lg border border-[#ff6b6b]/25 bg-[#ff6b6b]/[0.08] px-2 py-1 text-[11px] text-[#ffb3b3] break-words [overflow-wrap:anywhere]">
                         {c.wrong} <ArrowRight className="inline h-3 w-3" /> {c.right}
                       </span>
                     ))}
@@ -513,7 +513,7 @@ export default function CoachSidebar({
                   <span className={`mt-0.5 shrink-0 ${s.kind === "error" ? "text-[#ff6b6b]" : s.kind === "observe" ? (s.ok === false ? "text-[#ffb02e]" : "text-[#4ade80]") : s.kind === "tool" ? "text-[#9dc0ff]" : "text-[#8b96a9]"}`}>
                     {stepIcon(s.kind)}
                   </span>
-                  <div className="min-w-0">
+                  <div className="min-w-0 break-words [overflow-wrap:anywhere]">
                     <span className="font-semibold text-[#dbe3f0]">{s.label}</span>
                     {s.detail && <span className="text-[#6b7688]"> — {s.detail.length > 110 ? `${s.detail.slice(0, 110)}…` : s.detail}</span>}
                   </div>

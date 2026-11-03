@@ -356,31 +356,31 @@ function ChatTab() {
         {turns.map((t, i) =>
           t.role === "user" ? (
             <div key={i} className="flex justify-end">
-              <div className="rounded-3xl rounded-br-md px-5 py-3 max-w-[85%] text-[14.5px]" style={{ background: "var(--ink)", color: "#fff" }}>
+              <div className="rounded-3xl rounded-br-md px-5 py-3 max-w-[85%] text-[14.5px] break-words whitespace-pre-wrap [overflow-wrap:anywhere]" style={{ background: "var(--ink)", color: "#fff" }}>
                 {t.text}
               </div>
             </div>
           ) : (
             <div key={i} className="flex justify-start">
               <div className="card-rah px-5 py-4 max-w-[92%]">
-                <div className="text-[14.5px] leading-relaxed whitespace-pre-wrap" style={t.error ? { color: "var(--danger)" } : undefined}>
+                <div className="text-[14.5px] leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]" style={t.error ? { color: "var(--danger)" } : undefined}>
                   {t.reply}
                 </div>
                 {t.corrections?.length ? (
                   <div className="mt-3 space-y-2">
                     {t.corrections.map((c, ci) => (
                       <div key={ci} className="rounded-xl p-3" style={{ background: "var(--rah-callout)" }}>
-                        <div className="text-[13.5px]">
+                        <div className="text-[13.5px] break-words [overflow-wrap:anywhere]">
                           <span style={{ color: "var(--danger)", textDecoration: "line-through" }}>{c.wrong}</span>
                           {" → "}
                           <b style={{ color: "var(--accent-deep)" }}>{c.right}</b>
                         </div>
-                        {c.fa ? <div dir="rtl" className="fa-text text-[13px] mt-1">{c.fa}</div> : null}
+                        {c.fa ? <div dir="rtl" className="fa-text text-[13px] mt-1 break-words [overflow-wrap:anywhere]">{c.fa}</div> : null}
                       </div>
                     ))}
                   </div>
                 ) : null}
-                {t.fa_note ? <div dir="rtl" className="fa-text text-[13px] mt-3 pt-3 border-t" style={{ borderColor: "var(--line)" }}>{t.fa_note}</div> : null}
+                {t.fa_note ? <div dir="rtl" className="fa-text text-[13px] mt-3 pt-3 border-t break-words [overflow-wrap:anywhere]" style={{ borderColor: "var(--line)" }}>{t.fa_note}</div> : null}
               </div>
             </div>
           )

@@ -61,6 +61,19 @@ export async function routeByPlanner(
         { role: "user", content: text },
       ],
       () => ({}),
+      {
+        // Audit P1 (typed output validation): a planner reply that is not a
+        // well-shaped {skill, args?, confidence?} object must burn retry
+        // budget, not silently route to getSkill("undefined") -> chat.
+        validate: (o) => {
+          if (!o || typeof o !== "object" || Array.isArray(o)) return "planner output must be a JSON object";
+          const v = o as { skill?: unknown; args?: unknown; confidence?: unknown };
+          if (typeof v.skill !== "string" || !v.skill.trim()) return "skill must be a non-empty string id";
+          if (v.args !== undefined && v.args !== null && typeof v.args !== "string") return "args must be a string when present";
+          if (v.confidence !== undefined && v.confidence !== null && typeof v.confidence !== "number") return "confidence must be a number when present";
+          return null;
+        },
+      },
     );
     const id = String(out.skill ?? "").trim();
     const def = getSkill(id);

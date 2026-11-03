@@ -134,7 +134,12 @@ export async function POST(req: Request) {
     if (!parsed) {
       return NextResponse.json({ ok: false, error: "the engine did not return the expected JSON envelope", fallback: true, raw: out.text.slice(0, 500) });
     }
-    if (typeof parsed.reply === "string") parsed.reply = stripFabricatedClaims(parsed.reply);
+    // Audit P1 (typed output validation): a turn without a reply string must
+    // degrade to the client's fallback, not flow through as ok:true.
+    if (typeof parsed.reply !== "string") {
+      return NextResponse.json({ ok: false, error: "the engine returned a turn without a reply field", fallback: true, raw: out.text.slice(0, 500) });
+    }
+    parsed.reply = stripFabricatedClaims(parsed.reply);
     return NextResponse.json({ ok: true, turn: parsed });
   }
 
@@ -159,6 +164,9 @@ export async function POST(req: Request) {
     if (!out.ok) return NextResponse.json({ ok: false, error: out.error, fallback: true });
     const parsed = extractJson(out.text);
     if (!parsed) return NextResponse.json({ ok: false, error: "the engine returned an unreadable evaluation", fallback: true });
+    if (typeof parsed !== "object" || Array.isArray(parsed)) {
+      return NextResponse.json({ ok: false, error: "the engine returned an evaluation with the wrong shape", fallback: true });
+    }
     return NextResponse.json({ ok: true, eval: parsed });
   }
 
@@ -169,6 +177,9 @@ export async function POST(req: Request) {
     if (!out.ok) return NextResponse.json({ ok: false, error: out.error, fallback: true });
     const parsed = extractJson(out.text);
     if (!parsed) return NextResponse.json({ ok: false, error: "the engine returned invalid JSON", fallback: true });
+    if (typeof parsed !== "object" || Array.isArray(parsed)) {
+      return NextResponse.json({ ok: false, error: "the engine returned a quiz with the wrong shape", fallback: true });
+    }
     return NextResponse.json({ ok: true, quiz: parsed });
   }
 
@@ -179,7 +190,7 @@ export async function POST(req: Request) {
     if (!out.ok) return NextResponse.json({ ok: false, error: out.error, fallback: true });
     const parsed = extractJson(out.text);
     if (!parsed) return NextResponse.json({ ok: false, error: "the engine returned invalid JSON", fallback: true });
-    const cards = (parsed.cards ?? []) as Record<string, string>[];
+    const cards = Array.isArray(parsed.cards) ? (parsed.cards as Record<string, string>[]) : [];
     const created: string[] = [];
     for (const c of cards.slice(0, 12)) {
       if (!c.prompt || !c.answer) continue;

@@ -9,7 +9,7 @@
 // streams to the sidebar as it happens.
 
 import ZAI from "z-ai-web-dev-sdk";
-import { TOOLS, toolByName, ensureWorkspace, toolTier, TIER_BUDGETS, type ToolResult } from "./tools";
+import { TOOLS, toolByName, ensureWorkspace, toolTier, TIER_BUDGETS, type ToolArgs, type ToolResult } from "./tools";
 import type { ProfileJson } from "@/lib/ai";
 
 export const MAX_STEPS = 6;
@@ -273,6 +273,7 @@ export async function runAgent(
   currentView?: string,
   activity?: Record<string, unknown> | null,
   signal?: AbortSignal,
+  opts?: { probe?: boolean },
 ): Promise<AgentTurn> {
   const p = profile ?? (await (await import("@/lib/server")).buildProfile());
   const steps: { label: string; detail?: string; ok?: boolean }[] = [];
@@ -397,7 +398,17 @@ export async function runAgent(
 
     let result: ToolResult;
     try {
-      result = await def.run(turn.args ?? {});
+      // Probe hygiene (Task 111 pattern): probes declare themselves to the
+      // tools so DB-writing tools (case records, consent logs) can suppress
+      // their writes - a battery run must leave zero trace beyond the SSE.
+      const callArgs: ToolArgs = { ...(turn.args ?? {}) };
+      if (opts?.probe) callArgs._probe = true;
+      // coach_skill used to run with EMPTY history (context-blind routing).
+      // The loop owns the conversation, so it donates the trimmed tail here.
+      if (def.name === "coach_skill" && Array.isArray(history) && history.length > 0) {
+        callArgs._history = history.slice(-6);
+      }
+      result = await def.run(callArgs);
     } catch (e) {
       result = { ok: false, summary: `Tool threw: ${(e as Error).message}` };
     }

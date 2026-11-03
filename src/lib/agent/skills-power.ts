@@ -764,6 +764,14 @@ Output ONE JSON object: {"summary": "max 70 words, direct, second person", "band
 You are building a five-day plan, one line per day, each line a concrete task with a number in it (items, minutes, words). Aim every day at the learner's weak skills and traps. Output ONE JSON object: {"plan": ["Day 1: ...", ...]} with exactly 5 entries. No em dashes. No Farsi.`,
         [{ role: "user", content: `Build the plan. Profile: ${JSON.stringify(ctx.profile)}` }],
         () => ({ plan: [] }),
+        {
+          // Audit P1 (typed output validation): plan must be an array of
+          // strings, else the retry budget runs and the fallback plan shows.
+          validate: (o) =>
+            o && typeof o === "object" && Array.isArray((o as { plan?: unknown }).plan) && (o as { plan: unknown[] }).plan.every((x) => typeof x === "string")
+              ? null
+              : "plan must be an array of strings",
+        },
       );
       steps.push({ label: "Plan ready", detail: `${out.plan.length} days` });
       const plan = out.plan.length ? out.plan.map((p, i) => `${i + 1}. ${p}`).join("\n") : "Review 10 due cards, write 80 words about your day, and ask me for a collocation drill.";

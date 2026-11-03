@@ -70,7 +70,7 @@ export async function coachAgentPost(req: Request, opts: { deprecated?: boolean 
         // req.signal aborts when the learner hits Stop (client aborts the
         // fetch). The loop closes between steps and the stopped turn still
         // persists below, so history never loses what actually ran.
-        turn = await runAgent(text, flat, profile, send, String(view ?? ""), activitySafe, req.signal);
+        turn = await runAgent(text, flat, profile, send, String(view ?? ""), activitySafe, req.signal, { probe });
       } catch (e) {
         send({ type: "error", label: "Agent crashed", detail: (e as Error).message });
         turn = {

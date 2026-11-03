@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { aiJson, quizSystem } from "@/lib/ai";
+import { validateQuiz } from "@/lib/ai-validators";
 import { buildProfile, bumpDaily } from "@/lib/server";
 import { awardXp } from "@/lib/arcade";
 
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
   const profile = await buildProfile();
   let quiz: Quiz;
   try {
-    quiz = await aiJson<Quiz>(quizSystem(profile.level), [{ role: "user", content: body.slice(0, 6000) }]);
+    quiz = await aiJson<Quiz>(quizSystem(profile.level), [{ role: "user", content: body.slice(0, 6000) }], undefined, { validate: validateQuiz });
   } catch (e) {
     return NextResponse.json({ error: `Quiz builder is unreachable: ${(e as Error).message}` }, { status: 502 });
   }

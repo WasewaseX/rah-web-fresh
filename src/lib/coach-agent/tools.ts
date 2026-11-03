@@ -295,6 +295,18 @@ async function setTheme(args: ToolArgs): Promise<ToolResult> {
       detail: `Presets: ${PRESETS.map((p) => p.id).join(", ")}. Ask the learner for one of those, a plain color word (green, blue, sunset, violet, rose), or hex codes.`,
     };
   }
+  // Probe hygiene: the battery drives theme repaints in probe mode. The parse
+  // and the validated tokens are still produced (the loop turns them into a
+  // client-side set_theme command, which paints nothing persistent), but the
+  // Learner.theme row is NOT written - probes never persist state.
+  if (args._probe === true) {
+    return {
+      ok: true,
+      summary: `Theme resolved (probe dry-run): ${preset?.name ?? "custom palette"} - nothing persisted.`,
+      detail: "Probe mode: tokens validated, Learner.theme write suppressed. Real runs persist the choice.",
+      data: { tokens, preset: preset?.id ?? null },
+    };
+  }
   const { db } = await import("@/lib/db");
   await db.learner.update({ where: { id: "me" }, data: { theme: JSON.stringify(tokens) } });
   const name = preset?.name ?? "your custom palette";
@@ -447,6 +459,11 @@ async function triageFlags(args: ToolArgs): Promise<ToolResult> {
     const status = String(args.status ?? "fixed");
     if (!Number.isInteger(id) || id <= 0) return { ok: false, summary: "resolve needs a numeric flag id", detail: `got id=${String(args.id)}` };
     if (status !== "fixed" && status !== "wontfix") return { ok: false, summary: "status must be fixed or wontfix", detail: `got ${status}` };
+    if (args._probe === true) {
+      // Probe hygiene: resolve mutates the flag queue - probes get the verdict
+      // path verified, the row untouched.
+      return { ok: true, summary: `Probe dry-run: flag #${id} would be marked ${status} (nothing written).`, detail: "Real runs update the ContentFlag row." };
+    }
     const existing = await db.contentFlag.findUnique({ where: { id } });
     if (!existing) return { ok: false, summary: `Flag #${id} does not exist`, detail: "unknown id" };
     await db.contentFlag.update({ where: { id }, data: { status } });

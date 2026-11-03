@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { aiJson, writingSystem, WRITING_GOALS, type WritingGoal } from "@/lib/ai";
+import { validateWriting } from "@/lib/ai-validators";
 import { buildProfile, bumpDaily, touchStreak } from "@/lib/server";
 import { awardXp, progressQuest } from "@/lib/arcade";
 import { recordMistakes } from "@/lib/mistakes";
@@ -124,7 +125,7 @@ export async function POST(req: Request) {
   try {
     result = await aiJson<WritingResult>(writingSystem(profile, goalUsed), [
       { role: "user", content: `Prompt: ${prompt}\n\nEssay:\n${body}\n\n${findingsBlock(ruleReport)}` },
-    ]);
+    ], undefined, { validate: validateWriting });
   } catch (e) {
     return NextResponse.json({ error: `The examiner is unreachable: ${(e as Error).message}` }, { status: 502 });
   }

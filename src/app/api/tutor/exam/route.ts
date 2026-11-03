@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { aiJson, examSystem } from "@/lib/ai";
+import { validateExamGen } from "@/lib/ai-validators";
 import { getLearner } from "@/lib/server";
 import type { ExamItem } from "@/lib/tutor";
 
@@ -26,6 +27,10 @@ export async function POST(req: Request) {
     exam = await aiJson(
       examSystem(k, level, n),
       [{ role: "user", content: `Write the ${k} exam with ${n} items at ${level}. Output the JSON now.` }],
+      undefined,
+      // Schema gate (audit P1): a parseable but item-less reply retries with
+      // the contract reminder instead of a cold "came back too thin" 502.
+      { validate: validateExamGen },
     );
   } catch (e) {
     return NextResponse.json({ error: `Exam generation failed: ${(e as Error).message}` }, { status: 502 });

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { aiJson, clinicSystem } from "@/lib/ai";
+import { validateClinic } from "@/lib/ai-validators";
 import { getLearner } from "@/lib/server";
 import { collectEvidence } from "@/lib/tutor";
 
@@ -55,7 +56,7 @@ export async function POST() {
   try {
     drill = await aiJson(clinicSystem(top, level), [
       { role: "user", content: `Build the 5-item drill for the pattern "${top}" at ${level}. Output the JSON now.` },
-    ]);
+    ], undefined, { validate: validateClinic });
   } catch {
     drill = null; // pattern list is still valuable without the drill
   }

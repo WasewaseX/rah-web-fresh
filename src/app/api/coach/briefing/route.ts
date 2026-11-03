@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { dayIndex } from "@/lib/fsrs";
 import { aiJson } from "@/lib/ai";
+import { validateBrief } from "@/lib/ai-validators";
 import { fallbackBrief } from "@/lib/degraded";
 import { buildProfile, getLearner, dueCount } from "@/lib/server";
 import { getRivalView, ensureQuests, getChain } from "@/lib/arcade";
@@ -72,6 +73,8 @@ export async function GET(req: Request) {
 
 Rules: priority is ONE sentence naming the single highest-leverage thing for today, chosen from the real data. If enginePlan is present, your priority and plan MUST follow it (rephrase in your persona voice; never invent different moves). plan is exactly 3 items, each a concrete move that names the surface to open (Review, Coach, Writing, Speaking, Listening, Reading, Arcade games like Speed Round/Boss Battle/Daily Dungeon/Rival Duel/Gauntlet/Focus Flow) and why it attacks this learner's actual leaks. pep is one closing line in your persona voice, no emojis, no hashtags. Reply with ONLY this JSON: {"priority": string, "plan": [string, string, string], "pep": string}`,
       [{ role: "user", content: JSON.stringify(context) }],
+      undefined,
+      { validate: validateBrief },
     );
   } catch {
     // Degraded honesty (audit P1-7): a provider outage must not brick the

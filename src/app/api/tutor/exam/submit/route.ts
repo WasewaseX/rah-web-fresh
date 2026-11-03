@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { aiJson, assessSystem } from "@/lib/ai";
+import { validateAssess } from "@/lib/ai-validators";
 import { getLearner, bumpDaily, touchStreak } from "@/lib/server";
 import { gradeExam, fallbackAssessment, type ExamItem } from "@/lib/tutor";
 
@@ -14,6 +15,11 @@ interface AssessReport {
   weaknesses: string[];
   errors: { point: string; picked: string; right: string; fa: string }[];
   prescription: string[];
+  // Degraded honesty (audit P1-7): stamped when the mechanical fallback
+  // served instead of a real AI assessment. Optional - AI-graded reports
+  // never carry it.
+  degraded?: boolean;
+  degradedNotice?: string;
 }
 
 export async function POST(req: Request) {
@@ -58,6 +64,8 @@ export async function POST(req: Request) {
     report = await aiJson<AssessReport>(
       assessSystem(level),
       [{ role: "user", content: "Grading blob:\n" + JSON.stringify(evidence) + "\n\nProduce the assessment JSON now." }],
+      undefined,
+      { validate: validateAssess },
     );
     // Belt and braces: if the AI dropped the wrong-item list, rebuild it mechanically.
     if (!Array.isArray(report.errors) || report.errors.length === 0) {
@@ -69,7 +77,13 @@ export async function POST(req: Request) {
       }));
     }
   } catch {
+    // Degraded honesty (audit P1-7): the mechanical score is a fallback, never
+    // equivalent to a real AI assessment - stamp it so the stored report and
+    // the response both say so.
     report = fallbackAssessment(score, items.length, perSkill);
+    report.degraded = true;
+    report.degradedNotice =
+      "The AI grader was unreachable, so this assessment was computed mechanically from your answer key. Band and prescription are provisional.";
     report.errors = wrong.map((g) => ({
       point: items[g.idx].q,
       picked: g.picked || "(blank)",

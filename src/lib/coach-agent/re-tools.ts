@@ -547,6 +547,11 @@ async function reCaseRecord(args: ToolArgs): Promise<ToolResult> {
   if (action === "get" || action === "delete") {
     const key = caseKey(String(args.case_id ?? ""));
     if (key === "re:case:") return { ok: false, summary: "case_id required for get/delete" };
+    if (action === "delete" && args._probe === true) {
+      // Probe hygiene: delete is a destructive write - a battery run must not
+      // remove real case records any more than it may create them.
+      return { ok: true, summary: `Probe dry-run: delete of ${key} suppressed (probes never write).`, detail: "Real runs delete the row in Postgres." };
+    }
     const row = await db.setting.findUnique({ where: { key } });
     if (!row) return { ok: false, summary: `No case ${key}` };
     if (action === "delete") {

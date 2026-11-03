@@ -401,7 +401,14 @@ export async function runAgent(
       // Probe hygiene (Task 111 pattern): probes declare themselves to the
       // tools so DB-writing tools (case records, consent logs) can suppress
       // their writes - a battery run must leave zero trace beyond the SSE.
+      // Hardening 2026-11-03: _probe and _history are RESERVED loop-to-tool
+      // channels. The model's own args are stripped of them first - a prompt-
+      // injected page must not be able to flip or forge either flag (forge
+      // direction was fail-safe, but the invariant is cleaner: only the loop
+      // speaks for these two keys).
       const callArgs: ToolArgs = { ...(turn.args ?? {}) };
+      delete callArgs._probe;
+      delete callArgs._history;
       if (opts?.probe) callArgs._probe = true;
       // coach_skill used to run with EMPTY history (context-blind routing).
       // The loop owns the conversation, so it donates the trimmed tail here.

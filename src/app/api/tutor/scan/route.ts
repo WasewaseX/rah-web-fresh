@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { aiJson, scanSystem } from "@/lib/ai";
+import { validateScan } from "@/lib/ai-validators";
 import { collectEvidence } from "@/lib/tutor";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ export async function POST() {
 
   let report: unknown;
   try {
-    report = await aiJson(system, [{ role: "user", content: user }]);
+    report = await aiJson(system, [{ role: "user", content: user }], undefined, { validate: validateScan });
   } catch (e) {
     return NextResponse.json({ error: `Scan failed: ${(e as Error).message}` }, { status: 502 });
   }

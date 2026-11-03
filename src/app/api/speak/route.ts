@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { aiJson, speakSystem } from "@/lib/ai";
+import { validateSpeak } from "@/lib/ai-validators";
 import { buildProfile, bumpDaily, touchStreak } from "@/lib/server";
 import { awardXp, progressQuest } from "@/lib/arcade";
 import { recordMistakes } from "@/lib/mistakes";
@@ -53,7 +54,7 @@ export async function POST(req: Request) {
   try {
     result = await aiJson<SpeakResult>(`${speakSystem(profile.level)}\n\n${ladderBrief(lad, "speak")}`, [
       { role: "user", content: `Prompt: ${prompt}\nRound: ${round ?? 1}\nTranscript:\n${t.slice(0, 5000)}` },
-    ]);
+    ], undefined, { validate: validateSpeak });
   } catch (e) {
     return NextResponse.json({ error: `Coach is unreachable: ${(e as Error).message}` }, { status: 502 });
   }

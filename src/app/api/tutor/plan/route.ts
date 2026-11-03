@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { aiJson, planSystem } from "@/lib/ai";
+import { validatePlan } from "@/lib/ai-validators";
 import { getLearner, dueCount } from "@/lib/server";
 import { dayIndex } from "@/lib/fsrs";
 
@@ -46,7 +47,7 @@ export async function POST() {
   try {
     plan = await aiJson<PlanReport>(planSystem(level), [
       { role: "user", content: "Context:\n" + JSON.stringify(context) + "\n\nProduce the 7-day plan JSON now." },
-    ]);
+    ], undefined, { validate: validatePlan });
   } catch (e) {
     return NextResponse.json({ error: `Plan failed: ${(e as Error).message}` }, { status: 502 });
   }

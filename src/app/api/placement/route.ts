@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { PLACEMENT_ITEMS, type PlacementItem } from "@/lib/content";
 import { aiJson, placementWritingSystem } from "@/lib/ai";
+import { validatePlacementW } from "@/lib/ai-validators";
 import { getLearner, bumpDaily } from "@/lib/server";
 import { tagLabel, foldPlacementMisses } from "@/lib/mistakes";
 import { contentUserId } from "@/lib/scope";
@@ -246,7 +247,7 @@ export async function POST(req: Request) {
     // says so - completion first, refinement whenever the model is back.
     let res: WRes;
     try {
-      res = await aiJson<WRes>(placementWritingSystem(), [{ role: "user", content: text }]);
+      res = await aiJson<WRes>(placementWritingSystem(), [{ role: "user", content: text }], undefined, { validate: validatePlacementW });
     } catch {
       res = { level: mcq, confidence: 0.3, reasons: "Writing grader was unreachable, so this level comes from your multiple-choice sections alone. It will sharpen as you use the app.", writingFallback: true };
     }

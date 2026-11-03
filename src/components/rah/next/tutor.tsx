@@ -90,6 +90,10 @@ interface AssessReport {
   weaknesses: string[];
   errors: { point: string; picked: string; right: string; fa: string }[];
   prescription: string[];
+  // Degraded honesty (audit P1-7): present only when the mechanical fallback
+  // graded the run because the AI grader was unreachable.
+  degraded?: boolean;
+  degradedNotice?: string;
 }
 interface SubmitPayload {
   report: AssessReport;
@@ -711,6 +715,7 @@ function ExamTab() {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<Parameters<typeof ResultCard>[0]["result"] | null>(null);
   const [prescription, setPrescription] = useState<string[]>([]);
+  const [degradedNotice, setDegradedNotice] = useState<string | null>(null);
   const [history, setHistory] = useState<ExamHistoryRow[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -782,6 +787,7 @@ function ExamTab() {
       const p = j as SubmitPayload;
       setResult(toResult(exam.title, p));
       setPrescription(p.report.prescription ?? []);
+      setDegradedNotice(p.report.degraded ? p.report.degradedNotice ?? "This assessment was computed mechanically - the AI grader was unreachable." : null);
       setExam(null);
       void loadHistory();
     } catch (e) {
@@ -851,6 +857,7 @@ function ExamTab() {
           }),
         );
         setPrescription(rev.report.prescription ?? []);
+        setDegradedNotice(rev.report.degraded ? rev.report.degradedNotice ?? "This assessment was computed mechanically - the AI grader was unreachable." : null);
       } else {
         setError("That run has no stored report yet.");
       }
@@ -867,7 +874,15 @@ function ExamTab() {
 
       {result && (
         <>
-          <ResultCard result={result} onDrillWeak={() => void drillWeak()} onNewExam={() => { setResult(null); setPrescription([]); }} busy={busy} />
+          {degradedNotice && (
+            <div className="card-rah p-4" style={{ borderColor: "var(--warn, #b45309)", borderWidth: 1 }}>
+              <div className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: "var(--warn, #b45309)" }}>
+                Degraded assessment
+              </div>
+              <p className="mt-1 text-[13px]" style={{ color: "var(--text)" }}>{degradedNotice}</p>
+            </div>
+          )}
+          <ResultCard result={result} onDrillWeak={() => void drillWeak()} onNewExam={() => { setResult(null); setPrescription([]); setDegradedNotice(null); }} busy={busy} />
           {prescription.length > 1 && (
             <div className="card-rah p-5">
               <div className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: "var(--muted)" }}>

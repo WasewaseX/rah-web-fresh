@@ -341,7 +341,7 @@ export default function CoachSidebar({
       {/* Drawer */}
       <div
         className={`fixed inset-y-0 right-0 z-50 flex w-full flex-col border-l border-white/[0.08] bg-[#0d1320]/95 backdrop-blur-2xl shadow-[-24px_0_64px_-24px_rgba(0,0,0,.8)] transition-transform duration-300 sm:w-[440px] ${
-          open ? "translate-x-0" : "translate-x-full"
+          open ? "translate-x-0" : "pointer-events-none translate-x-full"
         }`}
         aria-hidden={!open}
       >

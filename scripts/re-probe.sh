@@ -7,6 +7,11 @@ JAR=$(mktemp)
 
 CODE=$(curl -s -X POST "$BASE/api/auth/request-code" -H "Content-Type: application/json" \
   -d '{"email":"geministudent@atomicmail.io"}' | python3 -c "import json,sys; print(json.load(sys.stdin).get('devCode',''))")
+# SMTP is live, so request-code no longer echoes devCode - fall back to the
+# shared access code (same pattern as agent-regression-120.sh / deploy-gate).
+if [ -z "$CODE" ]; then
+  CODE="$(sed -n 's/^RAH_ACCESS_CODE=//p' "$(dirname "$0")/../.env" | head -1 | tr -d '\"')"
+fi
 curl -s -c "$JAR" -o /dev/null -X POST "$BASE/api/auth/verify" -H "Content-Type: application/json" \
   -d "{\"email\":\"geministudent@atomicmail.io\",\"code\":\"$CODE\"}"
 

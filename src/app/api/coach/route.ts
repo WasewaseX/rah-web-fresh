@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { coachAgentPost } from "@/lib/coach-agent/serve";
+import { contentUserId } from "@/lib/scope";
 import { isLegacyChat, type Envelope } from "@/lib/skills/types";
 
 export const dynamic = "force-dynamic";
@@ -14,9 +15,12 @@ export const maxDuration = 180;
 // a response header. No client in the app calls this URL any more; it exists
 // so external bookmarks and probes keep working against the real agent.
 
-// History: every row normalized so the UI renders one shape.
-export async function GET() {
-  const rows = await db.chatMsg.findMany({ orderBy: { id: "asc" }, take: 200 });
+// History: every row normalized so the UI renders one shape. Scoped to the
+// session user (audit P0 isolation sweep straggler - GET/DELETE used to be
+// unscoped while /api/chat scoped both).
+export async function GET(req: Request) {
+  const uid = await contentUserId(req).catch(() => "me");
+  const rows = await db.chatMsg.findMany({ where: { userId: uid }, orderBy: { id: "asc" }, take: 200 });
   const messages = rows.map((r) => {
     if (r.role === "user") return { id: r.id, role: "user", at: r.at, text: r.content };
     let env: Envelope | null = null;
@@ -37,7 +41,8 @@ export async function POST(req: Request) {
   return coachAgentPost(req, { deprecated: true });
 }
 
-export async function DELETE() {
-  await db.chatMsg.deleteMany({});
+export async function DELETE(req: Request) {
+  const uid = await contentUserId(req).catch(() => "me");
+  await db.chatMsg.deleteMany({ where: { userId: uid } });
   return NextResponse.json({ ok: true });
 }

@@ -1,4 +1,5 @@
-// The revived registry. 22 live skills; the planner routes into this table.
+// The revived registry. CORE_SKILLS + POWER_SKILLS (count lives in
+// REGISTRY.length - never hardcode it again); the planner routes into this table.
 
 import type { SkillDef, SkillId } from "./types";
 import { CORE_SKILLS } from "./skills-core";

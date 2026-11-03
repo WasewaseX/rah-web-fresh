@@ -10,6 +10,7 @@ import { existsSync } from "fs";
 import { mkdir, readdir, readFile, writeFile, stat } from "fs/promises";
 import { dirname, isAbsolute, join, resolve, sep } from "path";
 import ZAI from "z-ai-web-dev-sdk";
+import { RE_TOOLS, RE_TOOL_TIERS } from "./re-tools";
 
 export const WORKSPACE_ROOT = resolve(process.cwd(), "data/coach-workspace");
 
@@ -314,7 +315,7 @@ export interface ToolDef {
 // dangerous tiers - a prompt-injected page cannot spend the run's whole budget
 // on state changes or code execution.
 export type ToolTier = "read" | "write" | "exec" | "network" | "state";
-export const TOOL_TIERS: Record<string, ToolTier> = {
+const BASE_TOOL_TIERS: Record<string, ToolTier> = {
   read_state: "read",
   list_files: "read",
   read_file: "read",
@@ -327,6 +328,10 @@ export const TOOL_TIERS: Record<string, ToolTier> = {
   set_theme: "state", // repaints the whole app and persists the choice
   triage_flags: "state", // resolve mutates the flag queue
 };
+// RE domain (reverse engineering / malware analysis) merges its own tiers in:
+// lookups are network-tier (budgeted), the consent gate is network, case
+// persistence is state-tier (DB write), normalize/runbook are pure reads.
+export const TOOL_TIERS: Record<string, ToolTier> = { ...BASE_TOOL_TIERS, ...RE_TOOL_TIERS } as Record<string, ToolTier>;
 export function toolTier(name: string): ToolTier {
   return TOOL_TIERS[name] ?? "state"; // unknown = treat as most dangerous
 }
@@ -347,7 +352,7 @@ export const UNTRUSTED_FRAME = {
   tail: "[END UNTRUSTED WEB CONTENT]",
 };
 
-export const TOOLS: ToolDef[] = [
+const BASE_TOOLS: ToolDef[] = [
   {
     name: "read_state",
     desc: "Read the learner's full live state: level, streak, XP, gems, freezes, mastery ledger, mistake families, next-best actions, last 7 days of stats. Call this before any advice that depends on data.",
@@ -415,6 +420,10 @@ export const TOOLS: ToolDef[] = [
     run: triageFlags,
   },
 ];
+
+// Full registry = base app tools + the RE (reverse-engineering) domain.
+// re-tools.ts imports only TYPES from this file, so this edge is acyclic.
+export const TOOLS: ToolDef[] = [...BASE_TOOLS, ...RE_TOOLS];
 
 async function triageFlags(args: ToolArgs): Promise<ToolResult> {
   const { db } = await import("@/lib/db");

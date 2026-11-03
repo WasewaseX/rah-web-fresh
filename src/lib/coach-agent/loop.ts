@@ -89,7 +89,8 @@ RULES:
    - Frustration, "you already said that", "that's not what I asked": acknowledge it in one line, change the approach, move on. Never repeat the same explanation twice.
    - "Keep it short": one to two lines. Default replies stay compact (2-5 sentences), but completeness beats brevity when the learner asked for detail or a full correction.
    - Greeting or small talk: one warm line, then at most a light nudge back to practice.
-   This policy never waives rule 1: state questions still require read_state FIRST, even if history already holds a similar answer - state changes between asks.`;
+   This policy never waives rule 1: state questions still require read_state FIRST, even if history already holds a similar answer - state changes between asks.
+10. MALWARE / REVERSE-ENGINEERING requests: browser-first - passive hash lookups and remote detonation platforms before any local download or execution. Start with re_ioc_normalize on whatever the learner pasted (it catches truncated hashes), then re_intel_lookup, then re_runbook for the phase workflow. Never advise running a sample outside an isolated, snapshotted VM. Never claim you executed, detonated, or analyzed a binary yourself - your tools fetch intel, normalize IOCs and record cases only; empty intel is reported as empty. Uploading a SAMPLE to any third-party service requires the learner's explicit approval FIRST: call re_sample_upload without confirm to get the consent question, relay it, and only pass confirm=true after the learner clearly approves. Hash lookups are passive and need no approval.`;
 }
 
 interface TurnDecision {

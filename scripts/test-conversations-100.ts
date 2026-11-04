@@ -51,7 +51,7 @@ COMMAND_CASES.forEach(([cmd, expected], i) => {
 });
 
 // ---------- class B: trigger routing (25) ----------
-const TRIGGER_CASES: [string, string][] = [
+const TRIGGER_CASES: [string, string | null][] = [
   ["how do I say goodbye in a formal email", "translate"],
   ["translate: خوشحال شدم", "translate"],
   ["what is حافظه in english?", "translate"],
@@ -118,7 +118,7 @@ NOT_STATE.forEach((msg, i) => {
 
 // ---------- class E: history flattening (10) ----------
 // Raw envelopes in, spoken text out - never machinery JSON.
-const FLATTEN_CASES: [string, string][] = [
+const FLATTEN_CASES: [string, string | null][] = [
   [JSON.stringify({ skill: "agent", reply: "Hello there" }), "Hello there"],
   [JSON.stringify({ skill: "vocab-drill", reply: "Let's drill" }), "Let's drill"],
   [JSON.stringify({ kind: "chat", reply: "Plain legacy row" }), "Plain legacy row"],

@@ -206,7 +206,7 @@ export default function ReadAloud({ onChange }: { onChange: () => void }) {
           <p className="text-base font-bold leading-relaxed tracking-tight text-[#e7ecf5]">{target}</p>
           <button
             onClick={say}
-            className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-[#4e8cff] hover:text-[#7dabff]"
+            className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-[var(--rah-primary)] hover:text-[var(--rah-accent)]"
           >
             <Volume2 className="h-3.5 w-3.5" /> hear it
           </button>

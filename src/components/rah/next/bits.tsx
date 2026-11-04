@@ -90,9 +90,13 @@ export function LogoMark({ size = 26 }: { size?: number }) {
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden role="img">
       <defs>
         <linearGradient id="rah-logo-g" x1="6" y1="2" x2="26" y2="30" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#4e8cff" />
-          <stop offset="0.55" stopColor="#2f62c4" />
-          <stop offset="1" stopColor="#24509f" />
+          {/* Theme-following stops (owner request: the whole UI follows the
+             chosen theme). Presentation attributes ignore var(), so the
+             colors ride on style. color-mix darkens the deep stop with the
+             same hue instead of a hardcoded navy. */}
+          <stop offset="0" style={{ stopColor: "var(--rah-primary, #4e8cff)" }} />
+          <stop offset="0.55" style={{ stopColor: "var(--rah-primary-deep, #2f62c4)" }} />
+          <stop offset="1" style={{ stopColor: "color-mix(in srgb, var(--rah-primary-deep, #2f62c4) 78%, black)" }} />
         </linearGradient>
       </defs>
       <rect width="32" height="32" rx="9" fill="url(#rah-logo-g)" />

@@ -69,7 +69,7 @@ export default function League() {
               <div key={s.name + i} className={`rounded-xl border px-3 py-2 ${s.you ? "border-[var(--rah-primary)]/40 bg-[var(--rah-primary)]/[0.08]" : "border-white/[0.05] bg-white/[0.02]"}`}>
                 <div className="mb-1 flex items-center gap-2 text-xs font-bold">
                   <span className={promoted ? "text-[#7fe0ac]" : demoted ? "text-[#ffa3b1]" : "text-[#7d889c]"}>#{i + 1}</span>
-                  <span className={s.you ? "text-[#9dc0ff]" : "text-[#dbe3f0]"}>{s.name}</span>
+                  <span className={s.you ? "text-[var(--rah-accent)]" : "text-[#dbe3f0]"}>{s.name}</span>
                   <span className="ml-auto text-[#8b96a9]">{s.xp} XP</span>
                 </div>
                 <Bar value={s.xp} max={max} tone={s.you ? "blue" : promoted ? "emerald" : demoted ? "rose" : "cyan"} />

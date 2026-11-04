@@ -327,7 +327,7 @@ export default function CoachSidebar({
         <button
           onClick={() => onOpenChange(true)}
           aria-label="Open coach sidebar"
-          className="fixed right-4 bottom-20 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[var(--rah-primary)] to-[#2f62c4] text-white shadow-[0_12px_32px_-8px_rgba(0,0,0,.6)] transition-transform hover:scale-105 active:scale-95 md:bottom-5"
+          className="fixed right-4 bottom-20 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[var(--rah-primary)] to-[var(--rah-primary-deep)] text-white shadow-[0_12px_32px_-8px_rgba(0,0,0,.6)] transition-transform hover:scale-105 active:scale-95 md:bottom-5"
         >
           <GraduationCap className="h-6 w-6" />
           {state && state.due > 0 && (
@@ -348,7 +348,7 @@ export default function CoachSidebar({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--rah-primary)] to-[#2f62c4] text-white">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--rah-primary)] to-[var(--rah-primary-deep)] text-white">
               <GraduationCap className="h-4.5 w-4.5" />
             </div>
             <div>
@@ -428,8 +428,8 @@ export default function CoachSidebar({
         {/* Stream */}
         <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
           {messages.length === 0 && steps.length === 0 && (
-            <div className="rounded-2xl border border-[var(--rah-primary)]/20 bg-[#131c30] p-4">
-              <div className="flex items-center gap-2 text-xs font-bold text-[#9dc0ff]">
+            <div className="rounded-2xl border border-[var(--rah-primary)]/20 bg-[var(--rah-surface)] p-4">
+              <div className="flex items-center gap-2 text-xs font-bold text-[var(--rah-accent)]">
                 <GraduationCap className="h-3.5 w-3.5" /> An agent, not a chatbot
               </div>
               <p className="mt-2 text-[12px] leading-relaxed text-[#8b96a9]">
@@ -447,7 +447,7 @@ export default function CoachSidebar({
               </div>
             ) : (
               <div key={m.id} className="space-y-2">
-                <div className="max-w-[92%] rounded-2xl rounded-bl-md border border-white/[0.06] bg-[#141c2e] px-3.5 py-2.5 text-[13px] leading-relaxed text-[#e8eefb] break-words [overflow-wrap:anywhere]">
+                <div className="max-w-[92%] rounded-2xl rounded-bl-md border border-white/[0.06] bg-[var(--rah-surface)] px-3.5 py-2.5 text-[13px] leading-relaxed text-[#e8eefb] break-words [overflow-wrap:anywhere]">
                   {m.reply}
                 </div>
                 {m.corrections && m.corrections.length > 0 && (
@@ -476,7 +476,7 @@ export default function CoachSidebar({
                         <button
                           key={i}
                           onClick={() => executeCommand(c)}
-                          className="rounded-lg border border-[var(--rah-primary)]/30 bg-[var(--rah-primary)]/[0.1] px-2.5 py-1 text-[11px] font-bold text-[#9dc0ff] transition-colors hover:bg-[var(--rah-primary)]/[0.2]"
+                          className="rounded-lg border border-[var(--rah-primary)]/30 bg-[var(--rah-primary)]/[0.1] px-2.5 py-1 text-[11px] font-bold text-[var(--rah-accent)] transition-colors hover:bg-[var(--rah-primary)]/[0.2]"
                         >
                           {c.type === "start_review" ? "Start review" : c.type === "open_placement" ? "Open placement" : `Go to ${c.view}`}
                         </button>
@@ -491,7 +491,7 @@ export default function CoachSidebar({
               steps stay inspectable); collapses once the final answer lands, so
               the conversation shows one clean reply instead of tool noise. */}
           {steps.length > 0 && (running || !finalArrived) && (
-            <div className="space-y-1.5 rounded-2xl border border-white/[0.06] bg-[#101726] p-3">
+            <div className="space-y-1.5 rounded-2xl border border-white/[0.06] bg-[var(--rah-bg)] p-3">
               <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-[0.14em] text-[#7d889c]">
                 <span className="flex items-center gap-1.5">
                   <FileText className="h-3 w-3" /> agent trace
@@ -502,7 +502,7 @@ export default function CoachSidebar({
                       const text = steps.map((s) => `[${s.kind}] ${s.label}${s.detail ? ` — ${s.detail}` : ""}`).join("\n");
                       void navigator.clipboard?.writeText(text).catch(() => undefined);
                     }}
-                    className="normal-case tracking-normal text-[#9dc0ff] hover:text-[#f2f5fa]"
+                    className="normal-case tracking-normal text-[var(--rah-accent)] hover:text-[#f2f5fa]"
                   >
                     copy
                   </button>
@@ -510,7 +510,7 @@ export default function CoachSidebar({
               </div>
               {steps.map((s, i) => (
                 <div key={i} className="flex items-start gap-2 text-[11px] leading-snug">
-                  <span className={`mt-0.5 shrink-0 ${s.kind === "error" ? "text-[#ff6b6b]" : s.kind === "observe" ? (s.ok === false ? "text-[#ffb02e]" : "text-[#4ade80]") : s.kind === "tool" ? "text-[#9dc0ff]" : "text-[#8b96a9]"}`}>
+                  <span className={`mt-0.5 shrink-0 ${s.kind === "error" ? "text-[#ff6b6b]" : s.kind === "observe" ? (s.ok === false ? "text-[#ffb02e]" : "text-[#4ade80]") : s.kind === "tool" ? "text-[var(--rah-accent)]" : "text-[#8b96a9]"}`}>
                     {stepIcon(s.kind)}
                   </span>
                   <div className="min-w-0 break-words [overflow-wrap:anywhere]">
@@ -543,7 +543,7 @@ export default function CoachSidebar({
             <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-[#7d889c]">
               <FolderOpen className="h-3 w-3" /> workspace
               {files.length > 0 && (
-                <span className="rounded-full bg-[var(--rah-primary)]/[0.18] px-1.5 py-0.5 text-[9px] font-bold text-[#9dc0ff]">{files.length}</span>
+                <span className="rounded-full bg-[var(--rah-primary)]/[0.18] px-1.5 py-0.5 text-[9px] font-bold text-[var(--rah-accent)]">{files.length}</span>
               )}
             </span>
             <span className="text-[11px] font-bold text-[#8b96a9]">{wsOpen ? "hide" : "show"}</span>
@@ -556,7 +556,7 @@ export default function CoachSidebar({
                 </div>
               )}
               {files.map((f) => (
-                <div key={f.path} className="flex items-center justify-between gap-2 rounded-lg bg-[#101726] px-2.5 py-1.5">
+                <div key={f.path} className="flex items-center justify-between gap-2 rounded-lg bg-[var(--rah-bg)] px-2.5 py-1.5">
                   <div className="flex min-w-0 items-center gap-2">
                     <FileText className={`h-3.5 w-3.5 shrink-0 ${f.pdf ? "text-[#ff8ba0]" : "text-[#7d889c]"}`} />
                     <span className="truncate text-[12px] font-semibold text-[#dbe3f0]" title={`data/coach-workspace/${f.path}`}>
@@ -577,7 +577,7 @@ export default function CoachSidebar({
                     <button
                       onClick={() => void openFile(f, true)}
                       title="Download"
-                      className="rounded-md p-1.5 text-[#9dc0ff] transition-colors hover:bg-[var(--rah-primary)]/[0.15]"
+                      className="rounded-md p-1.5 text-[var(--rah-accent)] transition-colors hover:bg-[var(--rah-primary)]/[0.15]"
                     >
                       <FileDown className="h-3.5 w-3.5" />
                     </button>
@@ -596,7 +596,7 @@ export default function CoachSidebar({
                 key={s}
                 onClick={() => void send(s)}
                 disabled={running}
-                className="shrink-0 rounded-full border border-white/[0.08] bg-[#141c2e] px-3 py-1.5 text-[12px] font-semibold text-[#9dc0ff] transition-colors hover:border-[var(--rah-primary)]/40 disabled:opacity-40"
+                className="shrink-0 rounded-full border border-white/[0.08] bg-[var(--rah-surface)] px-3 py-1.5 text-[12px] font-semibold text-[var(--rah-accent)] transition-colors hover:border-[var(--rah-primary)]/40 disabled:opacity-40"
               >
                 {s}
               </button>
@@ -614,7 +614,7 @@ export default function CoachSidebar({
               onChange={(e) => setInput(e.target.value)}
               placeholder={running ? "Agent is working…" : "Ask the agent to do something…"}
               disabled={running}
-              className="min-h-11 flex-1 rounded-xl border border-white/[0.08] bg-[#141c2e] px-3.5 text-[13px] text-[#f2f5fa] outline-none transition-colors placeholder:text-[#8b96a9] focus:border-[var(--rah-primary)]/50 disabled:opacity-50"
+              className="min-h-11 flex-1 rounded-xl border border-white/[0.08] bg-[var(--rah-surface)] px-3.5 text-[13px] text-[#f2f5fa] outline-none transition-colors placeholder:text-[#8b96a9] focus:border-[var(--rah-primary)]/50 disabled:opacity-50"
             />
             <Btn type="submit" disabled={running || !input.trim()} className="!min-h-11 !px-3">
               <Send className="h-4 w-4" />

@@ -176,7 +176,7 @@ export default function Login({ onSignedIn }: { onSignedIn: (user: { email: stri
              breathing glow stays (sanctioned ambient); the CSS-text "R"
              tile is replaced by the actual logo geometry. */}
           <div className="relative mx-auto mb-4 flex h-16 w-16 items-center justify-center">
-            <div aria-hidden className="absolute inset-0 scale-150 rounded-3xl bg-[#4e8cff]/25 blur-xl" />
+            <div aria-hidden className="absolute inset-0 scale-150 rounded-3xl bg-[var(--rah-primary)]/25 blur-xl" />
             <LogoMark size={64} />
           </div>
           <h1 className="text-3xl font-black tracking-tight text-[#cfe0ff]">Rah</h1>

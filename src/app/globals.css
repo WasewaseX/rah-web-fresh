@@ -67,7 +67,11 @@
      values. Defaults = Rah Midnight. */
   --rah-primary: #4e8cff;
   --rah-primary-deep: #2650a3;
-  --rah-primary-action: #2f62c4; /* Task 113: AA-safe action blue - white text 5.5:1 (raw primary is 3.2:1) */
+  /* AA-safe action color chains to the THEMED deep (Task 124, owner green
+     theme): every preset's primaryDeep is a dark shade (white text >= 5:1),
+     so buttons/edges follow any theme repaint instead of staying midnight
+     blue. Midnight default still resolves to the original #2f62c4 look. */
+  --rah-primary-action: var(--rah-primary-deep);
   --rah-accent: #4cc9f0;
   --rah-bg: #10131a;
   --rah-surface: #1a1f2b;
@@ -237,14 +241,14 @@
 .rah-3d {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 4px 0 0 var(--rah-edge, #2650a3);
+    0 4px 0 0 var(--rah-edge, var(--rah-primary-deep));
   transition: transform 0.06s ease, box-shadow 0.06s ease, background 0.15s ease;
 }
 .rah-3d:active:not(:disabled) {
   transform: translateY(3px);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 1px 0 0 var(--rah-edge, #2650a3);
+    0 1px 0 0 var(--rah-edge, var(--rah-primary-deep));
 }
 .rah-3d:disabled {
   box-shadow: none;

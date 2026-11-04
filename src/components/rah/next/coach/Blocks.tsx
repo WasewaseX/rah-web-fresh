@@ -86,7 +86,7 @@ export function ExamTaker({
   }
 
   return (
-    <div className="rah-pop rounded-3xl border border-white/[0.08] bg-[#1a1f2b] p-5">
+    <div className="rah-pop rounded-3xl border border-white/[0.08] bg-[var(--rah-surface)] p-5">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="text-xs font-bold uppercase tracking-[0.12em] text-(--accent-dim)">
           {q.section} · Q{idx + 1}/{exam.questions.length}
@@ -209,7 +209,7 @@ export function DrillCard({ drill, onDone }: { drill: Drill; onDone: (o: DrillOu
   if (finished) {
     const pct = Math.round((finalScore / drill.items.length) * 100);
     return (
-      <div className="rah-pop rounded-3xl border border-white/[0.08] bg-[#1a1f2b] p-5">
+      <div className="rah-pop rounded-3xl border border-white/[0.08] bg-[var(--rah-surface)] p-5">
         <div className="flex items-center gap-4">
           <Ring value={pct} max={100} size={72} label={`${pct}%`} sub="drill" />
           <div>
@@ -225,7 +225,7 @@ export function DrillCard({ drill, onDone }: { drill: Drill; onDone: (o: DrillOu
   }
 
   return (
-    <div className="rah-pop rounded-3xl border border-white/[0.08] bg-[#1a1f2b] p-5">
+    <div className="rah-pop rounded-3xl border border-white/[0.08] bg-[var(--rah-surface)] p-5">
       <div className="mb-2 flex items-center justify-between">
         <div className="text-xs font-bold uppercase tracking-[0.12em] text-(--accent-dim)">{drill.title} · {idx + 1}/{drill.items.length}</div>
         <Chip tone="slate">{checkedCount} checked</Chip>
@@ -305,7 +305,7 @@ export function ResultCard({
 }) {
   const tone = result.percent >= 75 ? "emerald" : result.percent >= 50 ? "amber" : "rose";
   return (
-    <div className="rah-pop rounded-3xl border border-white/[0.08] bg-[#1a1f2b] p-5">
+    <div className="rah-pop rounded-3xl border border-white/[0.08] bg-[var(--rah-surface)] p-5">
       <div className="flex flex-wrap items-center gap-4">
         <Ring value={result.percent} max={100} size={84} label={`${result.percent}%`} sub="exam" />
         <div className="min-w-40 flex-1">
@@ -438,7 +438,7 @@ export function ReportCard({ report }: { report: NonNullable<import("@/lib/tutor
 
 function DeepLevelCard({ report }: { report: DeepLevelReport }) {
   return (
-    <div className="rah-pop rounded-3xl border border-(--accent)/20 bg-gradient-to-b from-[#1a2233] to-[#1a1f2b] p-5">
+    <div className="rah-pop rounded-3xl border border-(--accent)/20 bg-gradient-to-b from-[#1a2233] to-[var(--rah-surface)] p-5">
       <div className="flex flex-wrap items-center gap-3">
         <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-(--accent-dim)">Deep level analysis</div>
         <Chip tone={report.confidence === "high" ? "emerald" : report.confidence === "medium" ? "amber" : "slate"}>confidence: {report.confidence}</Chip>
@@ -504,7 +504,7 @@ function DeepLevelCard({ report }: { report: DeepLevelReport }) {
 
 function DiagnosisCard({ report }: { report: DiagnosisReport }) {
   return (
-    <div className="rah-pop rounded-3xl border border-white/[0.08] bg-[#1a1f2b] p-5">
+    <div className="rah-pop rounded-3xl border border-white/[0.08] bg-[var(--rah-surface)] p-5">
       <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-(--accent-dim)">
         <Stethoscope className="h-4 w-4" /> Error pattern diagnosis
       </div>
@@ -528,7 +528,7 @@ function DiagnosisCard({ report }: { report: DiagnosisReport }) {
 
 function ForecastCard({ report }: { report: ForecastReport }) {
   return (
-    <div className="rah-pop rounded-3xl border border-white/[0.08] bg-[#1a1f2b] p-5">
+    <div className="rah-pop rounded-3xl border border-white/[0.08] bg-[var(--rah-surface)] p-5">
       <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-(--accent-dim)">
         <TrendingUp className="h-4 w-4" /> Progress forecast
       </div>
@@ -557,7 +557,7 @@ const PLAN_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
 
 function PlanCard({ report }: { report: PlanReport }) {
   return (
-    <div className="rah-pop rounded-3xl border border-white/[0.08] bg-[#1a1f2b] p-5">
+    <div className="rah-pop rounded-3xl border border-white/[0.08] bg-[var(--rah-surface)] p-5">
       <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-(--accent-dim)">
         <CalendarDays className="h-4 w-4" /> Today's plan
       </div>

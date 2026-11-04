@@ -379,7 +379,7 @@ export default function RahApp() {
                 onPointerDown={() => prefetchView(v.id)}
                 className={`group relative flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition-all ${
                   active
-                    ? "bg-[var(--rah-primary)]/[0.12] text-[#9dc0ff]"
+                    ? "bg-[var(--rah-primary)]/[0.12] text-[var(--rah-accent)]"
                     : "text-[#8b96a9] hover:bg-white/[0.04] hover:text-[#dbe3f0]"
                 }`}
               >
@@ -389,7 +389,7 @@ export default function RahApp() {
                 <Icon className="h-[18px] w-[18px]" />
                 {v.label}
                 {v.id === "review" && state && state.due > 0 && (
-                  <span className="ml-auto rounded-full bg-[#2f62c4] px-2 py-0.5 text-[12px] font-bold text-white shadow-[0_4px_10px_-2px_rgba(0,0,0,.5)]">
+                  <span className="ml-auto rounded-full bg-[var(--rah-primary-deep)] px-2 py-0.5 text-[12px] font-bold text-white shadow-[0_4px_10px_-2px_rgba(0,0,0,.5)]">
                     {state.due}
                   </span>
                 )}
@@ -412,7 +412,7 @@ export default function RahApp() {
             onClick={() => setCoachOpen(true)}
             className="w-full rounded-2xl border border-[var(--rah-primary)]/20 bg-gradient-to-br from-[#16233e] to-[#131b2c] p-4 text-left transition-colors hover:border-[var(--rah-primary)]/45"
           >
-            <div className="flex items-center gap-2 text-xs font-bold text-[#9dc0ff]">
+            <div className="flex items-center gap-2 text-xs font-bold text-[var(--rah-accent)]">
               <GraduationCap className="h-3.5 w-3.5" />
               Coach sidebar
             </div>
@@ -579,7 +579,7 @@ export default function RahApp() {
                 onPointerDown={() => prefetchView(v.id)}
                 aria-label={v.label}
                 className={`flex min-w-[48px] snap-start flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 text-[11.5px] font-bold transition-colors ${
-                  active ? "min-w-[72px] bg-[var(--rah-primary)]/[0.14] text-[#9dc0ff]" : "text-[#7d889c]"
+                  active ? "min-w-[72px] bg-[var(--rah-primary)]/[0.14] text-[var(--rah-accent)]" : "text-[#7d889c]"
                 }`}
               >
                 <Icon className="h-5 w-5 shrink-0" />

@@ -14,6 +14,22 @@ import { Btn } from "./ui";
 import { LogoMark, StrandIcon } from "./next/bits";
 import { storeRahToken, isEmbedded } from "@/lib/rah-fetch";
 
+const LAST_EMAIL_KEY = "rah_last_email";
+
+function rememberEmail(email: string): void {
+  try {
+    if (email) localStorage.setItem(LAST_EMAIL_KEY, email);
+  } catch {}
+}
+
+function recalledEmail(): string {
+  try {
+    return localStorage.getItem(LAST_EMAIL_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
 interface SessionInfo {
   user: { email: string; name: string } | null;
   googleConfigured: boolean;
@@ -37,6 +53,13 @@ export default function Login({ onSignedIn }: { onSignedIn: (user: { email: stri
 
   useEffect(() => {
     setFramed(isEmbedded());
+    // Keep-me-signed-in UX: recall the email used last time so the owner only
+    // types the access code (no email retyping on every sign-in).
+    const last = recalledEmail();
+    if (last) {
+      setEmail(last);
+      setAccessEmail(last);
+    }
     fetch("/api/auth/session", { cache: "no-store" })
       .then((r) => r.json())
       .then((s: SessionInfo) => {
@@ -90,6 +113,7 @@ export default function Login({ onSignedIn }: { onSignedIn: (user: { email: stri
         // iframes drop SameSite cookies entirely): the fetch wrapper attaches
         // it as x-rah-token on every /api call.
         storeRahToken(data.token);
+        rememberEmail(sentTo);
         onSignedIn(data.user);
       }
     } catch {
@@ -115,6 +139,7 @@ export default function Login({ onSignedIn }: { onSignedIn: (user: { email: stri
         setError(data.error ?? "Verification failed.");
       } else {
         storeRahToken(data.token);
+        rememberEmail(accessEmail);
         onSignedIn(data.user);
       }
     } catch {
@@ -300,7 +325,7 @@ export default function Login({ onSignedIn }: { onSignedIn: (user: { email: stri
                   type="text"
                   value={accessCode}
                   onChange={(e) => setAccessCode(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && accessEmail.includes("@") && accessCode.length >= 6 && void verifyAccess()}
+                  onKeyDown={(e) => e.key === "Enter" && accessEmail.includes("@") && accessCode.length >= 4 && void verifyAccess()}
                   autoComplete="off"
                   autoCapitalize="off"
                   spellCheck={false}
@@ -310,7 +335,7 @@ export default function Login({ onSignedIn }: { onSignedIn: (user: { email: stri
               </div>
               <Btn
                 onClick={() => void verifyAccess()}
-                disabled={busy || !accessEmail.includes("@") || accessCode.length < 6}
+                disabled={busy || !accessEmail.includes("@") || accessCode.length < 4}
                 className="mt-3 w-full !min-h-12 justify-center"
               >
                 <ShieldCheck className="h-4 w-4" /> Sign in with access code

@@ -37,6 +37,16 @@ const EMAIL = "drive-agent@rah.test";
 // ---------- snapshot for restore ----------
 const learnerBefore = await prisma.learner.findUnique({ where: { id: "me" } });
 const usersBefore = await prisma.user.findMany({ where: { email: EMAIL } });
+// Deployment lock (Task 109): a claimed deployment refuses NEW registrations,
+// so this battery's throwaway identity must already exist before the verify
+// leg runs - an EXISTING user bypasses the lock by design (the lock only
+// gates user.create inside issueSessionFor). Pre-seed it here; the cleanup at
+// the bottom deletes it again, so the battery stays self-cleaning and never
+// touches the owner account.
+if (usersBefore.length === 0) {
+  await prisma.user.create({ data: { email: EMAIL, name: "drive-agent", provider: "email" } });
+  console.log("(pre-seeded throwaway battery user - deployment lock bypass for existing rows)");
+}
 const chatsBefore = await prisma.chatMsg.findMany({ orderBy: { id: "desc" }, take: 4 });
 
 let cookie = "";

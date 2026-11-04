@@ -11,7 +11,11 @@ import { db } from "@/lib/db";
 
 export const SESSION_COOKIE = "rah_session";
 export const EMBED_COOKIE = "rah_session_embed";
-const SESSION_TTL_MS = 30 * 24 * 3600 * 1000; // 30 days
+// Keep-me-signed-in: one full year, plus a sliding refresh in resolveToken
+// (a session in active use never hits its expiry - every authed request past
+// the half-life point pushes expiresAt out another year). The owner asked for
+// exactly this: sign in once, stay signed in.
+const SESSION_TTL_MS = 365 * 24 * 3600 * 1000; // 365 days
 const CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const MAX_CODES_PER_WINDOW = 5;
 const CODE_WINDOW_MS = 15 * 60 * 1000;
@@ -318,6 +322,15 @@ export async function resolveToken(token: string | undefined | null): Promise<Se
   if (session.expiresAt.getTime() < Date.now()) {
     await db.session.delete({ where: { id: session.id } }).catch(() => undefined);
     return null;
+  }
+  // Sliding refresh: a session that is still being used and has fallen past
+  // half its TTL gets a fresh full lease. At most one tiny UPDATE per session
+  // every ~6 months - the steady state is zero writes per request.
+  const remainingMs = session.expiresAt.getTime() - Date.now();
+  if (remainingMs < SESSION_TTL_MS / 2) {
+    await db.session
+      .update({ where: { id: session.id }, data: { expiresAt: new Date(Date.now() + SESSION_TTL_MS) } })
+      .catch(() => undefined);
   }
   return { id: session.user.id, email: session.user.email, name: session.user.name, provider: session.user.provider };
 }

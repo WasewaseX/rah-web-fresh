@@ -14,11 +14,12 @@
 //      requested via the custom x-rah-embed header this module adds for
 //      embedded frames (window.self !== window.top). Custom headers double as
 //      the CSRF guard: cross-site forms cannot set them.
-//   3. x-rah-token header - LAST RESORT only. The token is kept in
-//      sessionStorage (dies with the tab, never localStorage) and only when
-//      the server actually hands one over (verify responds with a body token
-//      exclusively to x-rah-embed callers). Any legacy localStorage token is
-//      removed on load.
+//   3. x-rah-token header - LAST RESORT only. The token is kept so the owner
+//      stays signed in across tabs and browser restarts (sessionStorage for
+//      the current tab, localStorage as the persistent copy - owner request:
+//      "keep me logged in"). It is only issued when the server hands one over
+//      (verify responds with a body token exclusively to x-rah-embed callers).
+//      Logout scrubs both storages and kills the session server-side.
 
 const KEY = "rah_token";
 let installed = false;
@@ -26,10 +27,12 @@ let installed = false;
 export function storeRahToken(token: string | undefined | null): void {
   if (!token) return;
   try {
-    // Session-scoped only: closed tab = gone. Never localStorage (XSS-stealable
-    // forever); also scrub any legacy token older versions left behind.
-    localStorage.removeItem(KEY);
+    // Persistent keep-me-signed-in (owner request): the fallback token now
+    // survives tab closes and browser restarts. The server-side session is
+    // the real credential (hashed in the DB, revocable via logout); this is
+    // only the last-resort copy for cookie-blocking embed contexts.
     sessionStorage.setItem(KEY, token);
+    localStorage.setItem(KEY, token);
   } catch {
     // private mode etc. - the cookie paths still work where cookies survive
   }
@@ -44,7 +47,7 @@ export function clearRahToken(): void {
 
 export function getRahToken(): string | null {
   try {
-    return sessionStorage.getItem(KEY);
+    return sessionStorage.getItem(KEY) ?? localStorage.getItem(KEY);
   } catch {
     return null;
   }
@@ -62,9 +65,6 @@ export function isEmbedded(): boolean {
 export function installRahFetch(): void {
   if (installed || typeof window === "undefined" || typeof window.fetch !== "function") return;
   installed = true;
-  try {
-    localStorage.removeItem(KEY); // migration away from the old localStorage token
-  } catch {}
   const original = window.fetch.bind(window);
   window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
     try {

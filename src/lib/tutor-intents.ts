@@ -10,6 +10,17 @@
 //      disputes now get a GROUNDED, deterministic reply quoting the actual
 //      stored items - honesty by construction, not by prompting.
 // Both intents run BEFORE the LLM. No model call, no fabrication surface.
+//
+// Task 124 (2026-11-05 holder transcript, same class of failure, round two):
+//   3. Color-only asks ("make it blue again", "go green please") missed the
+//      matcher and reached the LLM, which confabulated a policy wall:
+//      "I've reached the limit for theme changes in this session ... when
+//      the budget resets." No such budget exists. Matcher v2 adds color-only
+//      and reset-direct paths (with false-positive guards so a practice
+//      sentence like "make the wall green" still does not repaint), and the
+//      route now runs an honesty net over the LLM reply: invented limits are
+//      stripped wherever they appear, theme-inability claims when the topic
+//      is the theme.
 
 import { PRESETS, presetById, sanitizeTokens } from "@/lib/agent/theme";
 import type { ThemeTokens } from "@/lib/agent/types";
@@ -26,11 +37,15 @@ const THEME_TRIGGER =
   /\b(theme|colou?r ?scheme|colou?rs?|appearance|repaint|dark mode)\b/i;
 const THEME_ACTION = /\b(change|switch|make|set|apply|turn|go|give|use|paint|repaint|want|reset|restore)\b/i;
 
+// v2 shared color vocabulary (superset of the COLOR_MAP words).
+const COLOR_WORDS =
+  "green|blue|forest|ocean|sunset|orange|warm|amber|purple|violet|lavender|pink|rose|red|emerald|azure|midnight";
+
 const COLOR_MAP: { re: RegExp; preset: string }[] = [
   { re: /\b(green|forest|emerald)\b/i, preset: "forest" },
   { re: /\b(blue|ocean|sea|azure)\b/i, preset: "ocean" },
   { re: /\b(orange|sunset|warm|amber)\b/i, preset: "sunset" },
-  { re: /\b(purple|violet)\b/i, preset: "violet" },
+  { re: /\b(purple|violet|lavender)\b/i, preset: "violet" },
   { re: /\b(pink|rose|red)\b/i, preset: "rose" },
   { re: /\b(reset|default|normal|original|midnight|back)\b/i, preset: "midnight" },
 ];
@@ -44,15 +59,53 @@ const PRESET_NAMES: Record<string, string> = {
   rose: "Rose (pink/red)",
 };
 
+// v2 color-only paths. Each requires an ACTION VERB, plus one disambiguator,
+// so a practice sentence ("make the wall green", "the sea is blue") never
+// repaints the app:
+//   - closer path:  "make it blue again" / "go green please" / "paint it
+//     violet instead" - action + color + conversational closer.
+//   - preset path:  "switch to ocean" / "set forest" - preset names are the
+//     app's own theme vocabulary, unambiguous by construction.
+//   - app-noun path: "the app is too dark, make it green" - color within a
+//     short window of an app-context noun (either order), action required.
+const COLOR_CLOSER =
+  new RegExp(`\\b(change|switch|make|set|apply|turn|give|paint|want|have|go)\\b[^.!?]{0,20}\\b(${COLOR_WORDS})\\b\\s*(again|instead|please|now|too|back)\\b`, "i");
+const PRESET_DIRECT =
+  new RegExp(`\\b(change|switch|go|set|apply|turn|give)\\s+(?:to\\s+|it\\s+to\\s+|me\\s+)?(ocean|forest|sunset|violet|rose|midnight)\\b`, "i");
+const APP_NOUN = "app|ui|screen|site|website|interface|page|rah|mode|look|style|design";
+const APP_NOUN_COLOR =
+  new RegExp(`\\b(?:${APP_NOUN})\\b[^.!?]{0,24}\\b(${COLOR_WORDS})\\b|\\b(${COLOR_WORDS})\\b[^.!?]{0,24}\\b(?:${APP_NOUN})\\b`, "i");
+const RESET_PATTERNS = [
+  /\b(reset|restore)\b[^.!?]{0,16}\b(theme|colou?r|mode|look|appearance|style|it|this|everything)\b/i,
+  /\b(go|switch|turn|change|set)\s+(?:it\s+)?back\b[^.!?]{0,24}\b(normal|default|old|original|theme|colou?r|mode|look|it|this|the way it was)\b/i,
+];
+
 export function matchThemeIntent(text: string): ThemeIntent | null {
   const t = text.slice(0, 300);
   const mentionsTheme = THEME_TRIGGER.test(t);
   const hasAction = THEME_ACTION.test(t);
   const colorDirect = /\b(green|blue|forest|ocean|sunset|violet|purple|rose|pink)\b[^.!?]{0,24}\b(theme|colou?r|mode|look)\b/i.test(t) ||
     /\btheme\b[^.!?]{0,24}\b(green|blue|forest|ocean|sunset|violet|purple|rose|pink)\b/i.test(t);
-  if (!(mentionsTheme && hasAction) && !colorDirect) return null;
+  // v2 gates: color-only paths need an action verb; preset names stand alone.
+  const colorCloser = COLOR_CLOSER.test(t);
+  const presetDirect = PRESET_DIRECT.test(t);
+  const appNounColor = hasAction && APP_NOUN_COLOR.test(t);
+  const resetDirect = RESET_PATTERNS.some((re) => re.test(t));
+  if (!(mentionsTheme && hasAction) && !colorDirect && !colorCloser && !presetDirect && !appNounColor && !resetDirect) return null;
 
-  const wantsReset = /\b(reset|restore|default|original|back to (the )?old|back to (the )?normal)\b/i.test(t) && !/\b(green|blue|forest|ocean|sunset|violet|purple|rose|pink|red)\b/i.test(t);
+  // v2 learning-ask guard: the tutor teaches English, so "give me two
+  // examples with the color blue" or "write a sentence with the word green"
+  // are LESSON asks, not repaint asks. When the message reads like a lesson
+  // request, only a STRONG theme noun (theme/color scheme/appearance/dark
+  // mode), an app-noun adjacency, or an explicit reset keeps it a theme ask.
+  const learningAsk =
+    /\b(example|examples?|sentence|sentences?|words?|mean|means|meaning|translate|pronunciation|pronounce|vocab\w*|idiom|idioms|grammar)\b/i.test(t);
+  const strongTheme = /\b(theme|colou?r ?scheme|appearance|repaint|dark mode)\b/i.test(t);
+  if (learningAsk && !strongTheme && !appNounColor && !resetDirect) return null;
+
+  const wantsReset =
+    (/\b(reset|restore|default|original|back to (the )?old|back to (the )?normal)\b/i.test(t) && !/\b(green|blue|forest|ocean|sunset|violet|purple|rose|pink|red)\b/i.test(t)) ||
+    (resetDirect && !/\b(green|blue|forest|ocean|sunset|violet|purple|rose|pink|red)\b/i.test(t));
   if (wantsReset) {
     const p = presetById("midnight")!;
     return {
@@ -80,6 +133,74 @@ export function matchThemeIntent(text: string): ThemeIntent | null {
     tokens: p.tokens,
     reply: `Done - the app now wears the ${name} theme. It repaints instantly and survives reloads; no settings digging needed. If you want another look, ask for green, blue, sunset, violet, rose - or say "reset the theme".`,
     fa: "تم عوض شد و همان لحظه اعمال می‌شود. هر رنگی خواستی بگو.",
+  };
+}
+
+// Broad net for the route's honesty check: "was the learner plausibly talking
+// about the app's look?" Deliberately wider than matchThemeIntent - it only
+// decides whether a model reply that CLAIMS theme inability gets replaced.
+export function isThemeishMessage(text: string): boolean {
+  const t = String(text).slice(0, 300);
+  if (THEME_TRIGGER.test(t)) return true;
+  if (matchThemeIntent(t)) return true;
+  return COLOR_CLOSER.test(t) || PRESET_DIRECT.test(t) ||
+    new RegExp(`\\b(change|switch|make|set|apply|turn|paint|go|give|use|want)\\b[^.!?]{0,20}\\b(${COLOR_WORDS})\\b`, "i").test(t);
+}
+
+// Fabrication detectors for the honesty net. Two classes, different scope:
+// - claimsInventedLimit: budgets/quotas/session caps DO NOT EXIST anywhere in
+//   this app, so a reply claiming one is always a fabrication, whatever the
+//   learner asked. ("...reached the limit for theme changes in this session
+//   ... when the budget resets.")
+// - claimsThemeInability: "I can't change the theme / it's in your settings"
+//   - only a fabrication when the learner was actually talking about the
+//   look (isThemeishMessage gates it in the route); a vocabulary lesson about
+//   the word "theme" must pass through untouched.
+export function claimsInventedLimit(reply: string): boolean {
+  const s = String(reply).slice(0, 600);
+  if (
+    /\breached\b[^.!?]{0,24}\b(limit|cap|maximum|max)\b[^.!?]{0,80}\b(theme|colou?r|change|session)/i.test(s) ||
+    /\bsession (limit|cap|budget|quota)\b/i.test(s) ||
+    (/\b(limit|cap)\b[^.!?]{0,40}\b(changes?|reached)\b/i.test(s) && /theme|colou?r/i.test(s))
+  ) {
+    return true;
+  }
+  // "budget resets" class: must be sentence-scoped so an English lesson ABOUT
+  // budgets ("the company budget resets every quarter") never trips it, while
+  // "...changing the theme again later when the budget resets" does.
+  return String(s)
+    .split(/[.!?]+/)
+    .some((sent) =>
+      /\b(budget|quota|allowance)\b[^.!?]{0,40}\b(resets?|refills?|spent|exhausted|runs? out|used up)\b/i.test(sent) &&
+      /theme|colou?r|\bapp\b|session|\bi\b|\bmy\b|\bme\b|changing|change/i.test(sent)
+    );
+}
+
+export function claimsThemeInability(reply: string): boolean {
+  const s = String(reply).slice(0, 600);
+  return (
+    /\b(don't|do not|not able to|cannot|can't|won't|will not)\b[^.!?]{0,60}\b(change|switch|set|apply|update|control|repaint|adjust|modify|alter)\b[^.!?]{0,40}\b(theme|colou?rs?|appearance|look|ui|mode|design)\b/i.test(s) ||
+    /\bno ability\b[^.!?]{0,60}\b(theme|colou?r|appearance)/i.test(s) ||
+    /\b(settings|preferences|display settings)\b[^.!?]{0,60}\b(theme|colou?rs?|appearance|look)\b/i.test(s) ||
+    /\b(theme|colou?rs?|appearance)\b[^.!?]{0,60}\b(settings|preferences)\b/i.test(s)
+  );
+}
+
+// Grounded replacements, used by the route's honesty net. Every word is true:
+// the presets listed are the real ones, and applying them takes one message.
+export function themeHelpReply(): { reply: string; fa: string } {
+  return {
+    reply:
+      'Let me fix my own mistake first: Rah CAN repaint itself - there is no settings hunt and no limit. Say any of: "green", "blue", "sunset", "violet", "rose", or "reset the theme" for the default Midnight look, and the whole app repaints instantly. If you meant something else by it, tell me in a couple of words and I will get it right.',
+    fa: "راح خودش تم را عوض می‌کند؛ فقط رنگ را بگو: سبز، آبی، بنفش، صورتی یا reset.",
+  };
+}
+
+export function limitResetReply(): { reply: string; fa: string } {
+  return {
+    reply:
+      "That previous line was my mistake, straight up: there are no budgets, quotas, or session limits anywhere in Rah - nothing resets and nothing runs out. If you were asking for a new look, say green, blue, sunset, violet, or rose and it repaints on the spot. And if \"wat?\" meant my last reply made no sense - you were right, it did not. What did you want?",
+    fa: "پاسخ قبلی‌ام اشتباه بود؛ هیچ محدودیتی در کار نیست. بگو چه می‌خواهی تا درست انجامش دهم.",
   };
 }
 

@@ -354,9 +354,12 @@ export function toolTier(name: string): ToolTier {
 }
 
 // Per-run budgets by tier (loop enforces; tool calls beyond these are refused
-// without executing).
+// without executing). state: 2 -> 3 (Task 124): a legitimate single turn can
+// need set_theme + coach_skill + triage_flags, and the honest refusal of a
+// cheap, idempotent repaint read to the learner like a fake product limit.
+// The run itself stays capped by MAX_STEPS, so the ceiling is still safe.
 export const TIER_BUDGETS: Partial<Record<ToolTier, number>> = {
-  state: 2,
+  state: 3,
   exec: 2,
   network: 4,
 };

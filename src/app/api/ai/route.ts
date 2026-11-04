@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { getLearner, getSettings } from "@/lib/server";
 import { chat, smartChat, effectiveProfile, extractJson, listModels, presets, isBuiltin, BUILTIN_PROFILE } from "@/lib/ai";
 import { tutorSystem, quizSystem, importSystem, speakEvalSystem } from "@/lib/prompts";
-import { matchThemeIntent, themeTokensFor, matchExamDispute, examDisputeReply } from "@/lib/tutor-intents";
+import { matchThemeIntent, themeTokensFor, matchExamDispute, examDisputeReply, isThemeishMessage, claimsInventedLimit, claimsThemeInability, themeHelpReply, limitResetReply } from "@/lib/tutor-intents";
 import { itemAnswerable } from "@/lib/agent/exam-gate";
 import { contentUserId } from "@/lib/scope";
 
@@ -116,6 +116,23 @@ export async function POST(req: Request) {
     ]);
     const due = states.filter((s) => !s.suspended && s.state !== "new" && s.due <= day).length;
 
+    // Task 124: prompts.ts rule 10 references "the system note says a theme
+    // was applied" - but no route ever injected one. When this conversation
+    // actually applied a theme (the deterministic "Done - ..." turns), say so
+    // in the prompt so the model confirms reality instead of confabulating.
+    // Task 119 left this seam open: a "wat?" after a theme turn could produce
+    // "I've reached the limit for theme changes in this session ... when the
+    // budget resets" - a pure invention. The note states, in prompt text,
+    // that no budgets or caps exist.
+    const themeApplied = history.some((m) => {
+      const rec = m as { role?: unknown; reply?: unknown; content?: unknown };
+      const text = String((typeof rec.reply === "string" ? rec.reply : rec.content) ?? "");
+      return text.startsWith("Done - the app now wears") || text.startsWith("Done - the theme is reset");
+    });
+    const systemNote = themeApplied
+      ? "\n\nSystem note (facts, not suggestions): earlier in this conversation a theme change WAS applied server-side; the 'Done - the app now wears...' turns are confirmed real actions, not promises. This app has NO budgets, quotas, rate limits, or session caps on any capability - never mention or invent them. If the learner's message is unclear (for example 'wat?'), answer the most recent real question or ask what they meant in one short line."
+      : "";
+
     const out = await smartChat(
       tutorSystem({
         level: learner.level,
@@ -124,7 +141,7 @@ export async function POST(req: Request) {
         due,
         focus: "vocabulary",
         mistakes: fam ? [{ tag: fam.tag, count: fam.count, label: fam.label }] : [],
-      }),
+      }) + systemNote,
       history,
       900,
       true
@@ -140,6 +157,44 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "the engine returned a turn without a reply field", fallback: true, raw: out.text.slice(0, 500) });
     }
     parsed.reply = stripFabricatedClaims(parsed.reply);
+
+    // Task 124 honesty net (belt under the braces, same philosophy as
+    // stripFabricatedClaims). The deterministic intent above answers theme
+    // asks for real, but a phrasing that missed the matcher used to reach the
+    // LLM, which then either denied a real capability or invented a policy
+    // wall ("limit for theme changes ... when the budget resets"). Two
+    // detectors, two scopes:
+    //   - claimsInventedLimit: fabricated budgets/caps are ALWAYS lies in
+    //     this app - replaced wherever they appear.
+    //   - claimsThemeInability: a denial is a lie only when the learner was
+    //     actually talking about the look (isThemeishMessage gate).
+    // In both cases the deterministic intent runs first (it may now be able
+    // to apply the real thing); only if it does not match do we serve the
+    // grounded recovery replies. Deterministic text, no model in the loop.
+    const limitLie = claimsInventedLimit(parsed.reply);
+    const inabilityLie = isThemeishMessage(lastUser) && claimsThemeInability(parsed.reply);
+    if (limitLie || inabilityLie) {
+      const intent = matchThemeIntent(lastUser);
+      if (intent) {
+        const stored = themeTokensFor(intent);
+        await db.learner.update({ where: { id: learner.id }, data: { theme: stored ?? "" } });
+        return NextResponse.json({
+          ok: true,
+          turn: {
+            reply: `${intent.reply} (My previous message was wrong, and this one is the real action.)`,
+            corrections: [],
+            fa_note: intent.fa,
+            praised: false,
+            theme: intent.reset ? null : intent.tokens,
+          },
+        });
+      }
+      const fix = limitLie ? limitResetReply() : themeHelpReply();
+      return NextResponse.json({
+        ok: true,
+        turn: { reply: fix.reply, corrections: [], fa_note: fix.fa, praised: false },
+      });
+    }
     return NextResponse.json({ ok: true, turn: parsed });
   }
 

@@ -91,7 +91,8 @@ RULES:
    - "Keep it short": one to two lines. Default replies stay compact (2-5 sentences), but completeness beats brevity when the learner asked for detail or a full correction.
    - Greeting or small talk: one warm line, then at most a light nudge back to practice.
    This policy never waives rule 1: state questions still require read_state FIRST, even if history already holds a similar answer - state changes between asks.
-10. MALWARE / REVERSE-ENGINEERING requests: browser-first - passive hash lookups and remote detonation platforms before any local download or execution. Start with re_ioc_normalize on whatever the learner pasted (it catches truncated hashes), then re_intel_lookup, then re_runbook for the phase workflow. Never advise running a sample outside an isolated, snapshotted VM. Never claim you executed, detonated, or analyzed a binary yourself - your tools fetch intel, normalize IOCs and record cases only; empty intel is reported as empty. Uploading a SAMPLE to any third-party service requires the learner's explicit approval FIRST: call re_sample_upload without confirm to get the consent question, relay it, and only pass confirm=true after the learner clearly approves. Hash lookups are passive and need no approval.`;
+10. MALWARE / REVERSE-ENGINEERING requests: browser-first - passive hash lookups and remote detonation platforms before any local download or execution. Start with re_ioc_normalize on whatever the learner pasted (it catches truncated hashes), then re_intel_lookup, then re_runbook for the phase workflow. Never advise running a sample outside an isolated, snapshotted VM. Never claim you executed, detonated, or analyzed a binary yourself - your tools fetch intel, normalize IOCs and record cases only; empty intel is reported as empty. Uploading a SAMPLE to any third-party service requires the learner's explicit approval FIRST: call re_sample_upload without confirm to get the consent question, relay it, and only pass confirm=true after the learner clearly approves. Hash lookups are passive and need no approval.
+11. FINAL REPLY DISCIPLINE (Task 124 - live-probed failure): the reply answers THE LEARNER'S LAST MESSAGE, nothing else. When they ask for an action and its tool ran ok, CONFIRM THAT ACTION in plain words ("Done - the app now wears the Ocean blue theme"). Never open with stats (streak, due count, XP) unless the learner asked for them - read_state output is context for advice, not a script to recite. Never invent limits, budgets, quotas or session caps: none exist in this app. If a tool was refused for the per-message tier budget, say exactly that it is per-message and a fresh message will run it.`;
 }
 
 interface TurnDecision {
@@ -386,7 +387,12 @@ export async function runAgent(
       steps.push({ label: `${def.name} - tier budget spent`, detail: `${tier} tier already used ${used}/${budget} this run`, ok: false });
       push({ type: "observe", label: `${def.name} refused: ${tier}-tier budget spent (${used}/${budget} this run)`, ok: false });
       messages.push({ role: "assistant", content: raw });
-      messages.push({ role: "user", content: `Tool "${def.name}" (${tier} tier) is refused: the per-run budget of ${budget} ${tier} calls is spent. Emit the final object now.` });
+      // Task 124: the bare refusal used to leak into the final reply as an
+      // invented policy wall ("I've reached the limit for theme changes in
+      // this session ... when the budget resets") - wrong on both counts
+      // (per-message, not per-session; and phrased like a product rule). The
+      // refusal now hands the model the exact honest sentence to use.
+      messages.push({ role: "user", content: `Tool "${def.name}" (${tier} tier) is refused: the per-message budget of ${budget} ${tier} calls is spent. This is a real per-message cap, not a session limit, and there are no other limits. Emit the final object now; if the learner needs the action, tell them plainly: send the request again in a fresh message and it will run.` });
       continue;
     }
     if (budget !== undefined) tierBudgetUse[tier] = used + 1;

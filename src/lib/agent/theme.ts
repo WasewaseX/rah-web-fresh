@@ -86,7 +86,10 @@ export function parseThemeRequest(text: string): { preset?: string; tokens?: The
   }
   const preset = presetById(t);
   if (preset) return { preset: preset.id };
-  if (/\b(ocean|sea|blue cyan|cyan)\b/.test(t)) return { preset: "ocean" };
+  // Task 124: plain "blue" was the one color word missing here - the live
+  // probe caught the model calling set_theme{"theme":"blue"} twice and only
+  // recovering on its third attempt. Every plain color word now resolves.
+  if (/\b(ocean|sea|blue|cyan)\b/.test(t)) return { preset: "ocean" };
   if (/\b(forest|green|emerald|nature)\b/.test(t)) return { preset: "forest" };
   if (/\b(sunset|orange|warm|amber)\b/.test(t)) return { preset: "sunset" };
   if (/\b(violet|purple|lavender)\b/.test(t)) return { preset: "violet" };

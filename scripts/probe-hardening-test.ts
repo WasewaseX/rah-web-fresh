@@ -79,6 +79,48 @@ async function main() {
   const flagBad = await flags.run({ action: "resolve", id: -1, status: "fixed", _probe: true });
   check("flags resolve probe: bad id still rejected first", flagBad.ok === false, flagBad.summary);
 
+  // ---------- add_cards (Task 125): probe validates, never writes ----------
+  const cards = toolByName("add_cards")!;
+  const uc0 = await db.userCard.count({ where: { learnerId: THEME_ID } });
+  const addP = await cards.run({
+    cards: [
+      { kind: "cloze", prompt: "Probe gate check ___", answer: "passed", level: "B2" },
+      { kind: "ef", prompt: "ubiquitous", answer: "همه‌جا حاضر" },
+    ],
+    _probe: true,
+  });
+  check("add_cards probe: ok dry-run", addP.ok === true && /dry-run/i.test(addP.summary), addP.summary);
+  check("add_cards probe: no UserCard rows", (await db.userCard.count({ where: { learnerId: THEME_ID } })) === uc0, `count ${uc0}->${await db.userCard.count({ where: { learnerId: THEME_ID } })}`);
+  const addBad = await cards.run({ cards: [{ prompt: "", answer: "" }], _probe: true });
+  check("add_cards probe: empty card still rejected first", addBad.ok === false, addBad.summary);
+
+  // ---------- add_cards real path: writes then cleans up ----------
+  const addR = await cards.run({ cards: [{ kind: "cloze", prompt: "Probe real-path card ___", answer: "works" }] });
+  check("add_cards real: writes rows", addR.ok === true && (await db.userCard.count({ where: { learnerId: THEME_ID } })) === uc0 + 1, addR.summary);
+  await db.userCard.deleteMany({ where: { learnerId: THEME_ID, prompt: "Probe real-path card ___" } });
+  check("add_cards real: cleanup done", (await db.userCard.count({ where: { learnerId: THEME_ID } })) === uc0);
+
+  // ---------- set_goal (Task 125): probe dry-run, real path restored ----------
+  const goals = toolByName("set_goal")!;
+  const goalBefore = await db.learner.findUnique({ where: { id: THEME_ID }, select: { dailyGoal: true, newPerDay: true, focusSkill: true } });
+  const goalP = await goals.run({ dailyGoal: 77, focusSkill: "listening", _probe: true });
+  check("set_goal probe: ok dry-run", goalP.ok === true && /dry-run/i.test(goalP.summary), goalP.summary);
+  const goalAfterProbe = await db.learner.findUnique({ where: { id: THEME_ID }, select: { dailyGoal: true, newPerDay: true, focusSkill: true } });
+  check(
+    "set_goal probe: Learner row untouched",
+    goalAfterProbe?.dailyGoal === goalBefore?.dailyGoal && goalAfterProbe?.focusSkill === goalBefore?.focusSkill,
+    `before=${goalBefore?.dailyGoal}/${goalBefore?.focusSkill} after=${goalAfterProbe?.dailyGoal}/${goalAfterProbe?.focusSkill}`
+  );
+  const goalBad = await goals.run({ dailyGoal: 9999, _probe: true });
+  check("set_goal probe: out-of-range rejected before dry-run", goalBad.ok === false, goalBad.summary);
+  const goalReal = await goals.run({ dailyGoal: 33 });
+  check("set_goal real: writes", goalReal.ok === true && /33/.test(goalReal.summary), goalReal.summary);
+  if (goalBefore) {
+    await db.learner.update({ where: { id: THEME_ID }, data: { dailyGoal: goalBefore.dailyGoal, newPerDay: goalBefore.newPerDay, focusSkill: goalBefore.focusSkill } });
+  }
+  const goalRestored = await db.learner.findUnique({ where: { id: THEME_ID }, select: { dailyGoal: true } });
+  check("set_goal real: restored", goalRestored?.dailyGoal === goalBefore?.dailyGoal, `${goalRestored?.dailyGoal} vs ${goalBefore?.dailyGoal}`);
+
   console.log(`\nprobe-hardening: ${pass} pass, ${fail} fail`);
   process.exit(fail === 0 ? 0 : 1);
 }

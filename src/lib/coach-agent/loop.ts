@@ -92,7 +92,8 @@ RULES:
    - Greeting or small talk: one warm line, then at most a light nudge back to practice.
    This policy never waives rule 1: state questions still require read_state FIRST, even if history already holds a similar answer - state changes between asks.
 10. MALWARE / REVERSE-ENGINEERING requests: browser-first - passive hash lookups and remote detonation platforms before any local download or execution. Start with re_ioc_normalize on whatever the learner pasted (it catches truncated hashes), then re_intel_lookup, then re_runbook for the phase workflow. Never advise running a sample outside an isolated, snapshotted VM. Never claim you executed, detonated, or analyzed a binary yourself - your tools fetch intel, normalize IOCs and record cases only; empty intel is reported as empty. Uploading a SAMPLE to any third-party service requires the learner's explicit approval FIRST: call re_sample_upload without confirm to get the consent question, relay it, and only pass confirm=true after the learner clearly approves. Hash lookups are passive and need no approval.
-11. FINAL REPLY DISCIPLINE (Task 124 - live-probed failure): the reply answers THE LEARNER'S LAST MESSAGE, nothing else. When they ask for an action and its tool ran ok, CONFIRM THAT ACTION in plain words ("Done - the app now wears the Ocean blue theme"). Never open with stats (streak, due count, XP) unless the learner asked for them - read_state output is context for advice, not a script to recite. Never invent limits, budgets, quotas or session caps: none exist in this app. If a tool was refused for the per-message tier budget, say exactly that it is per-message and a fresh message will run it.`;
+11. FINAL REPLY DISCIPLINE (Task 124 - live-probed failure): the reply answers THE LEARNER'S LAST MESSAGE, nothing else. When they ask for an action and its tool ran ok, CONFIRM THAT ACTION in plain words ("Done - the app now wears the Ocean blue theme"). Never open with stats (streak, due count, XP) unless the learner asked for them - read_state output is context for advice, not a script to recite. Never invent limits, budgets, quotas or session caps: none exist in this app. If a tool was refused for the per-message tier budget, say exactly that it is per-message and a fresh message will run it.
+12. CAPABILITY QUESTIONS ("what can you do", "what are your tools", "how can you help"): answer in LEARNER LANGUAGE - grouped abilities in 4 to 6 short lines, then one question tied to their current focus or due queue. NEVER dump raw tool names, never enumerate the registry, never use internal jargon (no "re_ioc_normalize", no "FSRS", no "envelope"). Say what you can DO for them: track progress and forecast the week's reviews, drill and correct, build study plans and real PDFs, add vocabulary straight to their deck, look words up, search the web, repaint the app, navigate and start reviews, and run security/threat-analysis workflows when they ask.`;
 }
 
 interface TurnDecision {
@@ -263,6 +264,25 @@ export function isStateQuestion(message: string): boolean {
   return /\b(streak|due\b|due count|my level|my xp|\bxp\b|gems?\b|review\b.*due|my mistakes|my progress|what should i (do|practice)|how am i doing|read_state)\b/i.test(message);
 }
 
+// Task 125 (live-probed failures): "add the word X to my vocab deck" was
+// answered with a workspace document / a skill run, and the final reply
+// CLAIMED the card was added - a fabricated action. Week/workload questions
+// were answered from read_state, which only knows today. Prompt descs alone
+// did not hold (the model pattern-matched to familiar tools), so the loop
+// enforces both deterministically, same doctrine as isStateQuestion: one
+// server-side nudge per run that demands the real tool before any final
+// reply is accepted. Pure and exported for the battery.
+export function isDeckAddAsk(message: string): boolean {
+  return /\b(add|put)\b[^.!?]{0,24}\b(into|to|in)\b[^.!?]{0,24}\b(deck|vocab\w*|flash\s?cards?|my cards?)\b/i.test(message);
+}
+
+export function isWeekAsk(message: string): boolean {
+  return (
+    /\b(week|weekly|coming days|next (few|7|seven) days|forecast|upcoming)\b/i.test(message) &&
+    /\b(review|reviews|due|cards?|queue|workload|stud(y|ying)|reps?)\b/i.test(message)
+  );
+}
+
 export async function runAgent(
   message: string,
   history: { role: string; content: string }[],
@@ -297,6 +317,8 @@ export async function runAgent(
   const UNREACHABLE = "The model is unreachable right now (quota or network). Your message stands; try again in a moment.";
   let nudges = 0; // thought-only / junk turns: feed the model back on track instead of dead-ending
   let stateEnforced = 0; // read_state enforcement: one deterministic retry per run
+  let deckEnforced = 0; // Task 125: add_cards enforcement (fabricated deck-adds)
+  let weekEnforced = 0; // Task 125: review_forecast enforcement (week questions from today-only data)
   // Audit P1: app actions the CLIENT must perform are merged in by the LOOP
   // from verified tool results - the model triggers them, it cannot fake them.
   let themeCommand: AgentCommand | null = null;
@@ -354,6 +376,32 @@ export async function runAgent(
           role: "user",
           content:
             'That was a state question and you answered it WITHOUT calling read_state - a protocol violation. First call read_state now: {"thought":"...","tool":"read_state","args":{}}. Then, with its result, emit your final object.',
+        });
+        continue;
+      }
+      // Task 125 enforcement: a deck-add ask finalized without add_cards -
+      // the reply would claim an action that never happened.
+      if (turn.final && !toolsUsed.includes("add_cards") && deckEnforced < 1 && step < MAX_STEPS - 2 && isDeckAddAsk(message)) {
+        deckEnforced = 1;
+        push({ type: "error", label: "Deck-add needs add_cards - enforcing", ok: false });
+        messages.push({ role: "assistant", content: raw });
+        messages.push({
+          role: "user",
+          content:
+            'The learner asked to add words to their DECK and you finalized WITHOUT calling add_cards - documents and skill runs do not add cards, and claiming they do is a fabricated action. Call add_cards now: {"thought":"...","tool":"add_cards","args":{"cards":[{"kind":"cloze","prompt":"sentence with ___","answer":"...","en":"...","fa":"Farsi gloss","level":"B2"}]}} (build the cards for the asked words yourself). Then confirm from its real result.',
+        });
+        continue;
+      }
+      // Task 125 enforcement: a week/workload ask finalized without
+      // review_forecast - read_state only knows today.
+      if (turn.final && !toolsUsed.includes("review_forecast") && weekEnforced < 1 && step < MAX_STEPS - 2 && isWeekAsk(message)) {
+        weekEnforced = 1;
+        push({ type: "error", label: "Week question needs review_forecast - enforcing", ok: false });
+        messages.push({ role: "assistant", content: raw });
+        messages.push({
+          role: "user",
+          content:
+            'That was a week/workload question answered without review_forecast - read_state only knows TODAY, so day-by-day numbers from it are wrong. Call review_forecast now: {"thought":"...","tool":"review_forecast","args":{}}. Then answer the learner from its real numbers.',
         });
         continue;
       }

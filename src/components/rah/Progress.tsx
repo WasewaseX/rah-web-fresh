@@ -10,6 +10,7 @@ import { handCoach } from "@/lib/bus";
 import { Radar, AccuracyTimeline } from "./WarRoom";
 import MindReader from "./MindReader";
 import GoalPlanner from "./GoalPlanner";
+import GuidePanel from "./GuidePanel";
 import Replay from "./Replay";
 import Portfolio from "./Portfolio";
 import BattleCardButton from "./BattleCardButton";
@@ -471,6 +472,8 @@ export default function ProgressView({ state, go }: { state: AppState; go: (v: V
 
       {/* CEFR curriculum graph: the road from B2 to C1 with proven-only gates */}
       <CurriculumPanel />
+      {/* The embedded B1-C1 guide map (Task 130): the book's full level structure */}
+      <GuidePanel />
 
       {/* Writing portfolio: every graded essay + the growth diff */}
       <Portfolio />

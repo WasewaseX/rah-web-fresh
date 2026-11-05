@@ -76,3 +76,5 @@ async function runExam() {
 }
 
 runExam();
+
+export {};

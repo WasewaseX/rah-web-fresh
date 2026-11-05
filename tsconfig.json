@@ -55,6 +55,7 @@
     "tests",
     "upload",
     "scripts/pg-validate.ts",
-    "prisma/pg-client"
+    "prisma/pg-client",
+    "tmp-sweep"
   ]
 }

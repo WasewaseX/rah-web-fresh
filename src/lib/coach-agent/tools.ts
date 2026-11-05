@@ -536,6 +536,7 @@ const BASE_TOOL_TIERS: Record<string, ToolTier> = {
   dictionary: "network", // keyless external fetch, read-only
   add_cards: "state", // writes UserCard rows into the live deck
   set_goal: "state", // writes Learner dailyGoal/newPerDay/focusSkill
+  study_guide: "read", // pure read over the embedded B1-C1 guide data (Task 130)
 };
 // RE domain (reverse engineering / malware analysis) merges its own tiers in:
 // lookups are network-tier (budgeted), the consent gate is network, case
@@ -655,6 +656,12 @@ const BASE_TOOLS: ToolDef[] = [
     args: '{"dailyGoal": 30, "focusSkill": "listening"}',
     run: setGoal,
   },
+  {
+    name: "study_guide",
+    desc: "Read the embedded B1-C1 guide map (English with Lucy's 'The Ultimate Guide to B1 B2 C1 Grammar & Vocabulary'): every grammar topic, vocabulary topic, self-rating checklist and 3-month study plan per CEFR level. MANDATORY for 'what grammar/vocabulary do I need for B2', 'B1 checklist', 'what is on the C1 exam path', 'make me a study plan to reach X' - the map is the authority for what each level contains; NEVER guess a level's contents from memory. section: all (default) | grammar | vocabulary | pronunciation | checklist | study_plan. Pair it with read_state to place the learner on the map.",
+    args: '{"level": "B2", "section": "grammar"}',
+    run: studyGuide,
+  },
 ];
 
 // Full registry = base app tools + the RE (reverse-engineering) domain.
@@ -689,6 +696,51 @@ async function triageFlags(args: ToolArgs): Promise<ToolResult> {
     return { ok: true, summary: `Flag #${id} marked ${status}.`, detail: `card=${existing.cardId} kind=${existing.kind} note=${existing.note.slice(0, 120)}` };
   }
   return { ok: false, summary: "action must be list or resolve", detail: `got ${action}` };
+}
+
+// ---------- study_guide: the embedded B1-C1 guide map (Task 130) ----------
+
+async function studyGuide(args: ToolArgs): Promise<ToolResult> {
+  const { GUIDE_LEVELS, guideSection, GUIDE_META, CHECKLIST_LEGEND } = await import("@/lib/b1c1-guide");
+  const level = String(args.level ?? "").trim().toUpperCase();
+  const section = String(args.section ?? "all").trim().toLowerCase();
+  if (!GUIDE_LEVELS.some((s) => s.level === level)) {
+    return { ok: false, summary: "level must be B1, B2 or C1", detail: `got level=${level || "(empty)"}; valid: B1, B2, C1` };
+  }
+  const sec = guideSection(level as "B1" | "B2" | "C1");
+  const want = (s: string) => section === "all" || section === s;
+  const lines: string[] = [
+    `${GUIDE_META.title} (${GUIDE_META.author}, ${GUIDE_META.pages} pages) - ${sec.level} section:`,
+  ];
+  if (want("grammar")) {
+    lines.push("", `GRAMMAR (book pages ${sec.grammar[0].page}-${sec.grammar[sec.grammar.length - 1].page}):`);
+    for (const t of sec.grammar) lines.push(`- ${t.title} (p.${t.page}): ${t.hint}`);
+  }
+  if (want("vocabulary")) {
+    lines.push("", `VOCABULARY (book pages ${sec.vocabulary[0].page}-${sec.vocabulary[sec.vocabulary.length - 1].page}):`);
+    for (const t of sec.vocabulary) lines.push(`- ${t.title} (p.${t.page}): ${t.hint}`);
+  }
+  if (want("pronunciation")) lines.push("", `PRONUNCIATION (book pages ${sec.pronunciation.pages}): ${sec.pronunciation.note}`);
+  if (want("checklist")) {
+    lines.push("", `CHECKLIST (book pages ${sec.checklist.pages}, ${sec.checklist.source}): ${sec.checklist.note}`, `Rating: ${CHECKLIST_LEGEND.join(" | ")}`);
+    sec.checklist.items.forEach((q, i) => lines.push(`${i + 1}. ${q}`));
+  }
+  if (want("study_plan")) lines.push("", `STUDY PLAN (book pages ${sec.studyPlan.pages}): ${sec.studyPlan.note}`);
+  if (section === "all") {
+    lines.push("", `OVERVIEW (p.${sec.overview.page}): ${sec.overview.text}`);
+    const curriculumFeed = [...sec.grammar, ...sec.vocabulary].filter((t) => t.node);
+    if (curriculumFeed.length > 0) {
+      lines.push(`Your app curriculum gates these topics: ${curriculumFeed.map((t) => `${t.title} -> ${t.node}`).join("; ")}.`);
+    }
+  }
+  const detail = lines.join("\n");
+  // Probe hygiene: a probe may pass _probe - the tool is a pure read, so the
+  // response is identical either way (no db, no writes, no network).
+  return {
+    ok: true,
+    summary: `${sec.level} guide: ${sec.grammar.length} grammar + ${sec.vocabulary.length} vocabulary topics, checklist ${sec.checklist.source}, ${sec.studyPlan.months}-month plan${section !== "all" ? ` (${section})` : ""}`,
+    detail: detail.slice(0, 4000),
+  };
 }
 
 export function toolByName(name: string): ToolDef | undefined {

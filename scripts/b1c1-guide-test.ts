@@ -3,7 +3,7 @@
 // Pins the embedded guide map (English with Lucy, The Ultimate Guide to B1 B2
 // C1 Grammar & Vocabulary): structure counts, page sanity, checklist
 // provenance, curriculum cross-links, prompt memory, study_guide tool.
-import { GUIDE_META, GUIDE_LEVELS, CHECKLIST_LEGEND, guideAllTopics, guideSection, guideMapForPrompt, guideTopicsForNode } from "../src/lib/b1c1-guide";
+import { GUIDE_META, GUIDE_LEVELS, CHECKLIST_LEGEND, guideAllTopics, guideSection, guideMapForPrompt, guideTopicsForNode, guideMemoryBody, studyPlan12Week, checklistReadiness } from "../src/lib/b1c1-guide";
 import { CURRICULUM } from "../src/lib/curriculum";
 import { toolByName, TOOL_TIERS } from "../src/lib/coach-agent/tools";
 import { tutorSystem } from "../src/lib/prompts";
@@ -96,6 +96,39 @@ async function main() {
   const chk = await tool!.run({ level: "B1", section: "checklist" });
   check("B1 checklist section with derived label", chk.ok === true && (chk.detail ?? "").includes("derived") && (chk.detail ?? "").includes("present perfect"));
   check("detail respects the 4000-char loop cap", (all.detail ?? "").length <= 4000 && (gram.detail ?? "").length <= 4000);
+
+  // ---------- Task 131: the map is activated ----------
+  console.log("-- task 131: activated map");
+  const body = guideMemoryBody();
+  check("memory body carries the shared map", body.includes("B1 grammar:") && body.includes("C1 grammar:") && body.includes("negative inversion, get-passives, hedging and boosting are C1 material"));
+  const aiTwin = (await import("../src/lib/ai")).tutorSystem({ level: "B2", streak: 0, focus: "grammar", due: 0, recentTraps: [], weakSkills: [], mistakes: [], mistakesHealed: 0 });
+  check("ai.ts twin embeds the same map (no drift)", aiTwin.includes("The Ultimate Guide to B1 B2 C1") && aiTwin.includes("negative inversion, get-passives, hedging and boosting are C1 material"));
+  check("ai.ts twin is em-dash free", !aiTwin.includes("\u2014"));
+  const plan = studyPlan12Week("B2");
+  check("12-week plan: 12 weeks, 4 phases", plan.length === 12 && new Set(plan.map((w) => w.phase)).size === 4);
+  const titles = new Set(guideAllTopics().map((t) => t.title));
+  const cited = plan.flatMap((w) => [...w.grammar.split(" + "), ...w.vocabulary.split(" + ")]).filter((c) => c.length > 0);
+  check("plan cites only real book topics", cited.every((c) => titles.has(c)), cited.filter((c) => !titles.has(c)).join(" | "));
+  check("every level has a 12-week plan", (["B1", "B2", "C1"] as const).every((l) => studyPlan12Week(l).length === 12));
+  const sp = await toolByName("study_guide")!.run({ level: "C1", section: "study_plan" });
+  check("study_guide study_plan: 12 weeks + derived label", sp.ok === true && (sp.detail ?? "").includes("Week 12") && (sp.detail ?? "").includes("app's derivation"));
+  const rPerfect = checklistReadiness("B2", [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  const rHard = checklistReadiness("B2", [0, 0, 0, 0, 0, 2, 2, 2, 2, 2]);
+  const rTrack = checklistReadiness("B2", [0, 0, 0, 0, 0, 0, 0, 1, 1, 1]);
+  const rPartial = checklistReadiness("B2", [0, 0, 0, 0, 0, 0, 0]);
+  check("readiness: perfect score claims the level", rPerfect.verdict.includes("claim B2"));
+  check("readiness: half hard is not yet", rHard.verdict.includes("not yet"));
+  check("readiness: 7 easy on track", rTrack.verdict.includes("on track"));
+  check("readiness: partial ratings withhold the verdict", rPartial.verdict.includes("unlocks when all 10"));
+  const { POST: gPost } = await import("../src/app/api/guide-checklist/route");
+  const badRes = await gPost(new Request("http://localhost/api/guide-checklist", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ level: "A2", ratings: [] }) }));
+  check("checklist api rejects unknown level", badRes.status === 400);
+  const lenRes = await gPost(new Request("http://localhost/api/guide-checklist", { method: "POST", headers: { "x-rah-probe": "1", "content-type": "application/json" }, body: JSON.stringify({ level: "B1", ratings: [0, 0] }) }));
+  check("checklist api rejects wrong rating count", lenRes.status === 400);
+  const dryRes = await gPost(new Request("http://localhost/api/guide-checklist", { method: "POST", headers: { "x-rah-probe": "1", "content-type": "application/json" }, body: JSON.stringify({ level: "B2", ratings: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }) }));
+  check("probe POST is a dry run", dryRes.headers.get("x-rah-probe-dry") === "1");
+  const dryJson = (await dryRes.json()) as { readiness?: { easy?: number } };
+  check("probe POST computes readiness without writing", dryJson?.readiness?.easy === 10);
 
   console.log(`\nb1c1-guide: ${pass} pass, ${fail} fail`);
   process.exit(fail === 0 ? 0 : 1);

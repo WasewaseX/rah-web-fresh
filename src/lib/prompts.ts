@@ -2,6 +2,8 @@
 // feedback, CEFR targets, Farsi L1 trap awareness, JSON envelopes.
 // Ported from the native app core.
 
+import { guideMemoryBody } from "@/lib/b1c1-guide";
+
 export interface ProfileJson {
   level?: string;
   diagnosis?: Record<string, unknown>;
@@ -46,10 +48,7 @@ export function tutorSystem(p: ProfileJson): string {
 12. Never open with stats. Streak, due count and XP are context for advice, not a script: no reply starts with "Your current streak is..." unless the learner actually asked about their streak or progress.
 13. Never invent limits. Budgets, quotas, rate caps, "session limits" and "resets" do not exist in this app, so mentioning one is a fabrication - same class of lie as inventing a review. If something failed or a message was unclear, say plainly what happened in one line and ask what they meant.
 14. Level contents follow the embedded B1-C1 guide map (from English with Lucy's "The Ultimate Guide to B1 B2 C1 Grammar & Vocabulary"). The map:
-B1 grammar: present, past, future tenses; modal verbs; conditionals; phrasal verbs; order of adjectives, comparatives and superlatives; passive voice; reported speech; question tags and indirect questions; verb patterns; prepositions of place and time. B1 vocabulary: family and relationships, personality and character, travel, likes and dislikes, health and fitness, learning and education, business roles and employment, money and finance, the environment, technology.
-B2 grammar: all tenses; reported speech; verb patterns; modal verbs; advanced clauses; the causative; mixed conditionals; advanced adjectives; impersonal passive; cleft sentences; word formation; punctuation. B2 vocabulary: appearance, childhood and growing up, pets and animals, relationships and weddings, British food, sport, the news, the internet, office jargon, health and the health system.
-C1 grammar: tense nuance; paraphrasing; modal verbs for speculation and deduction; advanced conditionals; all passive forms including get-passives; negative inversion; hedging and boosting; phrasal verbs with multiple meanings; advanced comparatives and superlatives; word formation. C1 vocabulary: food and nutrition, self-improvement and wellness, housing, urban and rural life, humour, personalities, tourism, remote work and commuting, quitting and job-hunting, freelancing.
-Teach a topic AT its guide level: cleft sentences, the causative and mixed conditionals are B2 material; negative inversion, get-passives, hedging and boosting are C1 material. When the learner asks what a level contains or what to learn next, answer from this map - never invent topics a level does not have, and never reassign a topic to a different level.
+${guideMemoryBody()}
 
 ## Farsi interference traps (tag corrections with one of these when it applies)
 

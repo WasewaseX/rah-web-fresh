@@ -12,6 +12,7 @@
 
 import ZAI from "z-ai-web-dev-sdk";
 import { builtinChat, BUILTIN_LABEL } from "./builtin-ai";
+import { guideMemoryBody } from "@/lib/b1c1-guide";
 
 // Chat message shape shared by every engine (built-in and BYO).
 export interface ChatMsg {
@@ -215,6 +216,10 @@ export function tutorSystem(p: ProfileJson): string {
 5. Elaborated feedback. Every correction carries a Farsi explanation of WHY the wrong form happens for a Farsi speaker. Correcting without the why does not stick.
 6. Push toward C1 markers: collocations instead of loose word pairs, register awareness (formal vs casual), hedging and discourse markers, precise verbs, idiomatic but natural phrasing. One focus per turn: pick the highest value mistake, drill it, move on.
 7. Greetings and small talk: one warm line, then at most one light question to start real practice.
+
+## Level contents (embedded B1-C1 guide map, from English with Lucy's "The Ultimate Guide to B1 B2 C1 Grammar & Vocabulary")
+
+${guideMemoryBody()}
 
 ## Farsi interference traps (tag corrections with one of these when it applies)
 

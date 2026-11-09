@@ -63,6 +63,28 @@ async function readState(): Promise<ToolResult> {
   // Review feature #17: the learner's content flags are part of the truth.
   const openFlags = await db.contentFlag.count({ where: { status: "open" } });
   const recentFlags = await db.contentFlag.findMany({ where: { status: "open" }, orderBy: { id: "desc" }, take: 5 });
+  // Task 131: the learner's B1-C1 guide self-ratings (the book's checklist
+  // method) are part of the truth - level advice uses the real signal.
+  let guideSelfRatings: string | null = null;
+  try {
+    const ratingRows = await db.setting.findMany({ where: { key: { startsWith: "guide:checklist:" } } });
+    if (ratingRows.length > 0) {
+      const { checklistReadiness, GUIDE_LEVELS } = await import("@/lib/b1c1-guide");
+      const parts: string[] = [];
+      for (const s of GUIDE_LEVELS) {
+        const row = ratingRows.find((r) => r.key === `guide:checklist:${s.level}`);
+        if (!row) continue;
+        try {
+          const parsed: unknown = JSON.parse(row.value);
+          if (Array.isArray(parsed) && parsed.every((n) => typeof n === "number")) {
+            const r = checklistReadiness(s.level, parsed as number[]);
+            parts.push(`${s.level}: ${r.easy}/${r.total} easy, ${r.mid} some difficulty, ${r.hard} difficult - ${r.verdict}`);
+          }
+        } catch {}
+      }
+      if (parts.length > 0) guideSelfRatings = parts.join("; ");
+    }
+  } catch {}
 
   const payload = {
     learner: l
@@ -83,6 +105,7 @@ async function readState(): Promise<ToolResult> {
       open: openFlags,
       recent: recentFlags.map((f) => ({ cardId: f.cardId, kind: f.kind, note: f.note.slice(0, 80) })),
     },
+    guideSelfRatings,
   };
   return {
     ok: true,
@@ -658,7 +681,7 @@ const BASE_TOOLS: ToolDef[] = [
   },
   {
     name: "study_guide",
-    desc: "Read the embedded B1-C1 guide map (English with Lucy's 'The Ultimate Guide to B1 B2 C1 Grammar & Vocabulary'): every grammar topic, vocabulary topic, self-rating checklist and 3-month study plan per CEFR level. MANDATORY for 'what grammar/vocabulary do I need for B2', 'B1 checklist', 'what is on the C1 exam path', 'make me a study plan to reach X' - the map is the authority for what each level contains; NEVER guess a level's contents from memory. section: all (default) | grammar | vocabulary | pronunciation | checklist | study_plan. Pair it with read_state to place the learner on the map.",
+    desc: "Read the embedded B1-C1 guide map (English with Lucy's 'The Ultimate Guide to B1 B2 C1 Grammar & Vocabulary'): every grammar topic, vocabulary topic, self-rating checklist and 3-month study plan per CEFR level. MANDATORY for 'what grammar/vocabulary do I need for B2', 'B1 checklist', 'what is on the C1 exam path', 'make me a study plan to reach X' - the map is the authority for what each level contains; NEVER guess a level's contents from memory. section: all (default) | grammar | vocabulary | pronunciation | checklist | study_plan (study_plan expands into the app's derived 12-week schedule). The checklist is self-ratable in the Guide panel and read_state reports the saved ratings. Pair it with read_state to place the learner on the map.",
     args: '{"level": "B2", "section": "grammar"}',
     run: studyGuide,
   },
@@ -725,7 +748,16 @@ async function studyGuide(args: ToolArgs): Promise<ToolResult> {
     lines.push("", `CHECKLIST (book pages ${sec.checklist.pages}, ${sec.checklist.source}): ${sec.checklist.note}`, `Rating: ${CHECKLIST_LEGEND.join(" | ")}`);
     sec.checklist.items.forEach((q, i) => lines.push(`${i + 1}. ${q}`));
   }
-  if (want("study_plan")) lines.push("", `STUDY PLAN (book pages ${sec.studyPlan.pages}): ${sec.studyPlan.note}`);
+  if (want("study_plan")) {
+    lines.push("", `STUDY PLAN (book pages ${sec.studyPlan.pages}): ${sec.studyPlan.note}`);
+    if (section === "study_plan") {
+      const { studyPlan12Week } = await import("@/lib/b1c1-guide");
+      for (const w of studyPlan12Week(sec.level)) {
+        lines.push(`Week ${w.week} [${w.phase}] grammar: ${w.grammar || "-"} | vocabulary: ${w.vocabulary || "-"} | ${w.action}`);
+      }
+      lines.push("(weeks 1-12 are the app's derivation of the book's 3-month method; the book's printed plan pages are not in the public extract)");
+    }
+  }
   if (section === "all") {
     lines.push("", `OVERVIEW (p.${sec.overview.page}): ${sec.overview.text}`);
     const curriculumFeed = [...sec.grammar, ...sec.vocabulary].filter((t) => t.node);

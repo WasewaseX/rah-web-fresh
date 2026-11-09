@@ -150,3 +150,7 @@ prisma/schema.prisma.bak.*
 !PRODUCT.md
 !DESIGN.md
 !.impeccable/
+
+# repo hygiene: junk sweeps and scratch (never commit)
+tmp-sweep/
+db/scratch/

@@ -3,7 +3,7 @@
 // Pins the embedded guide map (English with Lucy, The Ultimate Guide to B1 B2
 // C1 Grammar & Vocabulary): structure counts, page sanity, checklist
 // provenance, curriculum cross-links, prompt memory, study_guide tool.
-import { GUIDE_META, GUIDE_LEVELS, CHECKLIST_LEGEND, guideAllTopics, guideSection, guideMapForPrompt, guideTopicsForNode, guideMemoryBody, studyPlan12Week, checklistReadiness } from "../src/lib/b1c1-guide";
+import { GUIDE_META, GUIDE_LEVELS, CHECKLIST_LEGEND, guideAllTopics, guideSection, guideMapForPrompt, guideTopicsForNode, guideMemoryBody, studyPlan12Week, checklistReadiness, practiceCommand, difficultItemsCommand, weekCommand } from "../src/lib/b1c1-guide";
 import { CURRICULUM } from "../src/lib/curriculum";
 import { toolByName, TOOL_TIERS } from "../src/lib/coach-agent/tools";
 import { tutorSystem } from "../src/lib/prompts";
@@ -129,6 +129,34 @@ async function main() {
   check("probe POST is a dry run", dryRes.headers.get("x-rah-probe-dry") === "1");
   const dryJson = (await dryRes.json()) as { readiness?: { easy?: number } };
   check("probe POST computes readiness without writing", dryJson?.readiness?.easy === 10);
+
+  // ---------- Task 133: one-click practice commands ----------
+  console.log("-- practice commands");
+  const b2Cleft = guideSection("B2").grammar.find((t) => t.id === "b2.cleft_sentences");
+  check("fixture: b2.cleft_sentences exists", !!b2Cleft);
+  const pc = practiceCommand("B2", b2Cleft!.title, "grammar");
+  check("practiceCommand: names the level", pc.includes("B2"));
+  check("practiceCommand: names the topic verbatim", pc.includes(b2Cleft!.title));
+  check("practiceCommand: grammar vs vocabulary noun", pc.includes("grammar structure") && !practiceCommand("B2", b2Cleft!.title, "vocabulary").includes("grammar structure"));
+  check("practiceCommand: asks teach-then-exercises-then-check", pc.includes("teach") && pc.includes("5 exercises") && pc.includes("check my answers"));
+  check("practiceCommand: empty title is rejected", practiceCommand("B2", "   ", "grammar") === "");
+  const everyTopicRoundTrips = GUIDE_LEVELS.every((s) =>
+    [...s.grammar.map((t) => ({ t, k: "grammar" as const })), ...s.vocabulary.map((t) => ({ t, k: "vocabulary" as const }))].every(
+      ({ t, k }) => practiceCommand(s.level, t.title, k).includes(t.title) && practiceCommand(s.level, t.title, k).includes(s.level),
+    ),
+  );
+  check("practiceCommand: all 68 topics round-trip (level + title verbatim)", everyTopicRoundTrips);
+  const dCmd = difficultItemsCommand("C1", ["I can paraphrase effectively.", "I can use hedging and boosting."]);
+  check("difficultItemsCommand: lists every item verbatim", dCmd.includes("paraphrase") && dCmd.includes("hedging and boosting"));
+  check("difficultItemsCommand: names the level", dCmd.includes("C1"));
+  check("difficultItemsCommand: asks diagnose-then-drill", dCmd.includes("Diagnose") && dCmd.includes("drill"));
+  check("difficultItemsCommand: empty list is rejected", difficultItemsCommand("B1", ["", "  "]) === "");
+  const w1 = studyPlan12Week("B1")[0];
+  const wCmd = weekCommand("B1", w1);
+  check("weekCommand: names week + phase + level", wCmd.includes("week 1") && wCmd.includes("Foundation") && wCmd.includes("B1"));
+  check("weekCommand: carries the week's focus and action", wCmd.includes(w1.grammar.split(" + ")[0]) && wCmd.includes(w1.action));
+  const w10 = studyPlan12Week("B2")[9];
+  check("weekCommand: verification week (no topic lists) still works", weekCommand("B2", w10).includes(w10.action) && weekCommand("B2", w10).includes("week 10"));
 
   console.log(`\nb1c1-guide: ${pass} pass, ${fail} fail`);
   process.exit(fail === 0 ? 0 : 1);

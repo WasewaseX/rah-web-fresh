@@ -12,9 +12,10 @@
 // and cannot drift from what the coach's study_guide tool serves.
 
 import { useEffect, useState } from "react";
-import { BookOpen } from "lucide-react";
+import { BookOpen, Play } from "lucide-react";
 import { Card, Chip, Note } from "./ui";
-import { GUIDE_META, GUIDE_LEVELS, CHECKLIST_LEGEND, studyPlan12Week, checklistReadiness, type GuideLevelId } from "@/lib/b1c1-guide";
+import { GUIDE_META, GUIDE_LEVELS, CHECKLIST_LEGEND, studyPlan12Week, checklistReadiness, practiceCommand, difficultItemsCommand, weekCommand, type GuideLevelId } from "@/lib/b1c1-guide";
+import { handCoach } from "@/lib/bus";
 
 const LEVELS: GuideLevelId[] = ["B1", "B2", "C1"];
 type Rating = number | null;
@@ -49,6 +50,13 @@ export default function GuidePanel() {
   const hardCount = myRatings ? myRatings.filter((r) => r === 2).length : 0;
   const allRated = ratedCount === sec.checklist.items.length;
   const readiness = allRated && myRatings ? checklistReadiness(level, myRatings as number[]) : null;
+
+  // Task 133: one-click practice. Every topic chip and every difficult-rated
+  // checklist item hands the coach a targeted drill request via the pending
+  // command bus (same route placement results and exam cards use).
+  const difficultTexts = myRatings && sec.checklist.items
+    ? sec.checklist.items.filter((_, i) => myRatings[i] === 2)
+    : [];
 
   function rate(i: number, value: number) {
     const next: Rating[] = [...(myRatings ?? sec.checklist.items.map(() => null as Rating))];
@@ -108,6 +116,13 @@ export default function GuidePanel() {
                         {tag.replace(/_/g, " ")}
                       </Chip>
                     ))}
+                    <button
+                      onClick={() => handCoach(practiceCommand(level, t.title, "grammar"))}
+                      title={`Hand the coach a ${level} drill on ${t.title}`}
+                      className="ml-auto inline-flex items-center gap-1 rounded-full bg-[#1a2130] px-2.5 py-0.5 text-[10px] font-black text-[#9dc0ff] transition hover:bg-[var(--rah-primary)] hover:text-[#0b0e14]"
+                    >
+                      <Play className="h-2.5 w-2.5" /> practice
+                    </button>
                   </div>
                   <p className="mt-0.5 text-xs leading-relaxed text-[#7d889c]">{t.hint}</p>
                 </div>
@@ -121,9 +136,14 @@ export default function GuidePanel() {
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {sec.vocabulary.map((t) => (
-                  <span key={t.id} className="rounded-full bg-[#1a2130] px-3 py-1 text-xs font-bold text-[#c8d2e2]" title={`${t.hint} (p.${t.page})`}>
+                  <button
+                    key={t.id}
+                    onClick={() => handCoach(practiceCommand(level, t.title, "vocabulary"))}
+                    className="rounded-full bg-[#1a2130] px-3 py-1 text-xs font-bold text-[#c8d2e2] transition hover:bg-[#232c3e] hover:text-[#e7ecf5]"
+                    title={`${t.hint} (p.${t.page}) - click to practice with the coach`}
+                  >
                     {t.title} <span className="text-[10px] font-normal text-[#7d889c]">p.{t.page}</span>
-                  </span>
+                  </button>
                 ))}
               </div>
             </div>
@@ -142,6 +162,13 @@ export default function GuidePanel() {
                       <div className="flex items-baseline gap-2">
                         <span className="font-black text-[#7d889c]">W{w.week}</span>
                         <span className="text-[10px] font-bold uppercase tracking-wider text-[#9dc0ff]">{w.phase}</span>
+                        <button
+                          onClick={() => handCoach(weekCommand(level, w))}
+                          title={`Start week ${w.week} with the coach`}
+                          className="ml-auto inline-flex items-center gap-1 rounded-full bg-[#1a2130] px-2 py-0.5 text-[10px] font-black text-[#9dc0ff] transition hover:bg-[var(--rah-primary)] hover:text-[#0b0e14]"
+                        >
+                          <Play className="h-2.5 w-2.5" /> start
+                        </button>
                       </div>
                       {w.grammar && <div>grammar: {w.grammar}</div>}
                       {w.vocabulary && <div>vocabulary: {w.vocabulary}</div>}
@@ -164,6 +191,15 @@ export default function GuidePanel() {
             {hardCount > 0 && <Chip tone="amber">{hardCount} difficult</Chip>}
             {saving && <span className="text-[11px] text-[#7d889c]">saving...</span>}
             {offline && <span className="text-[11px] text-[#e0a0b0]">ratings not saved (offline)</span>}
+            {difficultTexts.length > 0 && (
+              <button
+                onClick={() => handCoach(difficultItemsCommand(level, difficultTexts))}
+                title="Hand the coach the difficult-rated items for diagnosis and drilling"
+                className="inline-flex items-center gap-1 rounded-full bg-[#2a1a24] px-3 py-1 text-[11px] font-black text-[#e0a0b0] transition hover:bg-[#3a2230]"
+              >
+                <Play className="h-3 w-3" /> drill {difficultTexts.length} difficult item{difficultTexts.length > 1 ? "s" : ""}
+              </button>
+            )}
           </div>
           <div className="mb-2">
             <Note>

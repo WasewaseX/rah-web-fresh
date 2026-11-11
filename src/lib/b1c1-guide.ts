@@ -395,3 +395,30 @@ export function checklistReadiness(level: GuideLevelId, ratings: number[]): Chec
   else verdict = `mid-way: keep working through the ${level} map`;
   return { rated, total, easy, mid, hard, verdict };
 }
+
+// ---------- Task 133: one-click practice commands ----------
+// Every guide topic, plan week and difficult-rated checklist item becomes a
+// handCoach() command that opens the coach with a targeted practice request.
+// Pure string builders here so batteries pin the exact prompts; GuidePanel
+// only wires buttons.
+
+export function practiceCommand(level: GuideLevelId, title: string, kind: "grammar" | "vocabulary"): string {
+  const clean = title.trim();
+  if (!clean) return "";
+  const noun = kind === "grammar" ? "grammar structure" : "vocabulary topic";
+  return `Practice ${level} ${kind} "${clean}" (a ${noun} from the B1-C1 guide map): teach it to me first, then give me 5 exercises and check my answers.`;
+}
+
+export function difficultItemsCommand(level: GuideLevelId, items: string[]): string {
+  const hard = items.map((i) => i.trim()).filter(Boolean);
+  if (hard.length === 0) return "";
+  return `I rated these ${level} checklist items "difficult": ${hard.map((i) => `"${i}"`).join("; ")}. Diagnose my gaps on each, teach what I am missing, then drill me.`;
+}
+
+export function weekCommand(level: GuideLevelId, week: PlanWeek): string {
+  const focus: string[] = [];
+  if (week.grammar) focus.push(`grammar: ${week.grammar}`);
+  if (week.vocabulary) focus.push(`vocabulary: ${week.vocabulary}`);
+  const tail = focus.length ? `${focus.join(" | ")}. ` : "";
+  return `Coach me through week ${week.week} (${week.phase}) of my ${level} plan. ${tail}Today's action: ${week.action}`;
+}

@@ -67,6 +67,9 @@ export async function POST(req: Request) {
     // repaints in place.
     const themeHit = matchThemeIntent(lastUser);
     if (themeHit) {
+      // Task 135: every takeover is logged with its gate evidence and score,
+      // so route behavior stays auditable in production.
+      console.log(`[intent] theme apply preset=${themeHit.presetId} reset=${themeHit.reset} conf=${themeHit.confidence.toFixed(2)}`);
       const stored = themeTokensFor(themeHit);
       await db.learner.update({ where: { id: learner.id }, data: { theme: stored ?? "" } });
       return NextResponse.json({

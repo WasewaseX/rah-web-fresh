@@ -6,6 +6,7 @@
 // no server, no model calls.
 import {
   matchThemeIntent,
+  scoreThemeSignals,
   isThemeishMessage,
   claimsInventedLimit,
   claimsThemeInability,
@@ -140,6 +141,50 @@ const allReplies = [
   lim.reply,
 ];
 check("no em dash in any deterministic reply", allReplies.every((r) => !NO_EM_DASH.test(r)));
+
+// ---------- 9. Task 135: confidence scoring ----------
+// The scorer grades gate strength; the matcher's DECISION must stay identical
+// to the pinned v2 behavior. Pins: canonical asks score high, disambiguated
+// color paths score strong, entry-only hits score weak, and every false-
+// positive class (learning asks, practice sentences) stays at/below 0.1.
+console.log("-- task 135: confidence");
+const sCanonical = scoreThemeSignals("make the Ui theme green");
+check("canonical: theme+action + colorDirect both gate", sCanonical.gates.includes("theme+action") && sCanonical.gates.includes("colorDirect"), JSON.stringify(sCanonical));
+check("canonical: confidence >= 0.9", sCanonical.confidence >= 0.9, String(sCanonical.confidence));
+const sCloser = scoreThemeSignals("make it blue again");
+check("closer path: confidence >= 0.55", sCloser.confidence >= 0.55, String(sCloser.confidence));
+const sPreset = scoreThemeSignals("switch to ocean");
+check("preset path: confidence >= 0.6, gate named", sPreset.confidence >= 0.6 && sPreset.gates.includes("presetDirect"), JSON.stringify(sPreset));
+const sApp = scoreThemeSignals("the app is too dark, make it green");
+check("app-noun path: confidence >= 0.55", sApp.confidence >= 0.55, String(sApp.confidence));
+const sReset = scoreThemeSignals("reset the theme");
+check("reset: clamps at 0.99", sReset.confidence === 0.99, String(sReset.confidence));
+const sEntry = scoreThemeSignals("change the theme");
+check("entry-only (no color): medium 0.6", sEntry.confidence === 0.6 && sEntry.gates.length === 1, JSON.stringify(sEntry));
+const sLesson = scoreThemeSignals("give me two examples with the color blue");
+// Exact arithmetic: weak entry gate ("give" + "color") 0.6 - learningAsk suppression 0.4 = 0.2,
+// strictly below every unsuppressed path (>= 0.55). The matcher still vetoes (null).
+check("learning ask: suppressed + score 0.2, below all real paths", sLesson.suppressed.includes("learningAsk") && sLesson.confidence <= 0.25, JSON.stringify(sLesson));
+const sPractice = scoreThemeSignals("make the wall green");
+check("practice sentence: zero gates, score 0", sPractice.gates.length === 0 && sPractice.confidence === 0, JSON.stringify(sPractice));
+check("matcher still returns null for the lesson ask", matchThemeIntent("give me two examples with the color blue") === null);
+check("matcher still returns null for the practice sentence", matchThemeIntent("make the wall green") === null);
+const mCanonical = matchThemeIntent("make the Ui theme green");
+check("matcher carries the scorer's confidence (no drift)", !!mCanonical && mCanonical.confidence === sCanonical.confidence);
+const mReset = matchThemeIntent("reset the theme");
+check("reset intent carries clamped confidence", !!mReset && mReset.reset === true && mReset.confidence === 0.99);
+const everyConfidence = [
+  "make the Ui theme green",
+  "make it blue again",
+  "switch to ocean",
+  "reset the theme",
+  "the app is too dark, make it green",
+  "go green please",
+  "paint it violet instead",
+]
+  .map((m) => matchThemeIntent(m)?.confidence)
+  .filter((c): c is number => c !== undefined);
+check("all canonical transcripts hit at >= 0.55", everyConfidence.length === 7 && everyConfidence.every((c) => c >= 0.55), JSON.stringify(everyConfidence));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

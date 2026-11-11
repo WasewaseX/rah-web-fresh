@@ -31,7 +31,21 @@ export interface ThemeIntent {
   tokens: Required<ThemeTokens> | null;
   reply: string;
   fa: string;
+  // Task 135: graded signal strength of the gates that fired (0..1). The
+  // DECISION is unchanged - the same gates, the same order - but the score
+  // makes every hit auditable: logs show exactly why a message was taken
+  // over, and future routing can hedge below 0.6 without touching the gate
+  // logic. One computation, two consumers, zero drift.
+  confidence: number;
 }
+
+export interface ThemeSignalScore {
+  gates: string[]; // which entry gates fired, e.g. ["theme+action","colorDirect"]
+  suppressed: string[]; // guards that vetoed, e.g. ["learningAsk"]
+  confidence: number; // 0..1, additive per gate, clamped
+}
+
+const clampConfidence = (x: number) => Math.max(0, Math.min(0.99, x));
 
 const THEME_TRIGGER =
   /\b(theme|colou?r ?scheme|colou?rs?|appearance|repaint|dark mode)\b/i;
@@ -80,32 +94,76 @@ const RESET_PATTERNS = [
   /\b(go|switch|turn|change|set)\s+(?:it\s+)?back\b[^.!?]{0,24}\b(normal|default|old|original|theme|colou?r|mode|look|it|this|the way it was)\b/i,
 ];
 
-export function matchThemeIntent(text: string): ThemeIntent | null {
+// Hoisted from matchThemeIntent (Task 135) so the scorer and the matcher
+// share the exact same vocabulary - the score can never disagree with the
+// decision because both are derived from THIS gate set.
+const LEARNING_ASK =
+  /\b(example|examples?|sentence|sentences?|words?|mean|means|meaning|translate|pronunciation|pronounce|vocab\w*|idiom|idioms|grammar)\b/i;
+const STRONG_THEME = /\b(theme|colou?r ?scheme|appearance|repaint|dark mode)\b/i;
+
+export function scoreThemeSignals(text: string): ThemeSignalScore {
   const t = text.slice(0, 300);
+  const gates: string[] = [];
+  const suppressed: string[] = [];
+  let score = 0;
   const mentionsTheme = THEME_TRIGGER.test(t);
   const hasAction = THEME_ACTION.test(t);
   const colorDirect = /\b(green|blue|forest|ocean|sunset|violet|purple|rose|pink)\b[^.!?]{0,24}\b(theme|colou?r|mode|look)\b/i.test(t) ||
     /\btheme\b[^.!?]{0,24}\b(green|blue|forest|ocean|sunset|violet|purple|rose|pink)\b/i.test(t);
-  // v2 gates: color-only paths need an action verb; preset names stand alone.
   const colorCloser = COLOR_CLOSER.test(t);
   const presetDirect = PRESET_DIRECT.test(t);
   const appNounColor = hasAction && APP_NOUN_COLOR.test(t);
   const resetDirect = RESET_PATTERNS.some((re) => re.test(t));
-  if (!(mentionsTheme && hasAction) && !colorDirect && !colorCloser && !presetDirect && !appNounColor && !resetDirect) return null;
+  // Gate weights: theme-noun+action and the app's own preset vocabulary are
+  // the strongest evidence (0.6); reset direct and the other disambiguated
+  // color paths are strong (0.55); color-next-to-theme-word without an
+  // explicit action is weaker (0.3).
+  if (mentionsTheme && hasAction) {
+    gates.push("theme+action");
+    score += 0.6;
+  }
+  if (colorDirect) {
+    gates.push("colorDirect");
+    score += 0.3;
+  }
+  if (colorCloser) {
+    gates.push("colorCloser");
+    score += 0.55;
+  }
+  if (presetDirect) {
+    gates.push("presetDirect");
+    score += 0.6;
+  }
+  if (appNounColor) {
+    gates.push("appNounColor");
+    score += 0.55;
+  }
+  if (resetDirect) {
+    gates.push("resetDirect");
+    score += 0.6;
+  }
+  // The learning-ask guard mirrors matchThemeIntent's veto exactly: a lesson
+  // ask with no strong theme noun is the main false-positive class, so it
+  // not only vetoes the match - it also drives the score to (or below) zero.
+  const learningAsk = LEARNING_ASK.test(t);
+  if (learningAsk && !STRONG_THEME.test(t) && !appNounColor && !resetDirect) {
+    suppressed.push("learningAsk");
+    score -= 0.4;
+  }
+  return { gates, suppressed, confidence: clampConfidence(score) };
+}
 
-  // v2 learning-ask guard: the tutor teaches English, so "give me two
-  // examples with the color blue" or "write a sentence with the word green"
-  // are LESSON asks, not repaint asks. When the message reads like a lesson
-  // request, only a STRONG theme noun (theme/color scheme/appearance/dark
-  // mode), an app-noun adjacency, or an explicit reset keeps it a theme ask.
-  const learningAsk =
-    /\b(example|examples?|sentence|sentences?|words?|mean|means|meaning|translate|pronunciation|pronounce|vocab\w*|idiom|idioms|grammar)\b/i.test(t);
-  const strongTheme = /\b(theme|colou?r ?scheme|appearance|repaint|dark mode)\b/i.test(t);
-  if (learningAsk && !strongTheme && !appNounColor && !resetDirect) return null;
+export function matchThemeIntent(text: string): ThemeIntent | null {
+  const t = text.slice(0, 300);
+  // Task 135: the gates are computed ONCE here and both the decision and the
+  // confidence come from that single computation.
+  const sig = scoreThemeSignals(t);
+  if (sig.gates.length === 0) return null;
+  if (sig.suppressed.includes("learningAsk")) return null;
 
   const wantsReset =
     (/\b(reset|restore|default|original|back to (the )?old|back to (the )?normal)\b/i.test(t) && !/\b(green|blue|forest|ocean|sunset|violet|purple|rose|pink|red)\b/i.test(t)) ||
-    (resetDirect && !/\b(green|blue|forest|ocean|sunset|violet|purple|rose|pink|red)\b/i.test(t));
+    (sig.gates.includes("resetDirect") && !/\b(green|blue|forest|ocean|sunset|violet|purple|rose|pink|red)\b/i.test(t));
   if (wantsReset) {
     const p = presetById("midnight")!;
     return {
@@ -115,6 +173,7 @@ export function matchThemeIntent(text: string): ThemeIntent | null {
       reply:
         "Done - the theme is reset to Midnight, the default dark blue. The app repaints immediately and it survives reloads. Want to try Forest green or Ocean blue sometime, just say the word.",
       fa: "تم به حالت پیش‌فرض برگشت. هر وقت خواستی دوباره عوضش کن.",
+      confidence: sig.confidence,
     };
   }
 
@@ -133,6 +192,7 @@ export function matchThemeIntent(text: string): ThemeIntent | null {
     tokens: p.tokens,
     reply: `Done - the app now wears the ${name} theme. It repaints instantly and survives reloads; no settings digging needed. If you want another look, ask for green, blue, sunset, violet, rose - or say "reset the theme".`,
     fa: "تم عوض شد و همان لحظه اعمال می‌شود. هر رنگی خواستی بگو.",
+    confidence: sig.confidence,
   };
 }
 

@@ -20,11 +20,15 @@ import { handCoach } from "@/lib/bus";
 const LEVELS: GuideLevelId[] = ["B1", "B2", "C1"];
 type Rating = number | null;
 type RatingsMap = Record<GuideLevelId, Rating[] | null>;
+type DrillMap = Record<string, { count: number; lastAt: string }>;
+type DrillCoverage = Record<string, { grammar: string; vocabulary: string }>;
 const RATING_MARKS = ["E", "!", "X"];
 
 export default function GuidePanel() {
   const [level, setLevel] = useState<GuideLevelId>("B2");
   const [ratings, setRatings] = useState<RatingsMap>({ B1: null, B2: null, C1: null });
+  const [drills, setDrills] = useState<DrillMap>({});
+  const [coverage, setCoverage] = useState<DrillCoverage>({});
   const [saving, setSaving] = useState(false);
   const [offline, setOffline] = useState(false);
 
@@ -40,6 +44,13 @@ export default function GuidePanel() {
         });
       })
       .catch(() => setOffline(true));
+    fetch("/api/guide-practice")
+      .then((r) => r.json())
+      .then((d: { drills?: DrillMap; coverage?: DrillCoverage }) => {
+        if (d?.drills) setDrills(d.drills);
+        if (d?.coverage) setCoverage(d.coverage);
+      })
+      .catch(() => {}); // drill ledger is advisory - a failed load hides nothing critical
   }, []);
 
   const sec = GUIDE_LEVELS.find((s) => s.level === level) ?? GUIDE_LEVELS[1];
@@ -50,6 +61,23 @@ export default function GuidePanel() {
   const hardCount = myRatings ? myRatings.filter((r) => r === 2).length : 0;
   const allRated = ratedCount === sec.checklist.items.length;
   const readiness = allRated && myRatings ? checklistReadiness(level, myRatings as number[]) : null;
+
+  // Task 136: a drill REQUEST is recorded (a click = a request, never proof
+  // of completion). Fire-and-forget: the handoff to the coach must not wait
+  // on the ledger.
+  function recordDrill(topicId: string) {
+    fetch("/api/guide-practice", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ topicId }),
+    })
+      .then((r) => r.json())
+      .then((d: { count?: number; coverage?: DrillCoverage }) => {
+        if (typeof d?.count === "number") setDrills((prev) => ({ ...prev, [topicId]: { count: d.count as number, lastAt: new Date().toISOString() } }));
+        if (d?.coverage) setCoverage(d.coverage);
+      })
+      .catch(() => {});
+  }
 
   // Task 133: one-click practice. Every topic chip and every difficult-rated
   // checklist item hands the coach a targeted drill request via the pending
@@ -79,8 +107,16 @@ export default function GuidePanel() {
     <div className="rah-rise">
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-sm font-extrabold tracking-tight text-[#f2f5fa]">
-            <BookOpen className="h-4 w-4 text-[#9dc0ff]" /> B1-C1 guide map
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 text-sm font-extrabold tracking-tight text-[#f2f5fa]">
+              <BookOpen className="h-4 w-4 text-[#9dc0ff]" /> B1-C1 guide map
+            </div>
+            <Chip
+              tone="slate"
+              title={`Drill requests sent from this panel: ${coverage[level]?.grammar ?? `0/${sec.grammar.length}`} grammar, ${coverage[level]?.vocabulary ?? `0/${sec.vocabulary.length}`} vocabulary. A request is a click, not a completed session.`}
+            >
+              drilled {coverage[level]?.grammar ?? `0/${sec.grammar.length}`} grammar, {coverage[level]?.vocabulary ?? `0/${sec.vocabulary.length}`} vocab
+            </Chip>
           </div>
           <div className="flex gap-1">
             {LEVELS.map((l) => (
@@ -117,12 +153,20 @@ export default function GuidePanel() {
                       </Chip>
                     ))}
                     <button
-                      onClick={() => handCoach(practiceCommand(level, t.title, "grammar"))}
+                      onClick={() => {
+                        recordDrill(t.id);
+                        handCoach(practiceCommand(level, t.title, "grammar"));
+                      }}
                       title={`Hand the coach a ${level} drill on ${t.title}`}
                       className="ml-auto inline-flex items-center gap-1 rounded-full bg-[#1a2130] px-2.5 py-0.5 text-[10px] font-black text-[#9dc0ff] transition hover:bg-[var(--rah-primary)] hover:text-[#0b0e14]"
                     >
                       <Play className="h-2.5 w-2.5" /> practice
                     </button>
+                    {(drills[t.id]?.count ?? 0) > 0 && (
+                      <span className="rounded-full bg-[#173226] px-2 py-0.5 text-[10px] font-black text-[#7fd0a8]" title="Drill requests sent to the coach (a request, not a completed session)">
+                        {drills[t.id]?.count}x
+                      </span>
+                    )}
                   </div>
                   <p className="mt-0.5 text-xs leading-relaxed text-[#7d889c]">{t.hint}</p>
                 </div>
@@ -138,11 +182,15 @@ export default function GuidePanel() {
                 {sec.vocabulary.map((t) => (
                   <button
                     key={t.id}
-                    onClick={() => handCoach(practiceCommand(level, t.title, "vocabulary"))}
+                    onClick={() => {
+                      recordDrill(t.id);
+                      handCoach(practiceCommand(level, t.title, "vocabulary"));
+                    }}
                     className="rounded-full bg-[#1a2130] px-3 py-1 text-xs font-bold text-[#c8d2e2] transition hover:bg-[#232c3e] hover:text-[#e7ecf5]"
                     title={`${t.hint} (p.${t.page}) - click to practice with the coach`}
                   >
                     {t.title} <span className="text-[10px] font-normal text-[#7d889c]">p.{t.page}</span>
+                    {(drills[t.id]?.count ?? 0) > 0 && <span className="ml-1 text-[10px] font-black text-[#7fd0a8]">{drills[t.id]?.count}x</span>}
                   </button>
                 ))}
               </div>

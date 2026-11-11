@@ -86,6 +86,28 @@ async function readState(): Promise<ToolResult> {
     }
   } catch {}
 
+  // Task 136: drill-request coverage from the guide's practice ledger. HONEST
+  // LABELING: these are drill REQUESTS (panel clicks), not completed sessions
+  // - the coach must say "requested", never "mastered".
+  let guideDrills: string | null = null;
+  try {
+    const drillRow = await db.setting.findUnique({ where: { key: "guide:practice" } });
+    if (drillRow) {
+      const { GUIDE_LEVELS: GL } = await import("@/lib/b1c1-guide");
+      const parsed: unknown = JSON.parse(drillRow.value);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        const map = parsed as Record<string, unknown>;
+        const cov: string[] = [];
+        for (const s of GL) {
+          const g = s.grammar.filter((t) => { const e = map[t.id]; return e && typeof e === "object" && (e as { count?: unknown }).count !== undefined; }).length;
+          const v = s.vocabulary.filter((t) => { const e = map[t.id]; return e && typeof e === "object" && (e as { count?: unknown }).count !== undefined; }).length;
+          if (g + v > 0) cov.push(`${s.level}: ${g}/${s.grammar.length} grammar, ${v}/${s.vocabulary.length} vocabulary`);
+        }
+        if (cov.length > 0) guideDrills = cov.join("; ");
+      }
+    }
+  } catch {}
+
   const payload = {
     learner: l
       ? {
@@ -106,6 +128,7 @@ async function readState(): Promise<ToolResult> {
       recent: recentFlags.map((f) => ({ cardId: f.cardId, kind: f.kind, note: f.note.slice(0, 80) })),
     },
     guideSelfRatings,
+    guideDrills,
   };
   return {
     ok: true,

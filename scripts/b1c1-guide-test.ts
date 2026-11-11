@@ -158,6 +158,24 @@ async function main() {
   const w10 = studyPlan12Week("B2")[9];
   check("weekCommand: verification week (no topic lists) still works", weekCommand("B2", w10).includes(w10.action) && weekCommand("B2", w10).includes("week 10"));
 
+  // ---------- Task 136: drill-request ledger ----------
+  console.log("-- drill ledger");
+  const { parseDrillMap, coverageFor } = await import("../src/app/api/guide-practice/route");
+  const dm = parseDrillMap({ "b1.present_tenses": { count: 2, lastAt: "2026-11-11T00:00:00Z" }, "not.a.topic": { count: 5, lastAt: "" }, "b2.cleft_sentences": { count: 1, lastAt: "" }, junk: "x" });
+  check("parseDrillMap keeps only real topics with valid counts", Object.keys(dm).length === 2 && dm["b1.present_tenses"]?.count === 2, JSON.stringify(dm));
+  check("parseDrillMap rejects arrays and non-objects", Object.keys(parseDrillMap([1, 2])).length === 0 && Object.keys(parseDrillMap(null)).length === 0 && Object.keys(parseDrillMap("x")).length === 0);
+  const cov = coverageFor(dm);
+  check("coverageFor: B1 grammar 1/12, vocab 0/10", cov.B1?.grammar === "1/12" && cov.B1?.vocabulary === "0/10", JSON.stringify(cov));
+  check("coverageFor: B2 grammar 1/14", cov.B2?.grammar === "1/14", JSON.stringify(cov));
+  check("coverageFor: untouched C1 is 0/0", cov.C1?.grammar === "0/12" && cov.C1?.vocabulary === "0/10", JSON.stringify(cov));
+  const { POST: pPost } = await import("../src/app/api/guide-practice/route");
+  const badTopic = await pPost(new Request("http://localhost/api/guide-practice", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ topicId: "made.up.topic" }) }));
+  check("drill api rejects unknown topicId", badTopic.status === 400);
+  const dryDrill = await pPost(new Request("http://localhost/api/guide-practice", { method: "POST", headers: { "x-rah-probe": "1", "content-type": "application/json" }, body: JSON.stringify({ topicId: "b1.present_tenses" }) }));
+  check("drill probe POST is a dry run", dryDrill.headers.get("x-rah-probe-dry") === "1");
+  const dryDrillJson = (await dryDrill.json()) as { dry?: boolean; wouldWrite?: { count?: number } };
+  check("drill probe reports wouldWrite count 1 (nothing stored)", dryDrillJson.dry === true && dryDrillJson.wouldWrite?.count === 1);
+
   console.log(`\nb1c1-guide: ${pass} pass, ${fail} fail`);
   process.exit(fail === 0 ? 0 : 1);
 }

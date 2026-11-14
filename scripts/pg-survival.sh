@@ -37,6 +37,28 @@ KEEP=14
 
 pg_ok() { "$PGBIN/psql" -X -q -t -A "$ENV_URL" -c "SELECT 1" >/dev/null 2>&1; }
 
+# Task 142: the SQLite-era boot snapshots (custom-YYYYMMDD-HHMMSS-boot.db and
+# their -shm/-wal siblings) are dead weight since the live store became
+# PostgreSQL - hundreds of 32KB leftovers accumulated in both backup dirs.
+# Keep the newest few per directory for inertia, drop the rest. The restore
+# artifacts that matter (pg-rah-*.dump, rah-latest.db sync, env-rah-latest)
+# are never touched.
+LEGACY_KEEP=3
+prune_legacy() {
+  for dir in "$BACKUPS" "$UPLOAD"; do
+    [ -d "$dir" ] || continue
+    ls -1 "$dir" 2>/dev/null \
+      | grep -E '^custom-[0-9]{8}-[0-9]{6}-boot\.db' \
+      | sed -E 's/^(custom-[0-9]{8}-[0-9]{6}-boot\.db).*/\1/' \
+      | sort -u -r \
+      | tail -n +$((LEGACY_KEEP + 1)) \
+      | while read -r stamp; do
+          rm -f "$dir/$stamp" "$dir/$stamp-shm" "$dir/$stamp-wal"
+        done
+  done
+  echo "pg-survival: legacy SQLite boot snapshots pruned (kept newest $LEGACY_KEEP per dir; sizes now: $(du -sh "$BACKUPS" 2>/dev/null | cut -f1) backups, $(du -sh "$UPLOAD" 2>/dev/null | cut -f1) upload)"
+}
+
 counts_sql() {
   "$PGBIN/psql" -X -q -t -A -F'|' "$ENV_URL" -c "
     SELECT
@@ -112,6 +134,7 @@ PY
       rm -f "$old" "${old%.dump}.json"
     done
     echo "pg-survival: dumped $OUT (xp=$XP streak=$STREAK reviews=$REV tables=$TABLES, Session/LoginCode rows excluded) + shipped -latest to $BACKUPS + $UPLOAD"
+    prune_legacy
     ;;
 
   verify)
@@ -142,6 +165,10 @@ print(f\"{d['xp']}|{d['reviews']}|{d['days']}\")")
     "$PGBIN/psql" -X -q -h "$PG_HOST" -p "$PG_PORT" -U postgres -d postgres -c "DROP DATABASE IF EXISTS rah_drill WITH (FORCE)" >/dev/null
     ;;
 
+  prune)
+    prune_legacy
+    ;;
+
   *)
-    echo "usage: pg-survival.sh ensure|dump|verify"; exit 2 ;;
+    echo "usage: pg-survival.sh ensure|dump|verify|prune"; exit 2 ;;
 esac

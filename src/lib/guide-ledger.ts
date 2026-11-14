@@ -74,7 +74,23 @@ export function coverageFor(drills: DrillMap): Record<string, { grammar: string;
   return out;
 }
 
-// ---------- weekly progress (Task 140) ----------
+// ---------- UI summary for the Guide panel (Task 141) ----------
+
+export interface WeekUi {
+  windowDays: number;
+  events: number;
+  topicsTouched: number;
+  perLevel: Record<string, number>;
+}
+
+// Compact per-level week view for /api/guide-practice's GET/POST payloads and
+// the Guide panel chip. Labeling stays at the endpoint/UI layer ("requests").
+export function weekForUi(rep: ProgressReport): WeekUi {
+  const perLevel: Record<string, number> = {};
+  for (const p of rep.perLevel) perLevel[p.level] = p.events;
+  return { windowDays: rep.windowDays, events: rep.drillEvents, topicsTouched: rep.topicsTouched, perLevel };
+}
+
 
 const DAY_MS = 86_400_000;
 // Small future slack so a just-written timestamp on a clock slightly ahead of

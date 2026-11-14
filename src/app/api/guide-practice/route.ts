@@ -9,7 +9,7 @@
 // panel's "drilled N times" chips, read_state's coverage line) says
 // "requested" / "drill requests", never "mastered" or "completed".
 //
-// GET  -> { ok, drills: { [topicId]: { count, lastAt } }, coverage: { level: { grammar, vocabulary } } }
+// GET  -> { ok, drills: { [topicId]: { count, lastAt, recent? } }, coverage: { level: { grammar, vocabulary } }, week: { windowDays, events, topicsTouched, perLevel } }
 // POST { topicId } -> validates the id against the real guide map, upserts
 //                     the counter (Setting key guide:practice, one JSON map).
 // Probe doctrine (Task 111/122 class): x-rah-probe: 1 validates and reports
@@ -21,8 +21,10 @@ import { getLearner } from "@/lib/server";
 import {
   parseDrillMap,
   coverageFor,
+  weekForUi,
   KNOWN_IDS,
   RECENT_CAP,
+  weeklyProgress,
   type DrillMap,
 } from "@/lib/guide-ledger";
 
@@ -44,7 +46,10 @@ export async function GET() {
       drills = parseDrillMap(JSON.parse(row.value));
     } catch {}
   }
-  return NextResponse.json({ ok: true, drills, coverage: coverageFor(drills) });
+  // Task 141: the panel's "this week" chip rides the same response (7-day
+  // window, drill REQUESTS only).
+  const week = weekForUi(weeklyProgress({ drills, nowMs: Date.now(), windowDays: 7 }));
+  return NextResponse.json({ ok: true, drills, coverage: coverageFor(drills), week });
 }
 
 export async function POST(req: Request) {
@@ -85,5 +90,6 @@ export async function POST(req: Request) {
     create: { key: KEY, value: JSON.stringify(drills) },
     update: { value: JSON.stringify(drills) },
   });
-  return NextResponse.json({ ok: true, topicId, count: nextCount, coverage: coverageFor(drills) });
+  const week = weekForUi(weeklyProgress({ drills, nowMs: Date.now(), windowDays: 7 }));
+  return NextResponse.json({ ok: true, topicId, count: nextCount, coverage: coverageFor(drills), week });
 }

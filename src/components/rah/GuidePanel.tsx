@@ -22,6 +22,8 @@ type Rating = number | null;
 type RatingsMap = Record<GuideLevelId, Rating[] | null>;
 type DrillMap = Record<string, { count: number; lastAt: string }>;
 type DrillCoverage = Record<string, { grammar: string; vocabulary: string }>;
+// Task 141: the 7-day drill-request view the panel's week chip renders.
+type WeekUi = { windowDays: number; events: number; topicsTouched: number; perLevel: Record<string, number> };
 const RATING_MARKS = ["E", "!", "X"];
 
 export default function GuidePanel() {
@@ -29,6 +31,7 @@ export default function GuidePanel() {
   const [ratings, setRatings] = useState<RatingsMap>({ B1: null, B2: null, C1: null });
   const [drills, setDrills] = useState<DrillMap>({});
   const [coverage, setCoverage] = useState<DrillCoverage>({});
+  const [week, setWeek] = useState<WeekUi | null>(null);
   const [saving, setSaving] = useState(false);
   const [offline, setOffline] = useState(false);
 
@@ -46,9 +49,10 @@ export default function GuidePanel() {
       .catch(() => setOffline(true));
     fetch("/api/guide-practice")
       .then((r) => r.json())
-      .then((d: { drills?: DrillMap; coverage?: DrillCoverage }) => {
+      .then((d: { drills?: DrillMap; coverage?: DrillCoverage; week?: WeekUi }) => {
         if (d?.drills) setDrills(d.drills);
         if (d?.coverage) setCoverage(d.coverage);
+        if (d?.week) setWeek(d.week);
       })
       .catch(() => {}); // drill ledger is advisory - a failed load hides nothing critical
   }, []);
@@ -72,9 +76,10 @@ export default function GuidePanel() {
       body: JSON.stringify({ topicId }),
     })
       .then((r) => r.json())
-      .then((d: { count?: number; coverage?: DrillCoverage }) => {
+      .then((d: { count?: number; coverage?: DrillCoverage; week?: WeekUi }) => {
         if (typeof d?.count === "number") setDrills((prev) => ({ ...prev, [topicId]: { count: d.count as number, lastAt: new Date().toISOString() } }));
         if (d?.coverage) setCoverage(d.coverage);
+        if (d?.week) setWeek(d.week);
       })
       .catch(() => {});
   }
@@ -117,6 +122,14 @@ export default function GuidePanel() {
             >
               drilled {coverage[level]?.grammar ?? `0/${sec.grammar.length}`} grammar, {coverage[level]?.vocabulary ?? `0/${sec.vocabulary.length}`} vocab
             </Chip>
+            {week && (
+              <Chip
+                tone={(week.perLevel[level] ?? 0) > 0 ? "emerald" : "slate"}
+                title={`Last ${week.windowDays} days across all levels: ${week.events} drill request(s) across ${week.topicsTouched} topic(s). A request is a click, not a completed session.`}
+              >
+                this week: {week.perLevel[level] ?? 0} requests
+              </Chip>
+            )}
           </div>
           <div className="flex gap-1">
             {LEVELS.map((l) => (

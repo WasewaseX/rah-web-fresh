@@ -5,7 +5,7 @@
 // Runbook:
 //   export DATABASE_URL="$(grep -E '^DATABASE_URL=' .env | cut -d= -f2-)" && bun scripts/progress-review-test.ts
 
-import { parseDrillMap, coverageFor, weeklyProgress, RECENT_CAP } from "../src/lib/guide-ledger";
+import { parseDrillMap, coverageFor, weeklyProgress, weekForUi, RECENT_CAP } from "../src/lib/guide-ledger";
 import { GUIDE_LEVELS, guideSection } from "../src/lib/b1c1-guide";
 
 let pass = 0;
@@ -134,6 +134,19 @@ const iso = (ms: number) => new Date(ms).toISOString();
 {
   const rep = weeklyProgress({ drills: null, nowMs: NOW, windowDays: 99 });
   check("windowDays clamped to 30", rep.windowDays === 30);
+}
+
+// ---------- weekForUi: the Guide panel chip payload (Task 141) ----------
+{
+  const drills = {
+    "b1.present_tenses": { count: 2, lastAt: iso(NOW - DAY), recent: [iso(NOW - DAY), iso(NOW - 2 * DAY)] },
+    "b1.travel": { count: 1, lastAt: iso(NOW - 3 * DAY), recent: [iso(NOW - 3 * DAY)] },
+  };
+  const rep = weeklyProgress({ drills, nowMs: NOW, windowDays: 7 });
+  const ui = weekForUi(rep);
+  check("weekForUi maps events + touched + window", ui.events === 3 && ui.topicsTouched === 2 && ui.windowDays === 7, JSON.stringify(ui));
+  check("weekForUi perLevel keyed by level", ui.perLevel.B1 === 3 && ui.perLevel.B2 === 0 && ui.perLevel.C1 === 0);
+  check("weekForUi empty ledger maps to zeros", weekForUi(weeklyProgress({ drills: null, nowMs: NOW })).events === 0);
 }
 
 // ---------- registry: the tool exists and is read-tier ----------

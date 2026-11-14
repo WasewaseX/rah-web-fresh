@@ -18,47 +18,22 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getLearner } from "@/lib/server";
-import { GUIDE_LEVELS, guideAllTopics } from "@/lib/b1c1-guide";
+import {
+  parseDrillMap,
+  coverageFor,
+  KNOWN_IDS,
+  RECENT_CAP,
+  type DrillMap,
+} from "@/lib/guide-ledger";
+
+// Task 140: the ledger's canonical parser/coverage live in @/lib/guide-ledger
+// (shared with the coach's progress_review tool). Re-exported so the existing
+// battery imports from this route keep working.
+export { parseDrillMap, coverageFor };
 
 export const dynamic = "force-dynamic";
 
 const KEY = "guide:practice";
-
-interface DrillEntry {
-  count: number;
-  lastAt: string;
-}
-type DrillMap = Record<string, DrillEntry>;
-
-const KNOWN_IDS = new Set(guideAllTopics().map((t) => t.id));
-
-// Exported for batteries: the ledger parser drops ids the guide no longer
-// has and anything without a positive integer count.
-export function parseDrillMap(raw: unknown): DrillMap {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
-  const out: DrillMap = {};
-  for (const [id, v] of Object.entries(raw as Record<string, unknown>)) {
-    if (!KNOWN_IDS.has(id)) continue; // silently drop ids the guide no longer has
-    if (!v || typeof v !== "object") continue;
-    const e = v as Record<string, unknown>;
-    const count = typeof e.count === "number" && Number.isInteger(e.count) && e.count > 0 ? e.count : null;
-    if (count === null) continue;
-    out[id] = { count, lastAt: typeof e.lastAt === "string" ? e.lastAt.slice(0, 30) : "" };
-  }
-  return out;
-}
-
-// Coverage per level: how many of the level's real grammar/vocabulary topics
-// have at least one drill request. Exported for batteries.
-export function coverageFor(drills: DrillMap): Record<string, { grammar: string; vocabulary: string }> {
-  const out: Record<string, { grammar: string; vocabulary: string }> = {};
-  for (const s of GUIDE_LEVELS) {
-    const g = s.grammar.filter((t) => (drills[t.id]?.count ?? 0) > 0).length;
-    const v = s.vocabulary.filter((t) => (drills[t.id]?.count ?? 0) > 0).length;
-    out[s.level] = { grammar: `${g}/${s.grammar.length}`, vocabulary: `${v}/${s.vocabulary.length}` };
-  }
-  return out;
-}
 
 export async function GET() {
   await getLearner();
@@ -95,7 +70,16 @@ export async function POST(req: Request) {
     );
   }
   await getLearner();
-  drills[topicId] = { count: nextCount, lastAt: new Date().toISOString() };
+  // Task 140: keep per-event history (recent) so the coach's progress_review
+  // can count in-window drill REQUESTS. parseDrillMap already sanitized the
+  // previous entries; the cap keeps the row bounded.
+  const ts = new Date().toISOString();
+  const prevRecent = drills[topicId]?.recent ?? [];
+  drills[topicId] = {
+    count: nextCount,
+    lastAt: ts,
+    recent: [...prevRecent, ts].slice(-RECENT_CAP),
+  };
   await db.setting.upsert({
     where: { key: KEY },
     create: { key: KEY, value: JSON.stringify(drills) },

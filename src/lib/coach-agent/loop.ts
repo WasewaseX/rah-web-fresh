@@ -72,6 +72,7 @@ RULES:
 1. Multi-step is expected: read_state before data-dependent advice; write_file + run_js for anything computational; web_search/page_reader for current facts. Chain tools across steps; one tool per turn.
    MANDATORY: any question about the learner's level, streak, XP, gems, reviews, mistakes, progress, or "what should I do" REQUIRES read_state (and, when acting on it, a follow-up tool) BEFORE your final answer. Answering such questions without a tool call is a protocol violation - the [live context] hint is NOT enough.
    MANDATORY (Task 130): any question about WHAT A LEVEL CONTAINS or level planning ("what grammar for B2", "B1 checklist", "C1 vocabulary list", "plan to reach C1") REQUIRES study_guide BEFORE the final answer - the embedded guide map is the authority for each level's contents; answering from memory is a protocol violation. Pair with read_state when the answer should place the learner on the map.
+   MANDATORY (Task 140): past-activity questions ("how did my week go", "what did I do this week", "weekly report") REQUIRE progress_review BEFORE the final answer - review_forecast is for the FUTURE only. Drill counts it returns are REQUESTS (guide-panel clicks), never completed sessions: report them exactly that way.
    EXCEPT "which tab am I / where am I": the [live context] line carries current_view - the tab the learner is on RIGHT NOW. Answer that from current_view directly (final, no tools). NEVER call page_reader or web_search for anything about the app itself - they are for the outside web only.
    [current screen]: when the [live context] carries a current_screen JSON block, it is the EXACT exercise the learner is looking at (prompt, correct answer, what they typed). Questions like "what is the answer", "why can't I answer", "explain this one" are answered from that block - NEVER ask the learner to paste the question. If they have not answered yet (revealed=false), first push retrieval with one hint or a guiding question, then give the answer and the why; if it is already revealed, explain the why directly.
 2. If a tool fails, fix the inputs and retry (different args, different approach). Do not give up after one failure.
@@ -284,6 +285,14 @@ export function isWeekAsk(message: string): boolean {
   );
 }
 
+// Task 140: past-activity asks ("how did my week go") are the mirror of
+// isWeekAsk - they need progress_review (the drill ledger), not the forecast.
+// Kept tight to week/day/month-shaped retrospection so plain "progress"
+// questions stay on read_state's mandate. Pure and exported for the battery.
+export function isProgressAsk(message: string): boolean {
+  return /\b(how (was|is|did)\s+(my|the)\s+(week|day|month)|weekly (progress|report|review)|week in review|my (week|progress) (this|last) (week|month)|what did i (do|study|practice) (this|last) (week|month))\b/i.test(message);
+}
+
 export async function runAgent(
   message: string,
   history: { role: string; content: string }[],
@@ -320,6 +329,7 @@ export async function runAgent(
   let stateEnforced = 0; // read_state enforcement: one deterministic retry per run
   let deckEnforced = 0; // Task 125: add_cards enforcement (fabricated deck-adds)
   let weekEnforced = 0; // Task 125: review_forecast enforcement (week questions from today-only data)
+  let progressEnforced = 0; // Task 140: progress_review enforcement (past-activity asks from the ledger)
   // Audit P1: app actions the CLIENT must perform are merged in by the LOOP
   // from verified tool results - the model triggers them, it cannot fake them.
   let themeCommand: AgentCommand | null = null;
@@ -403,6 +413,21 @@ export async function runAgent(
           role: "user",
           content:
             'That was a week/workload question answered without review_forecast - read_state only knows TODAY, so day-by-day numbers from it are wrong. Call review_forecast now: {"thought":"...","tool":"review_forecast","args":{}}. Then answer the learner from its real numbers.',
+        });
+        continue;
+      }
+      // Task 140 enforcement: a past-activity ask finalized without
+      // progress_review - the drill ledger and readiness verdicts live in the
+      // tool, nowhere else. Fires AFTER the forecast check so a combined
+      // past+future ask can demand both tools across two nudges.
+      if (turn.final && !toolsUsed.includes("progress_review") && progressEnforced < 1 && step < MAX_STEPS - 2 && isProgressAsk(message)) {
+        progressEnforced = 1;
+        push({ type: "error", label: "Past-activity question needs progress_review - enforcing", ok: false });
+        messages.push({ role: "assistant", content: raw });
+        messages.push({
+          role: "user",
+          content:
+            'That was a past-activity question answered without progress_review - the drill-request ledger, checklist readiness and review stats are in that tool, not in your memory. Call progress_review now: {"thought":"...","tool":"progress_review","args":{}}. Then answer the learner from its real numbers, reporting drill counts as REQUESTS (never "completed" or "mastered").',
         });
         continue;
       }

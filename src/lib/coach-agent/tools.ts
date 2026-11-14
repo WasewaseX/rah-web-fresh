@@ -583,6 +583,7 @@ const BASE_TOOL_TIERS: Record<string, ToolTier> = {
   add_cards: "state", // writes UserCard rows into the live deck
   set_goal: "state", // writes Learner dailyGoal/newPerDay/focusSkill
   study_guide: "read", // pure read over the embedded B1-C1 guide data (Task 130)
+  progress_review: "read", // aggregation over the drill ledger + checklist + DailyStat (Task 140)
 };
 // RE domain (reverse engineering / malware analysis) merges its own tiers in:
 // lookups are network-tier (budgeted), the consent gate is network, case
@@ -708,6 +709,12 @@ const BASE_TOOLS: ToolDef[] = [
     args: '{"level": "B2", "section": "grammar"}',
     run: studyGuide,
   },
+  {
+    name: "progress_review",
+    desc: "The learner's PAST-activity review - the mirror of review_forecast, which looks FORWARD: real drill requests from the B1-C1 guide ledger over the last N days (default 7), per-level coverage, checklist readiness verdicts, and daily review stats (reviews/correct/xp). MANDATORY for 'how did my week go', 'what did I do this week', 'weekly report', 'my progress this week' - do NOT answer past-activity questions from read_state alone; it has no drill ledger. HONEST LABELING: drill counts are REQUESTS (panel clicks), never completed sessions - report them as requests. days: 1-30, default 7.",
+    args: '{"days": 7}',
+    run: progressReview,
+  },
 ];
 
 // Full registry = base app tools + the RE (reverse-engineering) domain.
@@ -800,4 +807,69 @@ async function studyGuide(args: ToolArgs): Promise<ToolResult> {
 
 export function toolByName(name: string): ToolDef | undefined {
   return TOOLS.find((t) => t.name === name);
+}
+
+// ---------- progress_review: the past-activity review (Task 140) ----------
+
+async function progressReview(args: ToolArgs): Promise<ToolResult> {
+  const { db } = await import("@/lib/db");
+  const days = Math.max(1, Math.min(30, Math.round(Number(args.days) || 7)));
+  const [drillRow, ratingRows] = await Promise.all([
+    db.setting.findUnique({ where: { key: "guide:practice" } }),
+    db.setting.findMany({ where: { key: { startsWith: "guide:checklist:" } } }),
+  ]);
+  const ratings: Record<string, unknown> = {};
+  for (const row of ratingRows) {
+    const lv = row.key.slice("guide:checklist:".length);
+    try {
+      ratings[lv] = JSON.parse(row.value);
+    } catch {}
+  }
+  let rawDrills: unknown = null;
+  if (drillRow) {
+    try {
+      rawDrills = JSON.parse(drillRow.value);
+    } catch {}
+  }
+  const { weeklyProgress } = await import("@/lib/guide-ledger");
+  const rep = weeklyProgress({ drills: rawDrills, ratings, nowMs: Date.now(), windowDays: days });
+
+  const lines: string[] = [
+    `PAST ${rep.windowDays} DAY(S) - honest accounting (drill counts are REQUESTS, not completed sessions):`,
+    rep.summary,
+    "",
+    "PER LEVEL:",
+  ];
+  for (const p of rep.perLevel) {
+    let line = `- ${p.level}: ${p.events} drill request(s) in window; coverage ${p.grammarCovered}/${p.grammarTotal} grammar, ${p.vocabCovered}/${p.vocabTotal} vocabulary`;
+    if (p.readiness) line += `; checklist ${p.readiness.easy}/${p.readiness.total} easy, ${p.readiness.mid} some difficulty, ${p.readiness.hard} difficult - ${p.readiness.verdict}`;
+    else line += "; checklist not rated yet (no verdict - say so, do not guess)";
+    lines.push(line);
+  }
+  if (rep.latest) {
+    lines.push("", `Most recent request: "${rep.latest.title}" (${rep.latest.level} ${rep.latest.kind}) at ${rep.latest.at}.`);
+  }
+  if (rep.legacyEntries > 0) {
+    lines.push(`${rep.legacyEntries} ledger entr${rep.legacyEntries === 1 ? "y" : "ies"} predate per-event history; their in-window count uses the last-request date only.`);
+  }
+
+  try {
+    const { contentUserId } = await import("@/lib/scope");
+    const stats = await db.dailyStat.findMany({
+      where: { userId: await contentUserId().catch(() => "me") },
+      orderBy: { day: "desc" },
+      take: days,
+    });
+    if (stats.length > 0) {
+      lines.push("", "REVIEW STATS (per day, newest first):");
+      for (const s of stats) lines.push(`- ${s.day}: ${s.reviews} reviews, ${s.correct} correct, ${s.xp} xp`);
+    } else {
+      lines.push("", "REVIEW STATS: none recorded in the window.");
+    }
+  } catch {
+    // stats are a garnish on the ledger truth - never fail the tool for them
+  }
+
+  // Pure read: probe runs (args._probe === true) get the identical response.
+  return { ok: true, summary: rep.summary, detail: lines.join("\n").slice(0, 4000) };
 }

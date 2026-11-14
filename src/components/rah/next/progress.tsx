@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Boot } from "@/app/page";
 import { SectionTitle, Stat, Bar } from "./bits";
 import MindReader from "./mindreader";
+import GuidePanel from "../GuidePanel";
 
 interface ProgressData {
   accuracy: number;
@@ -272,6 +273,13 @@ export default function ProgressView({ boot }: { boot: Boot }) {
           </div>
         </div>
       ) : null}
+
+      {/* Task 141 repair: the "next" rewrite of this view dropped the
+         B1-C1 guide map entirely - GuidePanel stayed mounted only in the
+         dead legacy Progress.tsx, so the checklist, the 12-week plan and
+         the drill-request ledger were reachable from no live tab. Back in
+         the live flow, before the coach-memory closer. */}
+      <GuidePanel />
 
       <MindReader />
     </div>

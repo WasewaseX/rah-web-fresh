@@ -33,12 +33,17 @@
    sample file from the holder - never fabricate progress on it.
 
 ## Completed runs
-- run #1 (manual, 2026-11-15): Tasks 140-142 shipped in the prior session and this run
-  scheduled the series (cron unavailable - see above); this run's coding lands as the
-  next commits after 203c1f0.
+- run #1 (manual, 2026-11-15): Tasks 140-142 shipped in the prior session; this run
+  scheduled the series (cron unavailable - see above) and shipped Tasks 143-145 at
+  commit 9423a105983b: 'Review my week' one-click button on live Progress
+  (WEEKLY_REVIEW_ASK battery-pinned to the isProgressAsk seam), read_state guide line
+  carries the 7-day drill-week, Guide panel 'rusty (14d+)' stale-topic chip;
+  batteries 45/45 + 29/29 + 75/75 + 59/59, tsc clean, gate GREEN, browser + probe
+  verified. Survival chain fresh: env + pg dumps stamped Nov 15 21:55 UTC.
 
 ## Pending queue (update as tasks ship)
-- Task 143: one-click weekly review button on live Progress view (handCoach -> progress_review)
-- Task 144: read_state carries the 7-day guide-week drill line
-- Task 145: Guide panel stale-topic age hints (last requested older than ~14d)
+- Task 146: Guide panel topic search/filter box (68 topics are a lot to scan)
+- Task 147: per-level coverage bars in Guide panel (visual fill from weekForUi data)
+- Task 148: read_state carries the stale-topic list so the coach can proactively
+  suggest re-drills
 - Standing: RE case unlock (blocked on holder input)

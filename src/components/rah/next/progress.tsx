@@ -5,6 +5,8 @@ import type { Boot } from "@/app/page";
 import { SectionTitle, Stat, Bar } from "./bits";
 import MindReader from "./mindreader";
 import GuidePanel from "../GuidePanel";
+import { handCoach } from "@/lib/bus";
+import { WEEKLY_REVIEW_ASK } from "@/lib/guide-ledger";
 
 interface ProgressData {
   accuracy: number;
@@ -107,6 +109,17 @@ export default function ProgressView({ boot }: { boot: Boot }) {
       <SectionTitle
         title="Progress"
         sub="Accuracy with a delta, the four-strands balance, and where every card sits in its forgetting curve."
+        right={
+          // Task 143: one click hands the coach the weekly-review ask - the
+          // loop's progress_review seam turns it into real ledger numbers.
+          <button
+            className="btn-primary text-[13px] shrink-0"
+            onClick={() => handCoach(WEEKLY_REVIEW_ASK)}
+            title="Hands the coach your real weekly numbers: drill requests (panel clicks, not completed sessions), checklist readiness and review stats."
+          >
+            Review my week
+          </button>
+        }
       />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">

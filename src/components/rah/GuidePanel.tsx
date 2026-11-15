@@ -15,6 +15,7 @@ import { useEffect, useState } from "react";
 import { BookOpen, Play } from "lucide-react";
 import { Card, Chip, Note } from "./ui";
 import { GUIDE_META, GUIDE_LEVELS, CHECKLIST_LEGEND, studyPlan12Week, checklistReadiness, practiceCommand, difficultItemsCommand, weekCommand, type GuideLevelId } from "@/lib/b1c1-guide";
+import { staleTopics, type DrillMap as LedgerDrillMap } from "@/lib/guide-ledger";
 import { handCoach } from "@/lib/bus";
 
 const LEVELS: GuideLevelId[] = ["B1", "B2", "C1"];
@@ -65,6 +66,9 @@ export default function GuidePanel() {
   const hardCount = myRatings ? myRatings.filter((r) => r === 2).length : 0;
   const allRated = ratedCount === sec.checklist.items.length;
   const readiness = allRated && myRatings ? checklistReadiness(level, myRatings as number[]) : null;
+  // Task 145: drilled topics whose last request went stale (14d+). Honest
+  // framing in the chip: a nudge to re-drill, never "you forgot X".
+  const stale = staleTopics(drills as LedgerDrillMap, Date.now()).filter((s) => s.level === level);
 
   // Task 136: a drill REQUEST is recorded (a click = a request, never proof
   // of completion). Fire-and-forget: the handoff to the coach must not wait
@@ -128,6 +132,15 @@ export default function GuidePanel() {
                 title={`Last ${week.windowDays} days across all levels: ${week.events} drill request(s) across ${week.topicsTouched} topic(s). A request is a click, not a completed session.`}
               >
                 this week: {week.perLevel[level] ?? 0} requests
+              </Chip>
+            )}
+            {stale.length > 0 && (
+              <Chip
+                tone="amber"
+                title={`Topics whose last drill request is more than 14 days old: ${stale.map((s) => `${s.title} (${s.daysAgo}d ago)`).join(", ")}. A hint to re-drill - requests are not mastery, so nothing was "lost".`}
+              >
+                rusty (14d+): {stale.slice(0, 3).map((s) => s.title).join(", ")}
+                {stale.length > 3 ? ` +${stale.length - 3} more` : ""}
               </Chip>
             )}
           </div>

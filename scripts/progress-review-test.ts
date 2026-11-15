@@ -160,6 +160,30 @@ const iso = (ms: number) => new Date(ms).toISOString();
   const loop = (await import("../src/lib/coach-agent/loop")) as { isProgressAsk: (m: string) => boolean };
   check("isProgressAsk fires on past-activity asks", loop.isProgressAsk("how did my week go?") && loop.isProgressAsk("What did I study this week") && loop.isProgressAsk("give me my weekly report"));
   check("isProgressAsk stays off future/general asks", !loop.isProgressAsk("what should I review tomorrow") && !loop.isProgressAsk("improve my progress") && !loop.isProgressAsk("what is my streak"));
+  // Task 143: the Progress view's one-click ask must ride the enforcement seam.
+  const { WEEKLY_REVIEW_ASK } = (await import("../src/lib/guide-ledger")) as { WEEKLY_REVIEW_ASK: string };
+  check("WEEKLY_REVIEW_ASK matches isProgressAsk (seam catches the one-click ask)", loop.isProgressAsk(WEEKLY_REVIEW_ASK), WEEKLY_REVIEW_ASK);
+  check("WEEKLY_REVIEW_ASK names the honest subject matter", WEEKLY_REVIEW_ASK.includes("drill requests") && WEEKLY_REVIEW_ASK.includes("weekly review"), WEEKLY_REVIEW_ASK);
+}
+
+// ---------- Task 145: stale-topic detection ----------
+{
+  const { staleTopics } = await import("../src/lib/guide-ledger");
+  const drills = {
+    "b1.present_tenses": { count: 2, lastAt: iso(NOW - 20 * DAY), recent: [iso(NOW - 20 * DAY), iso(NOW - 25 * DAY)] }, // stale
+    "b1.travel": { count: 1, lastAt: iso(NOW - 13 * DAY), recent: [iso(NOW - 13 * DAY)] }, // not yet stale
+    "b2.cleft_sentences": { count: 1, lastAt: iso(NOW - 40 * DAY) }, // stale, legacy shape
+  };
+  const st = staleTopics(drills, NOW);
+  check("staleTopics finds 14d+ topics, sorted most-stale first", st.length === 2 && st[0]?.id === "b2.cleft_sentences" && st[0]?.daysAgo === 40 && st[1]?.id === "b1.present_tenses", JSON.stringify(st));
+  check("staleTopics resolves real titles/kinds/levels", st[1]?.title === "Present Tenses" && st[1]?.kind === "grammar" && st[1]?.level === "B1", JSON.stringify(st[1]));
+  check("staleTopics respects the boundary (13d is not stale)", !st.some((s) => s.id === "b1.travel"));
+  check("staleTopics recent history wins over old lastAt", staleTopics({ "b1.present_tenses": { count: 3, lastAt: iso(NOW - 30 * DAY), recent: [iso(NOW - 30 * DAY), iso(NOW - 2 * DAY)] } }, NOW).length === 0);
+  check("staleTopics empty ledger is empty", staleTopics({}, NOW).length === 0);
+  check("staleTopics cap enforced", staleTopics(
+    Object.fromEntries(GUIDE_LEVELS.flatMap((s) => [...s.grammar, ...s.vocabulary]).map((t) => [t.id, { count: 1, lastAt: iso(NOW - 60 * DAY) }])),
+    NOW, 14, 8,
+  ).length === 8);
 }
 
 console.log(`\nprogress-review: ${pass} pass, ${fail} fail`);

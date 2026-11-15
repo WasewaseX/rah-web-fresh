@@ -91,11 +91,66 @@ export function weekForUi(rep: ProgressReport): WeekUi {
   return { windowDays: rep.windowDays, events: rep.drillEvents, topicsTouched: rep.topicsTouched, perLevel };
 }
 
+// ---------- Task 143: the one-click weekly review ask ----------
+// The Progress view hands the coach this exact ask. It MUST keep matching the
+// loop's isProgressAsk detector (pinned in the battery) so the enforcement
+// seam fires if the coach ever tries to answer it without progress_review.
+export const WEEKLY_REVIEW_ASK =
+  "How did my week go? Give me an honest weekly review: my drill requests, checklist readiness and review stats.";
 
 const DAY_MS = 86_400_000;
 // Small future slack so a just-written timestamp on a clock slightly ahead of
 // the caller's `nowMs` still lands inside its own window.
 const FUTURE_SLACK_MS = 5 * 60_000;
+
+// ---------- Task 145: stale-topic detection ----------
+// A drilled topic whose LAST request is older than minAgeDays is "rusty":
+// the ledger records requests, not mastery, so staleness is an honest hint
+// to re-drill, never a verdict that the topic was learned and lost.
+
+export interface StaleTopic {
+  id: string;
+  title: string;
+  kind: string;
+  level: string;
+  daysAgo: number;
+}
+
+function lastRequestMs(entry: DrillEntry): number | null {
+  const stamps = entry.recent && entry.recent.length > 0 ? entry.recent : entry.lastAt ? [entry.lastAt] : [];
+  let newest: number | null = null;
+  for (const s of stamps) {
+    const ms = Date.parse(s);
+    if (Number.isFinite(ms) && (newest === null || ms > newest)) newest = ms;
+  }
+  return newest;
+}
+
+export function staleTopics(
+  drills: DrillMap,
+  nowMs: number,
+  minAgeDays = 14,
+  cap = 8,
+): StaleTopic[] {
+  const minAgeMs = minAgeDays * DAY_MS;
+  const out: StaleTopic[] = [];
+  for (const [id, entry] of Object.entries(drills)) {
+    const last = lastRequestMs(entry);
+    if (last === null) continue;
+    const age = nowMs - last;
+    if (age >= minAgeMs) {
+      const t = TOPIC_BY_ID.get(id);
+      out.push({
+        id,
+        title: t?.title ?? id,
+        kind: t?.kind ?? "unknown",
+        level: t?.level ?? "unknown",
+        daysAgo: Math.floor(age / DAY_MS),
+      });
+    }
+  }
+  return out.sort((a, b) => b.daysAgo - a.daysAgo).slice(0, cap);
+}
 
 export interface ProgressInput {
   drills: unknown; // raw JSON from the Setting row - run through parseDrillMap

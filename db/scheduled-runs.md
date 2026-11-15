@@ -40,10 +40,21 @@
   carries the 7-day drill-week, Guide panel 'rusty (14d+)' stale-topic chip;
   batteries 45/45 + 29/29 + 75/75 + 59/59, tsc clean, gate GREEN, browser + probe
   verified. Survival chain fresh: env + pg dumps stamped Nov 15 21:55 UTC.
+- scheduled run #2 (2026-11-15): Tasks 146-148 at commit de0257750c52: GuidePanel
+  cross-level topic search (searchGuideTopics, <2 chars = nothing, cap 12, hits render
+  as drill buttons with count badges; verified live on production: "cleft" -> Cleft
+  Sentences B2 p.42), per-level drill-coverage bars (coverageBarRows, verified live:
+  g 1/12 v 0/10 per level), and read_state's guide line consolidated into the
+  battery-pinned guideStateLine() (all-time coverage + 7-day week + stale-14d+ list
+  capped at 5 with re-drill framing); batteries 53/53 + 81/81 + 29/29 + 59/59,
+  tsc clean, coach probe PASS requested-safe, gate GREEN. Note for future UI checks:
+  CSS `uppercase` transforms innerText, so match header text case-insensitively.
+  Survival chain fresh (dumps 22:10 UTC).
 
 ## Pending queue (update as tasks ship)
-- Task 146: Guide panel topic search/filter box (68 topics are a lot to scan)
-- Task 147: per-level coverage bars in Guide panel (visual fill from weekForUi data)
-- Task 148: read_state carries the stale-topic list so the coach can proactively
-  suggest re-drills
+- Task 149: read_state carries checklist readiness (feed the guide-checklist ratings
+  Setting into guideStateLine so the coach sees readiness verdicts too)
+- Task 150: guide search Enter-to-drill-first-hit and Escape-to-clear
+- Task 151: practice asks cross-reference the stale list (loop enriches practice
+  context with the learner's rusty topics)
 - Standing: RE case unlock (blocked on holder input)

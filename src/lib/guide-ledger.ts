@@ -152,6 +152,73 @@ export function staleTopics(
   return out.sort((a, b) => b.daysAgo - a.daysAgo).slice(0, cap);
 }
 
+// ---------- Task 147: per-level coverage bar rows ----------
+// The panel's coverage map is string pairs ("2/8"); the bar strip needs
+// numbers. Pure parse so the battery pins the math, not the render.
+
+export interface CoverageBarRow {
+  level: string;
+  grammarPct: number;
+  vocabPct: number;
+  grammarLabel: string;
+  vocabLabel: string;
+}
+
+export function coverageBarRows(
+  cov: Record<string, { grammar: string; vocabulary: string }>,
+): CoverageBarRow[] {
+  const pct = (s: string): number => {
+    const m = /^(\d+)\/(\d+)$/.exec(s.trim());
+    if (!m) return 0;
+    const done = Number(m[1]);
+    const total = Number(m[2]);
+    if (!Number.isFinite(done) || !Number.isFinite(total) || total <= 0) return 0;
+    return Math.round((done / total) * 100);
+  };
+  return GUIDE_LEVELS.filter((s) => s.level in cov).map((s) => ({
+    level: s.level,
+    grammarPct: pct(cov[s.level]?.grammar ?? "0/0"),
+    vocabPct: pct(cov[s.level]?.vocabulary ?? "0/0"),
+    grammarLabel: cov[s.level]?.grammar ?? "0/0",
+    vocabLabel: cov[s.level]?.vocabulary ?? "0/0",
+  }));
+}
+
+// ---------- Task 148: the coach's guide-ledger state line ----------
+// One pure builder for everything read_state says about the drill ledger:
+// all-time coverage, the 7-day week, and the stale list. Consolidates the
+// inline composition so the battery pins the exact coach-facing strings.
+// HONEST LABELING throughout: requests, never completed sessions.
+
+export function guideStateLine(raw: unknown, nowMs = Date.now()): string | null {
+  const drills = parseDrillMap(raw);
+  if (Object.keys(drills).length === 0) return null;
+
+  const parts: string[] = [];
+
+  const cov = coverageFor(drills);
+  const covParts: string[] = [];
+  for (const s of GUIDE_LEVELS) {
+    const c = cov[s.level];
+    const [gDone] = c.grammar.split("/").map(Number);
+    const [vDone] = c.vocabulary.split("/").map(Number);
+    if (gDone + vDone > 0) covParts.push(`${s.level}: ${c.grammar} grammar, ${c.vocabulary} vocabulary`);
+  }
+  if (covParts.length > 0) parts.push(covParts.join("; "));
+
+  const wk = weeklyProgress({ drills, nowMs, windowDays: 7 });
+  if (wk.drillEvents > 0) {
+    parts.push(`past 7 days: ${wk.drillEvents} drill request(s) across ${wk.topicsTouched} topic(s) (requests, not completed sessions)`);
+  }
+
+  const stale = staleTopics(drills, nowMs).slice(0, 5);
+  if (stale.length > 0) {
+    parts.push(`stale 14d+: ${stale.map((s) => `${s.title} (${s.daysAgo}d ago)`).join(", ")} - hint to re-drill, requests are not mastery`);
+  }
+
+  return parts.length > 0 ? parts.join("; ") : null;
+}
+
 export interface ProgressInput {
   drills: unknown; // raw JSON from the Setting row - run through parseDrillMap
   ratings?: Record<string, unknown>; // level -> number[] (raw JSON ok)

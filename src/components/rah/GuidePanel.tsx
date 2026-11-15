@@ -14,11 +14,12 @@
 import { useEffect, useState } from "react";
 import { BookOpen, Play } from "lucide-react";
 import { Card, Chip, Note } from "./ui";
-import { GUIDE_META, GUIDE_LEVELS, CHECKLIST_LEGEND, studyPlan12Week, checklistReadiness, practiceCommand, difficultItemsCommand, weekCommand, type GuideLevelId } from "@/lib/b1c1-guide";
-import { staleTopics, type DrillMap as LedgerDrillMap } from "@/lib/guide-ledger";
+import { GUIDE_META, GUIDE_LEVELS, CHECKLIST_LEGEND, studyPlan12Week, checklistReadiness, practiceCommand, difficultItemsCommand, weekCommand, searchGuideTopics, type GuideLevelId } from "@/lib/b1c1-guide";
+import { staleTopics, coverageBarRows, type DrillMap as LedgerDrillMap } from "@/lib/guide-ledger";
 import { handCoach } from "@/lib/bus";
 
 const LEVELS: GuideLevelId[] = ["B1", "B2", "C1"];
+const TOPIC_COUNT = GUIDE_LEVELS.reduce((a, s) => a + s.grammar.length + s.vocabulary.length, 0);
 type Rating = number | null;
 type RatingsMap = Record<GuideLevelId, Rating[] | null>;
 type DrillMap = Record<string, { count: number; lastAt: string }>;
@@ -35,6 +36,11 @@ export default function GuidePanel() {
   const [week, setWeek] = useState<WeekUi | null>(null);
   const [saving, setSaving] = useState(false);
   const [offline, setOffline] = useState(false);
+  // Task 146: cross-level topic search; hits render as drill buttons.
+  const [query, setQuery] = useState("");
+  const hits = searchGuideTopics(query);
+  // Task 147: per-level coverage bar rows from the real coverage map.
+  const barRows = coverageBarRows(coverage);
 
   useEffect(() => {
     fetch("/api/guide-checklist")
@@ -161,6 +167,62 @@ export default function GuidePanel() {
         <p className="mt-2 text-xs leading-relaxed text-[#7d889c]">
           {GUIDE_META.title} - {GUIDE_META.author}, {GUIDE_META.pages} pages, {GUIDE_META.year}. {GUIDE_META.method}
         </p>
+
+        {/* Task 146: search across ALL levels - reach any of the book's topics
+           without paging through three sections. Two chars minimum, so an
+           empty box stays empty instead of dumping the whole guide. */}
+        <div className="mt-3">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={`Search all ${TOPIC_COUNT} topics (e.g. cleft, phrasal, travel)...`}
+            className="w-full rounded-xl bg-[#171c28] px-3 py-2 text-xs text-[#e7ecf5] outline-none placeholder:text-[#5d687c] focus:ring-1 focus:ring-[var(--rah-primary)]"
+          />
+          {query.trim().length >= 2 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {hits.length === 0 ? (
+                <span className="text-[11px] text-[#7d889c]">No topic matches "{query.trim()}".</span>
+              ) : (
+                hits.map((h) => (
+                  <button
+                    key={h.id}
+                    onClick={() => {
+                      recordDrill(h.id);
+                      handCoach(practiceCommand(h.level, h.title, h.kind));
+                    }}
+                    className="rounded-full bg-[#1a2130] px-3 py-1 text-xs font-bold text-[#c8d2e2] transition hover:bg-[#232c3e] hover:text-[#e7ecf5]"
+                    title={`${h.hint} (${h.level} ${h.kind}, p.${h.page}) - click to practice with the coach`}
+                  >
+                    {h.title} <span className="text-[10px] font-normal text-[#7d889c]">{h.level} p.{h.page}</span>
+                    {(drills[h.id]?.count ?? 0) > 0 && <span className="ml-1 text-[10px] font-black text-[#7fd0a8]">{drills[h.id]?.count}x</span>}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Task 147: per-level drill-request coverage bars. The fill comes
+           from the real coverage map; the labeling stays honest - a request
+           is a click, not a completed session. */}
+        {barRows.length > 0 && (
+          <div className="mt-3 flex flex-col gap-1.5">
+            <div className="text-[11px] font-black uppercase tracking-wider text-[#7d889c]">Drill-request coverage by level</div>
+            {barRows.map((r) => (
+              <div key={r.level} className="flex items-center gap-2 text-[11px]">
+                <span className="w-6 font-black text-[#a9b4c6]">{r.level}</span>
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#1a2130]">
+                  <div className="h-full rounded-full bg-[#7fd0a8]" style={{ width: `${r.grammarPct}%` }} title={`grammar ${r.grammarLabel}`} />
+                </div>
+                <span className="w-14 text-right text-[#7d889c]">g {r.grammarLabel}</span>
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#1a2130]">
+                  <div className="h-full rounded-full bg-[#9dc0ff]" style={{ width: `${r.vocabPct}%` }} title={`vocabulary ${r.vocabLabel}`} />
+                </div>
+                <span className="w-14 text-right text-[#7d889c]">v {r.vocabLabel}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
           <div>

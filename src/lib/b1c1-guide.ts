@@ -299,8 +299,42 @@ export interface PlanWeek {
   action: string;
 }
 
+// Task 146: topic search across ALL levels. The panel renders the hits as
+// drill buttons, so a learner can reach any of the book's topics without
+// paging through three level sections. Query shorter than 2 chars returns
+// nothing (the box reads as empty rather than dumping the whole guide).
+export interface TopicHit {
+  id: string;
+  title: string;
+  kind: "grammar" | "vocabulary";
+  level: GuideLevelId;
+  page: number;
+  hint: string;
+}
+
+export function searchGuideTopics(query: string, cap = 12): TopicHit[] {
+  const q = query.trim().toLowerCase();
+  if (q.length < 2) return [];
+  const hits: TopicHit[] = [];
+  for (const s of GUIDE_LEVELS) {
+    for (const [kind, arr] of [
+      ["grammar", s.grammar],
+      ["vocabulary", s.vocabulary],
+    ] as const) {
+      for (const t of arr) {
+        if (`${t.title}`.toLowerCase().includes(q)) {
+          hits.push({ id: t.id, title: t.title, kind, level: s.level, page: t.page, hint: t.hint });
+          if (hits.length >= cap) return hits;
+        }
+      }
+    }
+  }
+  return hits;
+}
+
 export function studyPlan12Week(level: GuideLevelId): PlanWeek[] {
   const s = guideSection(level);
+
   const g = s.grammar.map((t) => t.title);
   const v = s.vocabulary.map((t) => t.title);
   const gTagged = s.grammar.filter((t) => t.tags.length > 0).map((t) => t.title);

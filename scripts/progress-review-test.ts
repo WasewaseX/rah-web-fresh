@@ -186,5 +186,38 @@ const iso = (ms: number) => new Date(ms).toISOString();
   ).length === 8);
 }
 
+// ---------- Task 147: coverage bar rows ----------
+{
+  const { coverageBarRows } = await import("../src/lib/guide-ledger");
+  const rows = coverageBarRows({ B1: { grammar: "3/12", vocabulary: "1/10" }, B2: { grammar: "0/14", vocabulary: "5/10" }, C1: { grammar: "12/12", vocabulary: "10/10" } });
+  check("coverageBarRows: one row per level, ordered", rows.length === 3 && rows.map((r) => r.level).join(",") === "B1,B2,C1", JSON.stringify(rows.map((r) => r.level)));
+  check("coverageBarRows: percentages round correctly", rows[0]?.grammarPct === 25 && rows[0]?.vocabPct === 10 && rows[1]?.grammarPct === 0 && rows[1]?.vocabPct === 50 && rows[2]?.grammarPct === 100 && rows[2]?.vocabPct === 100, JSON.stringify(rows));
+  check("coverageBarRows: labels carried through untouched", rows[0]?.grammarLabel === "3/12" && rows[1]?.vocabLabel === "5/10");
+  check("coverageBarRows: malformed labels parse to 0", coverageBarRows({ B1: { grammar: "n/a", vocabulary: "" } })[0]?.grammarPct === 0 && coverageBarRows({ B1: { grammar: "n/a", vocabulary: "" } })[0]?.vocabPct === 0);
+}
+
+// ---------- Task 148: the coach's guide state line ----------
+{
+  const { guideStateLine } = await import("../src/lib/guide-ledger");
+  check("guideStateLine: empty ledger is null", guideStateLine({}) === null && guideStateLine("junk") === null);
+  const fresh = {
+    "b1.present_tenses": { count: 2, lastAt: iso(NOW - 1 * DAY), recent: [iso(NOW - 1 * DAY), iso(NOW - 2 * DAY)] },
+    "b1.travel": { count: 1, lastAt: iso(NOW - 3 * DAY), recent: [iso(NOW - 3 * DAY)] },
+  };
+  const line = guideStateLine(fresh, NOW);
+  check("guideStateLine: coverage + week, honest labeling", line === "B1: 1/12 grammar, 1/10 vocabulary; past 7 days: 3 drill request(s) across 2 topic(s) (requests, not completed sessions)", JSON.stringify(line));
+  const stale = {
+    "b2.cleft_sentences": { count: 1, lastAt: iso(NOW - 20 * DAY), recent: [iso(NOW - 20 * DAY)] },
+  };
+  const line2 = guideStateLine(stale, NOW);
+  check("guideStateLine: stale clause names topics with days and re-drill framing", line2?.includes("stale 14d+: Cleft Sentences (20d ago)") === true && line2?.includes("hint to re-drill, requests are not mastery") === true, JSON.stringify(line2));
+  const staleOnlyCap = guideStateLine(
+    Object.fromEntries(GUIDE_LEVELS.flatMap((s) => [...s.grammar, ...s.vocabulary]).map((t) => [t.id, { count: 1, lastAt: iso(NOW - 60 * DAY), recent: [iso(NOW - 60 * DAY)] }])),
+    NOW,
+  );
+  const staleMentions = (staleOnlyCap?.match(/(\d+d ago)/g) ?? []).length;
+  check("guideStateLine: stale list capped at 5 titles", staleMentions === 5, JSON.stringify(staleMentions));
+}
+
 console.log(`\nprogress-review: ${pass} pass, ${fail} fail`);
 process.exit(fail === 0 ? 0 : 1);

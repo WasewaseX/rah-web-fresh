@@ -86,33 +86,17 @@ async function readState(): Promise<ToolResult> {
     }
   } catch {}
 
-  // Task 136: drill-request coverage from the guide's practice ledger. HONEST
+  // Task 136: drill-request line from the guide's practice ledger. HONEST
   // LABELING: these are drill REQUESTS (panel clicks), not completed sessions
   // - the coach must say "requested", never "mastered".
-  // Task 144: the line also carries the 7-day week so plain progress asks
-  // (read_state's mandate) see recent drill activity without progress_review.
+  // Task 144/148: the line carries all-time coverage, the 7-day week and the
+  // stale list, all built by the battery-pinned guideStateLine().
   let guideDrills: string | null = null;
   try {
     const drillRow = await db.setting.findUnique({ where: { key: "guide:practice" } });
     if (drillRow) {
-      const { GUIDE_LEVELS: GL } = await import("@/lib/b1c1-guide");
-      const { weeklyProgress } = await import("@/lib/guide-ledger");
-      const parsed: unknown = JSON.parse(drillRow.value);
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        const map = parsed as Record<string, unknown>;
-        const cov: string[] = [];
-        for (const s of GL) {
-          const g = s.grammar.filter((t) => { const e = map[t.id]; return e && typeof e === "object" && (e as { count?: unknown }).count !== undefined; }).length;
-          const v = s.vocabulary.filter((t) => { const e = map[t.id]; return e && typeof e === "object" && (e as { count?: unknown }).count !== undefined; }).length;
-          if (g + v > 0) cov.push(`${s.level}: ${g}/${s.grammar.length} grammar, ${v}/${s.vocabulary.length} vocabulary`);
-        }
-        const wk = weeklyProgress({ drills: parsed, nowMs: Date.now(), windowDays: 7 });
-        if (cov.length > 0) guideDrills = cov.join("; ");
-        if (wk.drillEvents > 0) {
-          const week = `past 7 days: ${wk.drillEvents} drill request(s) across ${wk.topicsTouched} topic(s) (requests, not completed sessions)`;
-          guideDrills = guideDrills ? `${guideDrills}; ${week}` : week;
-        }
-      }
+      const { guideStateLine } = await import("@/lib/guide-ledger");
+      guideDrills = guideStateLine(JSON.parse(drillRow.value));
     }
   } catch {}
 

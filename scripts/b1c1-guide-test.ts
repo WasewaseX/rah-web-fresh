@@ -190,6 +190,23 @@ async function main() {
   const dryDrillJson = (await dryDrill.json()) as { dry?: boolean; wouldWrite?: { count?: number } };
   check("drill probe reports wouldWrite count 1 (nothing stored)", dryDrillJson.dry === true && dryDrillJson.wouldWrite?.count === 1);
 
+  // ---------- Task 146: cross-level topic search ----------
+  {
+    const { searchGuideTopics } = await import("../src/lib/b1c1-guide");
+    const short = searchGuideTopics("c");
+    const none = searchGuideTopics("");
+    check("search: queries under 2 chars return nothing", short.length === 0 && none.length === 0);
+    const cleft = searchGuideTopics("cleft");
+    check("search: finds cleft sentences with level/kind/page", cleft.length > 0 && cleft[0]?.kind === "grammar" && ["B2", "C1"].includes(cleft[0]?.level ?? "") && cleft[0]?.page > 0 && typeof cleft[0]?.hint === "string", JSON.stringify(cleft[0]));
+    const travel = searchGuideTopics("TRAVEL");
+    check("search: case-insensitive vocabulary hit", travel.length > 0 && travel[0]?.kind === "vocabulary" && travel[0]?.title.toLowerCase().includes("travel"), JSON.stringify(travel[0]));
+    const miss = searchGuideTopics("zzzzqqqq");
+    check("search: honest empty result on no match", miss.length === 0);
+    const capped = searchGuideTopics("the", 2);
+    check("search: cap respected", capped.length <= 2, JSON.stringify(capped.length));
+    check("search: every hit resolves to a real guide topic id", cleft.every((h) => GUIDE_LEVELS.some((s) => [...s.grammar, ...s.vocabulary].some((t) => t.id === h.id))));
+  }
+
   console.log(`\nb1c1-guide: ${pass} pass, ${fail} fail`);
   process.exit(fail === 0 ? 0 : 1);
 }

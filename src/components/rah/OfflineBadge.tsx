@@ -55,10 +55,9 @@ export default function OfflineBadge({ onSynced }: { onSynced?: (sent: number) =
   if (pending === 0 && online) return null;
 
   return (
-    <div
+    <output
       data-testid="offline-badge"
       className="fixed bottom-20 left-1/2 z-[65] flex -translate-x-1/2 items-center gap-2 rounded-full border border-[#2a3242] bg-[#141925]/95 px-3.5 py-1.5 text-xs shadow-[0_10px_28px_-10px_rgba(0,0,0,.65)] md:bottom-5"
-      role="status"
     >
       {online ? (
         <>
@@ -73,6 +72,6 @@ export default function OfflineBadge({ onSynced }: { onSynced?: (sent: number) =
           </span>
         </>
       )}
-    </div>
+    </output>
   );
 }

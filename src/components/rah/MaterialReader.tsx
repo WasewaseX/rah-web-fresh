@@ -30,7 +30,7 @@ interface MaterialDetail extends Omit<MaterialRow, "cards"> {
   cards: { id: string; front: string; answer: string; context: string; note: string }[];
 }
 
-export default function MaterialReader({ onExit }: { onExit: () => void }) {
+export default function MaterialReader({ }: { onExit: () => void }) {
   const [mats, setMats] = useState<MaterialRow[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [detail, setDetail] = useState<MaterialDetail | null>(null);
@@ -128,7 +128,6 @@ export default function MaterialReader({ onExit }: { onExit: () => void }) {
     let cursor = 0;
     clean.forEach((h, i) => {
       if (h.start > cursor) out.push(<span key={`t${i}`}>{p.slice(cursor, h.start)}</span>);
-      const c = cardById.get(h.cardId);
       const st = graded[h.cardId];
       out.push(
         <button

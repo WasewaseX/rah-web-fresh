@@ -50,7 +50,10 @@ export function MaterialsPanel() {
   }, []);
 
   useEffect(() => {
-    void load();
+    // Deferred one tick (BlitzDeck pattern): keeps state updates out of the
+    // synchronous effect body (no cascading render on mount).
+    const t = setTimeout(load, 0);
+    return () => clearTimeout(t);
   }, [load]);
 
   const openDetail = async (id: string) => {

@@ -50,7 +50,10 @@ function MissionCard({ go }: { go: (v: string) => void }) {
   }, []);
 
   useEffect(() => {
-    void load();
+    // Deferred one tick (BlitzDeck pattern): keeps state updates out of the
+    // synchronous effect body (no cascading render on mount).
+    const t = setTimeout(load, 0);
+    return () => clearTimeout(t);
   }, [load]);
 
   const claim = useCallback(async () => {
@@ -186,7 +189,9 @@ function MissionCard({ go }: { go: (v: string) => void }) {
 
 export default function TodayView({ boot, go }: { boot: Boot; go: (v: string) => void }) {
   const pct = boot.protocol.totalPlanned ? Math.round((boot.protocol.donePlanned / boot.protocol.totalPlanned) * 100) : 0;
-  const tip = TIPS[new Date().getDate() % TIPS.length];
+  // The tip is chosen once per mount (lazy initializer - the blessed way to
+  // seed state from the clock without an impure render body).
+  const [tip] = useState(() => TIPS[new Date().getDate() % TIPS.length]);
   const dx = boot.learner.diagnosis ?? {};
   const weakest = Object.entries(dx).sort((a, b) => a[1] - b[1])[0];
   const weakestLabel: Record<string, string> = {

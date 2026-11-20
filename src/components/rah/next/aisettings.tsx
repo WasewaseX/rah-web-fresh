@@ -257,6 +257,7 @@ export default function SettingsView({ boot, onDone }: { boot: Boot; onDone: () 
         <input
           value={model}
           onChange={(e) => setModel(e.target.value)}
+          aria-label="Model"
           className="w-full rounded-xl border px-4 py-2.5 text-[14px] mb-3"
           style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
           placeholder="model id"

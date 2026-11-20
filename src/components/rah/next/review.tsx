@@ -128,7 +128,9 @@ export default function ReviewView({ onDone, go }: { boot: Boot; onDone: () => v
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<null | { n: number; hit: number; secs: number }>(null);
+  // reveals snapshots gradeStats.n at completion: the accuracy line reads the
+  // session summary from state, never from a ref (refs are not render data).
+  const [done, setDone] = useState<null | { n: number; reveals: number; hit: number; secs: number }>(null);
   // Wall-clock anchors are stamped post-render (react purity: no Date.now()
   // during render); the mount effect runs before any user interaction can
   // read them, and the [idx] effect restamps cardShownAt per card.
@@ -150,6 +152,11 @@ export default function ReviewView({ onDone, go }: { boot: Boot; onDone: () => v
         setItems(j.batch as QueueItem[]);
         setCounts(j.counts ?? null);
         setIdx(0);
+        setInput("");
+        setChoice(null);
+        setPicked([]);
+        setPhase("prompt");
+        setCorrect(false);
       } else {
         setLoadErr(typeof j.error === "string" ? j.error : "The queue came back malformed.");
       }
@@ -161,7 +168,11 @@ export default function ReviewView({ onDone, go }: { boot: Boot; onDone: () => v
   }, []);
 
   useEffect(() => {
-    void load();
+    // Deferred one tick (BlitzDeck pattern): load stamps loading state, and
+    // the compiler flags synchronous setState inside an effect body as a
+    // cascading-render risk.
+    const t = setTimeout(load, 0);
+    return () => clearTimeout(t);
   }, [load]);
 
   const cur = items[idx];
@@ -173,7 +184,9 @@ export default function ReviewView({ onDone, go }: { boot: Boot; onDone: () => v
   const audioMcq = dir === "audio" && (c?.kind === "ef" || c?.kind === "fae");
   const needsTyping = ["cloze", "reverse", "fa2en", "fae", "audio"].includes(dir) && !audioMcq;
   const isBank = dir === "bank";
-  const tiles = isBank && cur?.tiles ? cur.tiles : [];
+  // Memoized so the answer-check callback's dependency is identity-stable
+  // (a fresh [] literal per render would make it churn every keystroke).
+  const tiles = useMemo(() => (isBank && cur?.tiles ? cur.tiles : []), [isBank, cur]);
   const choices = useMemo(
     () => (cur && (dir === "mcq_fa" || audioMcq) ? mcqChoices(cur.card) : []),
     [cur, dir, audioMcq],
@@ -186,17 +199,15 @@ export default function ReviewView({ onDone, go }: { boot: Boot; onDone: () => v
     [cur],
   );
 
+  // Card arrival: stamp the clock, focus the answer field, auto-play audio
+  // dictation once per card. State resets live in the handlers that advance
+  // the deck (grade / load) - the compiler flags synchronous setState inside
+  // an effect body as a cascading-render risk.
   useEffect(() => {
     cardShownAt.current = Date.now();
-    setInput("");
-    setChoice(null);
-    setPicked([]);
-    setPhase("prompt");
-    setCorrect(false);
     setTimeout(() => inputRef.current?.focus(), 60);
-    // audio dictation auto-plays once per card arrival
     if (dir === "audio" && cur?.card) speak(cur.card.en);
-  }, [idx]);
+  }, [dir, cur]);
 
   const reveal = useCallback((right: boolean) => {
     setPhase("checked");
@@ -268,12 +279,19 @@ export default function ReviewView({ onDone, go }: { boot: Boot; onDone: () => v
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ kind: "review", minutes: mins }),
         }).then(onDone).catch(() => onDone());
-        setDone({ n: items.length, hit: gradeStats.current.hit, secs });
+        setDone({ n: items.length, reveals: gradeStats.current.n, hit: gradeStats.current.hit, secs });
       } else {
+        // Deck advance: reset the answer surface here, in the event that
+        // changes idx - not in an effect watching idx (cascading renders).
+        setInput("");
+        setChoice(null);
+        setPicked([]);
+        setPhase("prompt");
+        setCorrect(false);
         setIdx((i) => i + 1);
       }
     },
-    [cur, idx, items, busy, dir],
+    [cur, idx, items, busy, dir, onDone],
   );
 
   // keyboard: Enter checks, 1-4 grades when the answer is out
@@ -311,7 +329,7 @@ export default function ReviewView({ onDone, go }: { boot: Boot; onDone: () => v
   }
 
   if (done) {
-    const acc = done.n ? Math.round((gradeStats.current.hit / Math.max(1, gradeStats.current.n)) * 100) : 0;
+    const acc = done.reveals ? Math.round((done.hit / done.reveals) * 100) : 0;
     return (
       <div className="max-w-xl mx-auto text-center pt-10">
         <div className="display text-[34px] font-bold mb-2">Session done</div>

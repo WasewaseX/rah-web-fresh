@@ -8,7 +8,7 @@ import { speak } from "./speech";
 
 // Measure, do not study. Run this every two to four weeks: listening
 // comprehension percent, reading score, a writing sample, speaking counts.
-export default function CheckpointView({ boot, onDone }: { boot: Boot; onDone: () => void }) {
+export default function CheckpointView({ onDone }: { boot: Boot; onDone: () => void }) {
   const [stage, setStage] = useState<"intro" | "run" | "done">("intro");
   const [station, setStation] = useState(0); // 0 listening, 1 reading, 2 speaking, 3 writing
   const [lAnswers, setLAnswers] = useState<Record<number, number>>({});

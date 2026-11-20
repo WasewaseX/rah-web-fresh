@@ -19,7 +19,9 @@ const LAST_EMAIL_KEY = "rah_last_email";
 function rememberEmail(email: string): void {
   try {
     if (email) localStorage.setItem(LAST_EMAIL_KEY, email);
-  } catch {}
+  } catch {
+    // storage unavailable (private mode / quota) - the email simply is not remembered
+  }
 }
 
 function recalledEmail(): string {
@@ -49,10 +51,11 @@ export default function Login({ onSignedIn }: { onSignedIn: (user: { email: stri
   const [accessOk, setAccessOk] = useState(false);
   const [accessEmail, setAccessEmail] = useState("");
   const [accessCode, setAccessCode] = useState("");
-  const [framed, setFramed] = useState(false);
+  // Derived in render, not state: an embedded context cannot change while
+  // the component is mounted, so there is nothing to re-render on.
+  const framed = isEmbedded();
 
   useEffect(() => {
-    setFramed(isEmbedded());
     // Keep-me-signed-in UX: recall the email used last time so the owner only
     // types the access code (no email retyping on every sign-in).
     const last = recalledEmail();
@@ -192,10 +195,11 @@ export default function Login({ onSignedIn }: { onSignedIn: (user: { email: stri
         <div className="rounded-3xl border border-white/[0.07] bg-[#0f1522] p-5 shadow-[0_24px_64px_-32px_rgba(0,0,0,.9)]">
           {stage === "email" ? (
             <>
-              <label className="text-[11px] font-black uppercase tracking-[0.12em] text-[#7d889c]">Email</label>
+              <label htmlFor="login-email" className="text-[11px] font-black uppercase tracking-[0.12em] text-[#7d889c]">Email</label>
               <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-white/[0.08] bg-[#141c2e] px-3 focus-within:border-[var(--rah-primary)]/50">
                 <Mail className="h-4 w-4 shrink-0 text-[#5d6879]" />
                 <input
+                  id="login-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -306,10 +310,11 @@ export default function Login({ onSignedIn }: { onSignedIn: (user: { email: stri
               <button onClick={() => setStage("email")} className="mb-3 flex items-center gap-1 text-[11px] font-bold text-[#7d889c] hover:text-[#dbe3f0]">
                 <ArrowLeft className="h-3 w-3" /> back to email sign-in
               </button>
-              <label className="text-[11px] font-black uppercase tracking-[0.12em] text-[#7d889c]">Owner email</label>
+              <label htmlFor="access-email" className="text-[11px] font-black uppercase tracking-[0.12em] text-[#7d889c]">Owner email</label>
               <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-white/[0.08] bg-[#141c2e] px-3 focus-within:border-[var(--rah-primary)]/50">
                 <Mail className="h-4 w-4 shrink-0 text-[#5d6879]" />
                 <input
+                  id="access-email"
                   type="email"
                   value={accessEmail}
                   onChange={(e) => setAccessEmail(e.target.value)}
@@ -318,10 +323,11 @@ export default function Login({ onSignedIn }: { onSignedIn: (user: { email: stri
                   className="min-h-12 w-full bg-transparent text-sm text-[#f2f5fa] outline-none placeholder:text-[#5d6879]"
                 />
               </div>
-              <label className="mt-4 block text-[11px] font-black uppercase tracking-[0.12em] text-[#7d889c]">Access code</label>
+              <label htmlFor="access-code" className="mt-4 block text-[11px] font-black uppercase tracking-[0.12em] text-[#7d889c]">Access code</label>
               <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-white/[0.08] bg-[#141c2e] px-3 focus-within:border-[var(--rah-primary)]/50">
                 <ShieldCheck className="h-4 w-4 shrink-0 text-[#5d6879]" />
                 <input
+                  id="access-code"
                   type="text"
                   value={accessCode}
                   onChange={(e) => setAccessCode(e.target.value)}

@@ -23,7 +23,6 @@ const STATE_COLOR: Record<Trend["state"], string> = {
 
 function FamilyRow({
   fam,
-  healed,
   onEdited,
   onForgotten,
 }: {

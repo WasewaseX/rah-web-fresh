@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { SectionTitle, Note } from "@/components/rah/bits";
 import { MINIMAL_PAIRS, PAIR_FOCUS, STRESS_ITEMS, LINK_ITEMS } from "@/lib/content";
 import { speak } from "@/components/rah/speech";
@@ -16,19 +16,22 @@ export default function SoundView({ onDone }: { onDone: () => void }) {
   const [round, setRound] = useState(0);
   const [score, setScore] = useState(0);
   const [lastResult, setLastResult] = useState<null | { ok: boolean; word: string }>(null);
-  const [queue, setQueue] = useState<string[]>([]);
+  // Lazy init seeds the pairs queue once - the blessed way to compute initial
+  // state from the clock (the compiler forbids setState in mount effects).
+  // mode/round/score/lastResult initializers already match start("pairs").
+  const [queue, setQueue] = useState<string[]>(() =>
+    seededShuffle(MINIMAL_PAIRS.map((p) => p.id), Date.now() >>> 0).slice(0, 10),
+  );
   const [playing, setPlaying] = useState(false);
 
   const pairQueue = queue.filter((id) => id.startsWith("p"));
   const stressQueue = queue.filter((id) => id.startsWith("s"));
   const linkQueue = queue.filter((id) => id.startsWith("k"));
 
-  useEffect(() => {
-    start("pairs");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const start = (m: Mode) => {
+  // Stable across renders: only setters and module constants inside, so the
+  // buttons that re-seed the queue share one identity. Declared before its
+  // callers (the hooks compiler rejects use-before-declare).
+  const start = useCallback((m: Mode) => {
     setMode(m);
     setRound(0);
     setScore(0);
@@ -36,7 +39,7 @@ export default function SoundView({ onDone }: { onDone: () => void }) {
     if (m === "pairs") setQueue(seededShuffle(MINIMAL_PAIRS.map((p) => p.id), Date.now() >>> 0).slice(0, 10));
     if (m === "stress") setQueue(seededShuffle(STRESS_ITEMS.map((p) => p.id), Date.now() >>> 0).slice(0, 8));
     if (m === "reduce") setQueue(LINK_ITEMS.map((p) => p.id));
-  };
+  }, []);
 
   const say = async (text: string) => {
     setPlaying(true);

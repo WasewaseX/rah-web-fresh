@@ -15,8 +15,6 @@
 //   - error strings are written for the MODEL to read (they go back as
 //     "contract violation: ..."), so they name the exact expected shape.
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 type V = (out: unknown) => string | null;
 
 const isStr = (v: unknown): v is string => typeof v === "string";

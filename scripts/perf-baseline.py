@@ -38,8 +38,10 @@ def measure_apis() -> dict:
     for p in ("/", "/api/version", "/api/state", "/api/review/queue", "/api/progress"):
         try:
             timed(p)
-        except Exception:
-            pass
+        except Exception as e:
+            # warm-up is best-effort, but a failing endpoint must not vanish:
+            # the measured round then looks like cold-start noise
+            print(f"  warm-up skip {p}: {e}", file=sys.stderr)
     out = {}
     for p in ("/", "/api/version", "/api/state", "/api/review/queue", "/api/progress"):
         xs = []

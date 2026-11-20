@@ -84,8 +84,9 @@ for t in ["CardState", "DailyStat", "Goal", "MistakeFamily", "Quest", "Rival", "
     try:
         rows = con.execute(f"SELECT userId, COUNT(*) FROM {t} GROUP BY userId").fetchall()
         print(f"  {t}: {rows}")
-    except sqlite3.OperationalError:
-        pass
+    except sqlite3.OperationalError as e:
+        # absent legacy tables are expected; the gap must stay visible
+        print(f"  {t}: count skipped (no such table): {e}", file=sys.stderr)
 l = con.execute("SELECT level, streak, xp, gems FROM Learner").fetchall()
 print("  Learner:", l)
 con.close()

@@ -30,8 +30,10 @@ for t in RESTORE:
     live_cols = [r[1] for r in live.execute(f'PRAGMA table_info("{t}")')]
     try:
         snap_cols = [r[1] for r in live.execute(f'PRAGMA snap.table_info("{t}")')]
-    except Exception:
-        print(f"  {t}: absent in snapshot - skipped"); continue
+    except Exception as e:
+        # absent-in-snapshot is a real (expected) case; surface it, and the
+        # final verification below still fails the drill if evidence is missing
+        print(f"  {t}: absent in snapshot - skipped ({e})", file=sys.stderr); continue
     common = [c for c in snap_cols if c in live_cols]
     n = live.execute(f'SELECT COUNT(*) FROM snap."{t}"').fetchone()[0]
     plan.append((t, common, n))
@@ -53,14 +55,21 @@ except Exception:
     raise
 
 print("AFTER:")
+verify_errors = 0
 for t in ("Learner", "User", "ReviewLog", "CardState", "ChatMsg", "WritingSub", "SpeakSession", "Session"):
     try:
         n = live.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()[0]
         print(f"  {t}: {n}")
     except Exception as e:
-        print(f"  {t}: err {e}")
+        # an unverifiable table means the restore is NOT proven - fail the
+        # drill instead of reporting success over missing evidence
+        print(f"  {t}: VERIFY ERROR {e}", file=sys.stderr)
+        verify_errors += 1
 print("  Learner:", live.execute('SELECT xp, streak FROM "Learner"').fetchall())
 print("  Achievements:", live.execute('SELECT key FROM "Achievement"').fetchall())
 live.execute("DETACH DATABASE snap")
 live.close(); snap.close()
+if verify_errors:
+    print(f"RESTORE FAILED - {verify_errors} table(s) could not be verified", file=sys.stderr)
+    sys.exit(1)
 print("RESTORE OK")

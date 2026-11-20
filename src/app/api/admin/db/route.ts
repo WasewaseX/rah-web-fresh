@@ -29,7 +29,13 @@ export async function GET(req: Request) {
   const tmp = `${dbPath}.snapshot-${process.pid}-${Date.now()}.tmp`;
   try {
     try {
-      await db.$executeRawUnsafe(`VACUUM INTO '${tmp.replace(/'/g, "''")}'`);
+      // VACUUM INTO takes a literal filename - SQLite has no bind parameters
+      // here. tmp is server-built from dbFilePath() (env-derived), pid and a
+      // timestamp; the guard refuses anything outside the safe charset, so
+      // the doubled-quote escaping below is a redundant safety net, not the
+      // defense itself.
+      if (!/^[\w.\-/]+$/.test(tmp)) throw new Error("admin db snapshot: refusing unsafe snapshot path");
+      await db.$executeRawUnsafe(`VACUUM INTO '${tmp.replace(/'/g, "''")}'`); // security-gate:allow sql-template-filename - path validated above, VACUUM INTO cannot bind parameters
     } catch {
       try {
         await db.$executeRawUnsafe("PRAGMA wal_checkpoint(TRUNCATE)");

@@ -22,8 +22,12 @@ const DB = `file:/home/z/my-project/db/battery-teach.db`;
 const DIST = ".next-teach";
 const EMAIL = "teach@rah.test";
 
+// detached:true puts the dev server in its own process group, so the
+// finally block can kill the whole bunx->next tree directly (no pkill -f
+// pattern matching against process titles).
 const stack = spawn("bunx", ["next", "dev", "-p", String(PORT)], {
   cwd: "/home/z/my-project",
+  detached: true,
   env: {
     ...process.env,
     DATABASE_URL: DB,
@@ -56,9 +60,10 @@ async function main() {
   await waitForServer();
   console.log("== isolated teach stack up ==");
 
-  // fresh throwaway db schema
+  // fresh throwaway db schema - DATABASE_URL goes through the env object,
+  // never through an interpolated shell command string
   const { execSync } = await import("node:child_process");
-  execSync(`DATABASE_URL="${DB}" bunx prisma db push --skip-generate`, { cwd: "/home/z/my-project", stdio: "pipe" });
+  execSync("bunx prisma db push --skip-generate", { cwd: "/home/z/my-project", stdio: "pipe", env: { ...process.env, DATABASE_URL: DB } });
 
   const browser = await chromium.launch();
   const ctx = await browser.newContext();
@@ -129,7 +134,7 @@ async function main() {
 main()
   .catch((e) => { fail++; console.log("  FAIL: harness error ->", e.message); })
   .finally(async () => {
-    try { spawn("pkill", ["-f", `next dev -p ${PORT}`]); } catch {}
+    try { process.kill(-stack.pid, "SIGTERM"); } catch {}
     console.log(`\n=== TEACH CHAIN E2E: ${pass} passed, ${fail} failed ===`);
     process.exit(fail ? 1 : 0);
   });

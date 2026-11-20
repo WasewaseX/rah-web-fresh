@@ -179,7 +179,13 @@ function loadSample(): Row[] {
   if (!existsSync(SAMPLE)) {
     if (!existsSync(GZ)) throw new Error("dataset missing");
     console.log("  building sample.csv (first 300k lines) ...");
-    const z = spawnSync("bash", ["-c", `zcat '${GZ}' | head -n ${SAMPLE_LINES} > '${SAMPLE}'`], { timeout: 300000 });
+    // The pipeline needs a shell (zcat | head > file). All three values are
+    // module constants, never user input; the charset guard makes that
+    // provable, so the quoting cannot be abused even in principle.
+    for (const v of [GZ, SAMPLE]) {
+      if (!/^[\w.\-/]+$/.test(v)) throw new Error("refusing unsafe dataset path for shell pipeline");
+    }
+    const z = spawnSync("bash", ["-c", `zcat '${GZ}' | head -n ${SAMPLE_LINES} > '${SAMPLE}'`], { timeout: 300000 }); // security-gate:allow shell-constant-pipeline - paths validated above, module constants only, no user input
     if (z.status !== 0) throw new Error("zcat failed");
   }
   const text = readFileSync(SAMPLE, "utf8");
@@ -256,11 +262,11 @@ function partB(rows: Row[]): { hlrFull: SpacedRepetitionModel; hlrCore: SpacedRe
       ),
   );
 
-  const eHlr = hlrFull.eval(insts);
-  const eHlrCore = hlrCore.eval(instsCore);
-  const eLr = lr.eval(insts);
-  const eLeit = leitner.eval(leitnerInsts);
-  const ePim = pimsleur.eval(pimsleurInsts);
+  const eHlr = hlrFull.evaluate(insts);
+  const eHlrCore = hlrCore.evaluate(instsCore);
+  const eLr = lr.evaluate(insts);
+  const eLeit = leitner.evaluate(leitnerInsts);
+  const ePim = pimsleur.evaluate(pimsleurInsts);
 
   // cor(h): half-life correlation - the paper's headline metric. Observed h
   // is the row's implied half-life; every model predicts one directly.

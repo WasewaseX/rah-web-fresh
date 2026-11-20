@@ -189,8 +189,10 @@ def main():
         for t in PLAIN_REID_TABLES + ["DailyStat", "GameStat", "Quest", "Achievement"]:
             try:
                 leftover += con.execute("SELECT COUNT(*) FROM %s WHERE userId=?" % t, (LEGACY,)).fetchone()[0]
-            except sqlite3.OperationalError:
-                pass
+            except sqlite3.OperationalError as e:
+                # a table absent from a legacy schema is expected; the count
+                # must still be visible so "0 leftover" is auditable
+                print(f"  merge: count {t} skipped (no such table): {e}", file=sys.stderr)
         if leftover:
             raise RuntimeError(f"merge left {leftover} legacy rows - rolling back")
         trip = con.execute("SELECT createdAt FROM Learner WHERE id='me'").fetchone()[0]

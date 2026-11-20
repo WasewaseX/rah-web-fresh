@@ -154,3 +154,4 @@ prisma/schema.prisma.bak.*
 # repo hygiene: junk sweeps and scratch (never commit)
 tmp-sweep/
 db/scratch/
+__pycache__/

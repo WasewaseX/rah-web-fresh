@@ -3,6 +3,7 @@
 brand the Tauri build uses. 192 + 512 + maskable 512 + apple 180."""
 from PIL import Image, ImageDraw, ImageFont
 import os
+import sys
 
 OUT = "/home/z/my-project/public/icons"
 os.makedirs(OUT, exist_ok=True)
@@ -28,8 +29,9 @@ def make(size: int, maskable: bool = False) -> Image.Image:
         try:
             d.rounded_rectangle([m, m, size - 1 - m, size - 1 - m], radius=int(size * 0.18),
                                 outline=PANEL, width=max(1, size // 110))
-        except Exception:
-            pass
+        except Exception as e:
+            # a silently broken icon would ship undetected; surface it
+            print(f"warn: icon panel draw failed at size {size}: {e}", file=sys.stderr)
     # road glyph: two legs meeting at the top + cross rungs (safe zone aware)
     lw = max(3, size // 13)
     y1, y2 = size * 0.80, size * 0.26

@@ -322,8 +322,9 @@ def cmd_selftest(_args):
         for extra in ("rnd", "zeros"):
             try:
                 _os.unlink(locals()[extra])
-            except OSError:
-                pass
+            except OSError as e:
+                # leftover selftest scratch files would confuse the next run
+                print(f"warn: selftest cleanup {locals()[extra]}: {e}", file=sys.stderr)
     if all(ok):
         print(f"SELFTEST PASS ({len(ok)}/{len(ok)})")
     else:

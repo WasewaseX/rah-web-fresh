@@ -58,7 +58,15 @@ async function main() {
   const allTables = await db.$queryRawUnsafe<{ table_name: string }[]>(
     `SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'`
   );
-  await db.$executeRawUnsafe(`TRUNCATE TABLE ${allTables.map((t) => `"${t.table_name}"`).join(", ")} RESTART IDENTITY CASCADE`);
+  // Table IDENTIFIERS cannot be parameter-bound in SQL. The names come from
+  // information_schema (never user input); each must match a strict shape
+  // before it may be interpolated into the TRUNCATE list.
+  const SAFE_IDENT = /^[a-z_][a-z0-9_]*$/;
+  const tableNames = allTables.map((t) => t.table_name);
+  if (!tableNames.every((n) => SAFE_IDENT.test(n))) {
+    throw new Error(`pg-validate: unexpected table name shape, refusing TRUNCATE: ${tableNames.filter((n) => !SAFE_IDENT.test(n)).slice(0, 3).join(", ")}`);
+  }
+  await db.$executeRawUnsafe(`TRUNCATE TABLE ${tableNames.map((n) => `"${n}"`).join(", ")} RESTART IDENTITY CASCADE`); // security-gate:allow sql-template-identifier - names validated above, identifiers are not bindable
   const learner0 = await db.learner.count();
   ok("clean start", learner0 === 0);
 

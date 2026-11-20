@@ -33,8 +33,9 @@ def env_db_url():
         for line in open(os.path.join(ROOT, ".env")):
             if line.startswith("DATABASE_URL="):
                 return line.split("=", 1)[1].strip()
-    except OSError:
-        pass
+    except OSError as e:
+        # an unreadable .env must not masquerade as "no url configured"
+        print(f"warn: .env unreadable: {e}", file=sys.stderr)
     return ""
 
 

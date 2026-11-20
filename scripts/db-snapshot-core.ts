@@ -35,7 +35,13 @@ try {
   const prunedSessions = await db.session.deleteMany({
     where: { expiresAt: { lt: now } },
   });
-  await db.$executeRawUnsafe(`VACUUM INTO '${target.replace(/'/g, "''")}'`);
+  // VACUUM INTO takes a literal filename - SQLite has no bind parameters
+  // here. The target is server-generated (this script's own argument path),
+  // and the guard below refuses anything outside the safe charset, so the
+  // doubled-quote escaping is a provably redundant safety net, not the
+  // defense itself.
+  if (!/^[\w.\-/]+$/.test(target)) throw new Error(`snapshot core: refusing unsafe snapshot path: ${target.slice(0, 40)}`);
+  await db.$executeRawUnsafe(`VACUUM INTO '${target.replace(/'/g, "''")}'`); // security-gate:allow sql-template-filename - path validated above, VACUUM INTO cannot bind parameters
   const k = await db.$queryRawUnsafe<{ page_count: number }[]>(
     `SELECT (page_count * page_size) AS page_count FROM pragma_page_count(), pragma_page_size()`,
   ).catch(() => [{ page_count: 0 }]);

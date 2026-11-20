@@ -163,6 +163,20 @@ for ATTEMPT in 1 2; do
 done
 [ "$ROAD4_OK" -eq 1 ] || { echo "GATE FAIL: the production bundle crashes or renders empty in a real browser"; exit 1; }
 
+# 4.5/6 security gate (holder order: "Hold every pull request to this").
+# Fail-closed and BEFORE commit: sql-template-in-raw-query, innerHTML,
+# shell-injection, eval/new Function, swallowed exceptions. Vendored code
+# (.github/skills, skills/, node_modules, build output) is out of scope;
+# the only allowed exceptions carry an inline documented
+# `security-gate:allow <rule> - <reason>` marker.
+step "4.5/6 security gate (PR security bar)"
+if ! bun scripts/security-gate.ts --selftest; then
+  echo "GATE FAIL: security-gate selftest broken - the scanner itself is unreliable"; exit 1
+fi
+if ! bun scripts/security-gate.ts; then
+  echo "GATE FAIL: security findings in project scope - fix them or add a documented security-gate:allow with validation"; exit 1
+fi
+
 step "5/6 commit + push (only when dirty)"
 if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null || [ -n "$(git status --porcelain 2>/dev/null)" ]; then
   git add -A

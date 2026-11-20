@@ -231,7 +231,7 @@ export class SpacedRepetitionModel {
     return { slp, slh, p, h };
   }
 
-  eval(testset: Instance[]): EvalScore {
+  evaluate(testset: Instance[]): EvalScore {
     const gtP: number[] = [];
     const pp: number[] = [];
     const gtH: number[] = [];

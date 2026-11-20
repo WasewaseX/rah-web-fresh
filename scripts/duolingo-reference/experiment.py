@@ -125,7 +125,7 @@ class SpacedRepetitionModel(object):
         slh = (inst.h - h)**2
         return slp, slh, p, h
 
-    def eval(self, testset, prefix=''):
+    def evaluate(self, testset, prefix=''):
         results = {'p': [], 'h': [], 'pp': [], 'hh': [], 'slp': [], 'slh': []}
         for inst in testset:
             slp, slh, p, h = self.losses(inst)
@@ -288,7 +288,7 @@ if __name__ == "__main__":
     # train model & print preliminary evaluation info
     model = SpacedRepetitionModel(method=args.method, omit_h_term=args.t)
     model.train(trainset)
-    model.eval(testset, 'test')
+    model.evaluate(testset, 'test')
 
     # write out model weights and predictions
     filebits = [args.method] + \

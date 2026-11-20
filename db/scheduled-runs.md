@@ -51,6 +51,18 @@
   CSS `uppercase` transforms innerText, so match header text case-insensitively.
   Survival chain fresh (dumps 22:10 UTC).
 
+## Special runs (NOT counted toward the 4 scheduled runs)
+- security run (2026-11-15, holder directive): the holder's security findings list is
+  now the permanent PR bar. Every flagged site fixed (raw-SQL validators + documented
+  allows, pkill -f -> process-group kill, eval -> evaluate renames in py+ts with
+  duolingo parity gate PASS, 7 swallowed-exception sites surfaced, restore-from-vault
+  fail-closed, e2e env-object); NEW fail-closed road 4.5/6 in deploy-gate runs
+  scripts/security-gate.ts (selftest 9/9, repo scan 19 -> 0; vendored .github/skills
+  excluded from scope). Commit c79dab779d5c, pushed, gate GREEN, preview serving it.
+  Sandbox-reset note: this turn started from a rewound history (faf312a lineage);
+  reconciled via soft reset onto origin/main - content delta was exactly the 18
+  security files, no feature work lost.
+
 ## Pending queue (update as tasks ship)
 - Task 149: read_state carries checklist readiness (feed the guide-checklist ratings
   Setting into guideStateLine so the coach sees readiness verdicts too)

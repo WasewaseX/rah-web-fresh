@@ -89,6 +89,19 @@
   selftest 14/14, scan CLEAN, tsc clean, eslint clean on changed files, batteries
   53/53 + 81/81 + 29/29 + 59/59, gate GREEN, pushed e72f668ba109.
 
+- cycle 3/5 (2026-11-20): scanner round 4 zeroed (20 findings, all eslint-class).
+  live-browser trio removed from impeccable skill (zero refs incl. binary +
+  command-metadata); 5 unused bindings deleted; parseExaminer dead quick param
+  dropped (single caller updated); new Array -> Array.from; regex dash unescaped;
+  empty catch documented; autoFocus removed x2 (a11y); review.tsx dead
+  revealed/wasRight states deleted + Date.now() render calls moved to mount
+  effect (react purity); App refresh gains stable celebrateDeltas dep; BlitzDeck
+  restructured to truthful useCallback memoization after the react compiler
+  rejected both latest-ref patterns (immutability + refs rules) - grade deps
+  [q,dir,stopDrain] stable while typing, drain bar behavior preserved. tsc clean,
+  eslint zero on 9 changed files, batteries 53/53 + 81/81 + 29/29 + 59/59,
+  gate 14/14, scan CLEAN, gate GREEN, pushed 5384032a5a83.
+
 ## Pending queue (update as tasks ship)
 - Task 149: read_state carries checklist readiness (feed the guide-checklist ratings
   Setting into guideStateLine so the coach sees readiness verdicts too)

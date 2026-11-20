@@ -63,6 +63,19 @@
   reconciled via soft reset onto origin/main - content delta was exactly the 18
   security files, no feature work lost.
 
+## Cycle series 2 (holder: 5 more security cycles)
+- cycle 1/5 (2026-11-20): external-scanner round 2 resolved. chart.tsx ChartStyle rebuilt
+  (CSS key/value/id whitelist sanitization, string child of <style>, no dangerous
+  HTML-prop API) - NOTE: file is dead scaffold, unreferenced by any page, absent from
+  every prod chunk; all 3 raw-SQL template literals -> validated concatenation (admin/db
+  route, pg-validate, db-snapshot-core); 10 py except sites record-then-summarize
+  (freshness-check fails closed on unreadable .env; gen_pwa_icons exits 1 on lost panel);
+  vendored live-browser.js REMOVED from .github/skills/impeccable (ui-dom-sweep uses the
+  binary only; live-mode page script unreferenced, recoverable from git history).
+  security-gate hardened: dangerouslySetInnerHTML rule, print-only tightened (stderr
+  alone insufficient), pass#comment caught; selftest 12/12, scan CLEAN, batteries
+  53/53 + 81/81 + 29/29 + 59/59, gate GREEN, pushed a5d182b9a5cf.
+
 ## Pending queue (update as tasks ship)
 - Task 149: read_state carries checklist readiness (feed the guide-checklist ratings
   Setting into guideStateLine so the coach sees readiness verdicts too)

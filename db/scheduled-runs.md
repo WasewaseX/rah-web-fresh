@@ -102,6 +102,21 @@
   eslint zero on 9 changed files, batteries 53/53 + 81/81 + 29/29 + 59/59,
   gate 14/14, scan CLEAN, gate GREEN, pushed 5384032a5a83.
 
+- cycle 4/5 (2026-11-20): scanner round 5 zeroed (22 findings, all lint-class,
+  zero SQL). set-state-in-effect resolved per compiler doctrine: review.tsx card
+  resets moved into grade/load handlers, mount loads deferred one tick (review/
+  today/MaterialsPanel), accuracy read from done-state reveals snapshot instead
+  of a ref during render, tiles memoized, audio deps [dir, cur], onDone dep
+  added; Login framed derived in render + 3 labels associated + catch documented;
+  today tip via lazy useState initializer; OfflineBadge role=status -> semantic
+  output; aisettings model input aria-label; 4 unused params dropped (type fields
+  kept) + dead lookup deleted. Pre-empted round 6: sound.tsx stale directive
+  removed (it hid a use-before-declare error; start now stable useCallback before
+  callers; mount seeding -> lazy queue initializer), ai-validators stale directive
+  removed. NEW gate stage 4.6/6 eslint --max-warnings 0 mirrors the external
+  scanner. Whole-src eslint ZERO, tsc clean, batteries 53/53 + 81/81 + 29/29 +
+  59/59, gate 14/14, scan CLEAN, gate GREEN, pushed 9f90339ae4f3.
+
 ## Pending queue (update as tasks ship)
 - Task 149: read_state carries checklist readiness (feed the guide-checklist ratings
   Setting into guideStateLine so the coach sees readiness verdicts too)

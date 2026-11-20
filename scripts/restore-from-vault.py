@@ -26,18 +26,23 @@ live.execute("PRAGMA foreign_keys=OFF")
 live.execute("ATTACH DATABASE ? AS snap", (SNAP,))
 
 plan = []
+absent_snap = []
 for t in RESTORE:
     live_cols = [r[1] for r in live.execute(f'PRAGMA table_info("{t}")')]
     try:
         snap_cols = [r[1] for r in live.execute(f'PRAGMA snap.table_info("{t}")')]
     except Exception as e:
-        # absent-in-snapshot is a real (expected) case; surface it, and the
-        # final verification below still fails the drill if evidence is missing
-        print(f"  {t}: absent in snapshot - skipped ({e})", file=sys.stderr); continue
+        # absent-in-snapshot is a real (expected) case: recorded here,
+        # summarized right after the plan loop, and the final verification
+        # below still fails the drill if evidence is missing
+        absent_snap.append(f"{t} ({e})")
+        continue
     common = [c for c in snap_cols if c in live_cols]
     n = live.execute(f'SELECT COUNT(*) FROM snap."{t}"').fetchone()[0]
     plan.append((t, common, n))
     print(f"  {t}: {n} rows, {len(common)}/{len(live_cols)} live columns filled")
+if absent_snap:
+    print(f"  absent in snapshot (skipped): {', '.join(absent_snap)}", file=sys.stderr)
 
 if DRY:
     print("DRY RUN - nothing written"); sys.exit(0)

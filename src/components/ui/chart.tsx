@@ -78,28 +78,38 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
     return null
   }
 
-  return (
-    <style
-      dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES)
-          .map(
-            ([theme, prefix]) => `
-${prefix} [data-chart=${id}] {
-${colorConfig
-  .map(([key, itemConfig]) => {
-    const color =
-      itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||
-      itemConfig.color
-    return color ? `  --color-${key}: ${color};` : null
-  })
-  .join("\n")}
-}
-`
-          )
-          .join("\n"),
-      }}
-    />
-  )
+  // Sanitized CSS custom-property injection. Keys, the chart id and every
+  // color value are restricted to characters that are safe inside a CSS
+  // declaration block (no braces, semicolons, quotes or control chars), so a
+  // malformed config can at worst produce an invalid declaration, never
+  // inject a rule. Rendered as a string child of <style> - the dangerous
+  // HTML-prop API is not involved.
+  const SAFE_CSS_VALUE = /^[#%(),.\-\s\w]+$/
+  const SAFE_CSS_KEY = /^[\w-]+$/
+  const css = Object.entries(THEMES)
+    .map(([theme, prefix]) => {
+      const declarations = colorConfig
+        .map(([key, itemConfig]) => {
+          if (!SAFE_CSS_KEY.test(key)) return null
+          const color =
+            itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||
+            itemConfig.color
+          return color && SAFE_CSS_VALUE.test(color)
+            ? `  --color-${key}: ${color};`
+            : null
+        })
+        .filter((d): d is string => d !== null)
+      if (!declarations.length) return null
+      return `${prefix} [data-chart=${id}] {\n${declarations.join("\n")}\n}`
+    })
+    .filter((block): block is string => block !== null)
+    .join("\n")
+
+  if (!css) {
+    return null
+  }
+
+  return <style>{css}</style>
 }
 
 const ChartTooltip = RechartsPrimitive.Tooltip

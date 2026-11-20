@@ -8,6 +8,8 @@ import sys
 OUT = "/home/z/my-project/public/icons"
 os.makedirs(OUT, exist_ok=True)
 
+PANEL_DRAWS_FAILED = []  # sizes whose standard-icon panel could not be drawn
+
 BG = (16, 19, 26, 255)         # #10131a (theme color)
 ACCENT = (45, 212, 167, 255)   # #2dd4a7
 ACCENT_DIM = (24, 94, 74, 255)
@@ -30,7 +32,9 @@ def make(size: int, maskable: bool = False) -> Image.Image:
             d.rounded_rectangle([m, m, size - 1 - m, size - 1 - m], radius=int(size * 0.18),
                                 outline=PANEL, width=max(1, size // 110))
         except Exception as e:
-            # a silently broken icon would ship undetected; surface it
+            # a silently broken icon would ship undetected: recorded here,
+            # and the run fails below instead of saving a panel-less icon set
+            PANEL_DRAWS_FAILED.append(size)
             print(f"warn: icon panel draw failed at size {size}: {e}", file=sys.stderr)
     # road glyph: two legs meeting at the top + cross rungs (safe zone aware)
     lw = max(3, size // 13)
@@ -49,4 +53,7 @@ make(192).save(f"{OUT}/icon-192.png")
 make(512).save(f"{OUT}/icon-512.png")
 make(512, maskable=True).save(f"{OUT}/maskable-512.png")
 make(180).save(f"{OUT}/apple-touch-icon.png")
+if PANEL_DRAWS_FAILED:
+    print(f"ICON BUILD FAILED - panel draw lost for sizes: {PANEL_DRAWS_FAILED}", file=sys.stderr)
+    sys.exit(1)
 print("icons written:", os.listdir(OUT))

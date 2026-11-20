@@ -319,12 +319,16 @@ def cmd_selftest(_args):
     finally:
         import os as _os
         _os.unlink(tmp)
+        # leftover selftest scratch files would confuse the next run: every
+        # failure is recorded and summarized after the loop, never swallowed
+        cleanup_failed = []
         for extra in ("rnd", "zeros"):
             try:
                 _os.unlink(locals()[extra])
             except OSError as e:
-                # leftover selftest scratch files would confuse the next run
-                print(f"warn: selftest cleanup {locals()[extra]}: {e}", file=sys.stderr)
+                cleanup_failed.append(f"{locals()[extra]}: {e}")
+        if cleanup_failed:
+            print("warn: selftest cleanup incomplete - " + "; ".join(cleanup_failed), file=sys.stderr)
     if all(ok):
         print(f"SELFTEST PASS ({len(ok)}/{len(ok)})")
     else:

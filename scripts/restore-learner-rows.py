@@ -56,6 +56,9 @@ for table, pk in [("CardState", ("userId", "cardId")), ("DailyStat", ("userId", 
     report.append(f"{table}: restored {len(missing)} missing 'me' rows")
 
 # --- 2. purge battery junk (userId not in User AND not the singleton) -----
+# tables that cannot be purged (no userId column or missing entirely) are
+# recorded here and summarized in the report below, never swallowed
+absent_tables = []
 for table in ["CardState", "DailyStat", "Goal", "MistakeFamily", "MistakeForgiven",
               "Quest", "Rival", "League", "Achievement", "SkillLevel", "RunState",
               "ReviewLog", "ChatMsg", "WritingSub", "SpeakSession", "Material",
@@ -70,8 +73,11 @@ for table in ["CardState", "DailyStat", "Goal", "MistakeFamily", "MistakeForgive
             n = con.execute(f"DELETE FROM {table} WHERE userId=?", (u,)).rowcount
             if n:
                 report.append(f"{table}: purged {n} junk rows (userId='{u}')")
-    except sqlite3.OperationalError:
-        pass  # table without userId or missing entirely
+    except sqlite3.OperationalError as e:
+        absent_tables.append(f"{table} ({e})")
+
+if absent_tables:
+    report.append(f"tables not purge-audited (no userId col or missing): {', '.join(absent_tables)}")
 
 con.commit()
 
@@ -80,13 +86,16 @@ print("=== ops ===")
 for line in report:
     print(" ", line)
 print("=== after ===")
+skipped_after = []
 for t in ["CardState", "DailyStat", "Goal", "MistakeFamily", "Quest", "Rival", "League", "Session"]:
     try:
         rows = con.execute(f"SELECT userId, COUNT(*) FROM {t} GROUP BY userId").fetchall()
         print(f"  {t}: {rows}")
     except sqlite3.OperationalError as e:
-        # absent legacy tables are expected; the gap must stay visible
-        print(f"  {t}: count skipped (no such table): {e}", file=sys.stderr)
+        # absent legacy tables are expected; the gap is recorded and surfaced
+        skipped_after.append(f"{t} ({e})")
+if skipped_after:
+    print(f"  count skipped (no such table): {', '.join(skipped_after)}", file=sys.stderr)
 l = con.execute("SELECT level, streak, xp, gems FROM Learner").fetchall()
 print("  Learner:", l)
 con.close()

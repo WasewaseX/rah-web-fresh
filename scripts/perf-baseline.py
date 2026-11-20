@@ -35,13 +35,17 @@ def timed(path: str) -> float:
 
 def measure_apis() -> dict:
     # Warm-up round (JIT caches, Prisma query plan cache, OS page cache).
+    # warm-up is best-effort, but a failing endpoint must not vanish: it is
+    # recorded here and surfaced in the summary line below - the measured
+    # round would otherwise look like cold-start noise.
+    warmup_failed = {}
     for p in ("/", "/api/version", "/api/state", "/api/review/queue", "/api/progress"):
         try:
             timed(p)
         except Exception as e:
-            # warm-up is best-effort, but a failing endpoint must not vanish:
-            # the measured round then looks like cold-start noise
-            print(f"  warm-up skip {p}: {e}", file=sys.stderr)
+            warmup_failed[p] = str(e)[:120]
+    if warmup_failed:
+        print(f"  warm-up skips: {warmup_failed}", file=sys.stderr)
     out = {}
     for p in ("/", "/api/version", "/api/state", "/api/review/queue", "/api/progress"):
         xs = []

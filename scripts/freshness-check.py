@@ -28,14 +28,19 @@ PG_SIDECARS = {
 }
 
 
+ENV_READ_ERRORS = []  # recorded by env_db_url; main() fails closed on any entry
+
+
 def env_db_url():
     try:
         for line in open(os.path.join(ROOT, ".env")):
             if line.startswith("DATABASE_URL="):
                 return line.split("=", 1)[1].strip()
     except OSError as e:
-        # an unreadable .env must not masquerade as "no url configured"
-        print(f"warn: .env unreadable: {e}", file=sys.stderr)
+        # an unreadable .env must not masquerade as "no url configured":
+        # recorded here, main() exits below instead of silently falling
+        # back to sqlite mode
+        ENV_READ_ERRORS.append(f".env unreadable: {e}")
     return ""
 
 
@@ -160,6 +165,9 @@ def pg_mode(url):
 
 def main():
     url = env_db_url()
+    if ENV_READ_ERRORS:
+        print(f"ENV ERROR - cannot determine live-store mode reliably: {'; '.join(ENV_READ_ERRORS)}", file=sys.stderr)
+        sys.exit(1)
     if url.startswith("postgresql://"):
         pg_mode(url)
     else:

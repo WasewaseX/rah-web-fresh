@@ -172,12 +172,15 @@ def main():
     con.execute("BEGIN IMMEDIATE")
     try:
         moved_total, merged_total = 0, 0
+        absent_reid = []  # tables without a userId column - summarized below
         for t in PLAIN_REID_TABLES:
             try:
                 cur = con.execute(f"UPDATE {t} SET userId=? WHERE userId=?", (cuid, LEGACY))
                 moved_total += cur.rowcount
-            except sqlite3.OperationalError:
-                pass  # table without userId column - skip
+            except sqlite3.OperationalError as e:
+                absent_reid.append(f"{t} ({e})")
+        if absent_reid:
+            print(f"  merge: re-id skipped (no such table): {', '.join(absent_reid)}", file=sys.stderr)
         m1 = merge_daily(con, cuid)
         m2 = merge_gamestat(con, cuid)
         m3 = merge_quest(con, cuid)
@@ -186,13 +189,16 @@ def main():
         moved_total += sum(x[0] for x in (m1, m2, m3, m4))
         # verify: no legacy rows remain anywhere
         leftover = 0
+        absent_schema = []
         for t in PLAIN_REID_TABLES + ["DailyStat", "GameStat", "Quest", "Achievement"]:
             try:
                 leftover += con.execute("SELECT COUNT(*) FROM %s WHERE userId=?" % t, (LEGACY,)).fetchone()[0]
             except sqlite3.OperationalError as e:
-                # a table absent from a legacy schema is expected; the count
-                # must still be visible so "0 leftover" is auditable
-                print(f"  merge: count {t} skipped (no such table): {e}", file=sys.stderr)
+                # a table absent from a legacy schema is expected; recorded
+                # here so "0 leftover" stays auditable in the summary below
+                absent_schema.append(f"{t} ({e})")
+        if absent_schema:
+            print(f"  merge: counts skipped (no such table): {', '.join(absent_schema)}", file=sys.stderr)
         if leftover:
             raise RuntimeError(f"merge left {leftover} legacy rows - rolling back")
         trip = con.execute("SELECT createdAt FROM Learner WHERE id='me'").fetchone()[0]

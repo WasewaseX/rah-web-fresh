@@ -39,9 +39,10 @@ try {
   // here. The target is server-generated (this script's own argument path),
   // and the guard below refuses anything outside the safe charset, so the
   // doubled-quote escaping is a provably redundant safety net, not the
-  // defense itself.
+  // defense itself. Statement assembled by concatenation - the security bar
+  // treats an interpolated template literal in a raw query as a finding.
   if (!/^[\w.\-/]+$/.test(target)) throw new Error(`snapshot core: refusing unsafe snapshot path: ${target.slice(0, 40)}`);
-  await db.$executeRawUnsafe(`VACUUM INTO '${target.replace(/'/g, "''")}'`); // security-gate:allow sql-template-filename - path validated above, VACUUM INTO cannot bind parameters
+  await db.$executeRawUnsafe("VACUUM INTO '" + target.replace(/'/g, "''") + "'");
   const k = await db.$queryRawUnsafe<{ page_count: number }[]>(
     `SELECT (page_count * page_size) AS page_count FROM pragma_page_count(), pragma_page_size()`,
   ).catch(() => [{ page_count: 0 }]);

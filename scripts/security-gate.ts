@@ -1,11 +1,17 @@
 // security-gate: the PR security bar (holder order: "Hold every pull request
-// to this"). Every category below comes from the holder's findings list:
+// to this"). Every category below comes from the holder's findings lists
+// (cycle 0 + cycle 1):
 //
-//   security/sql-injection        - template literal interpolated into a raw query
-//   security/innerhtml            - direct .innerHTML assignment (XSS)
-//   security/shell-injection      - exec/spawn family called with a template literal
-//   security/eval                 - eval() / new Function() use
-//   ai-slop/swallowed-exception   - except: pass, or a catch body that only prints
+//   security/sql-injection                - template literal interpolated into a raw query
+//   security/dangerously-set-innerhtml    - any dangerouslySetInnerHTML use
+//   security/innerhtml                    - direct .innerHTML assignment (XSS)
+//   security/shell-injection              - exec/spawn family called with a template literal
+//   security/eval                         - eval() / new Function() use
+//   ai-slop/swallowed-exception           - except: pass (even `pass # comment`),
+//                                           or a catch body whose only action is
+//                                           a print (any stream) - recording the
+//                                           error into a counter/list + a summary
+//                                           is handling, printing alone is not
 //
 // Run: bun scripts/security-gate.ts        (scan; exit 1 on any finding)
 //      bun scripts/security-gate.ts --selftest   (rule fixtures battery)
@@ -26,6 +32,7 @@ import { join, relative, sep } from "node:path";
 
 const RULES = {
   sqlTemplate: "security/sql-injection",
+  dangerousHtml: "security/dangerously-set-innerhtml",
   innerHtml: "security/innerhtml",
   shellInjection: "security/shell-injection",
   evalUse: "security/eval",
@@ -94,6 +101,11 @@ function scanFile(path: string): Finding[] {
       findings.push({ rule: RULES.sqlTemplate, path, line: i + 1, message: "Possible SQL injection — template literal in query" });
     }
 
+    // security/dangerously-set-innerhtml: any use of the dangerous API
+    if (/dangerouslySetInnerHTML/.test(L) && !hasAllow(lines, i)) {
+      findings.push({ rule: RULES.dangerousHtml, path, line: i + 1, message: "dangerouslySetInnerHTML can lead to XSS if not sanitized" });
+    }
+
     // security/innerhtml: direct assignment (any language in scope)
     if (/\.innerHTML\s*=[^=]/.test(L) && !hasAllow(lines, i)) {
       findings.push({ rule: RULES.innerHtml, path, line: i + 1, message: "Direct innerHTML assignment can lead to XSS" });
@@ -130,16 +142,17 @@ function scanFile(path: string): Finding[] {
       if (j >= lines.length || /^\s*(#|$)/.test(lines[i + 1] ?? "") && body.trim() === "") continue;
       if (hasAllow(lines, i) || hasAllow(lines, j)) continue;
 
-      if (body.trim() === "pass" && body.length - body.trimStart().length > indent) {
+      if (body.trim().startsWith("pass") && body.length - body.trimStart().length > indent) {
         findings.push({ rule: RULES.swallowPass, path, line: i + 1, message: "Bare except with pass swallows errors silently" });
         continue;
       }
-      // single-statement print-only body (stdout, no re-raise/exit) that ends the block
+      // single-statement print-only body that ends the block: printing to any
+      // stream is NOT handling - record the error (counter/list/flag) or
+      // re-raise/exit instead
       const nextLine = lines[j + 1] ?? "";
       const nextDedents = nextLine.trim() === "" || (nextLine.length - nextLine.trimStart().length) <= indent;
       const isPrint = /^print\(/.test(body.trim());
-      const goesToStderr = body.includes("file=sys.stderr") || body.includes("file=stderr");
-      if (isPrint && !goesToStderr && nextDedents && body.length - body.trimStart().length > indent) {
+      if (isPrint && nextDedents && body.length - body.trimStart().length > indent) {
         findings.push({ rule: RULES.swallowPrint, path, line: i + 1, message: "Catch block only prints error without proper handling" });
       }
     }
@@ -185,13 +198,16 @@ async function selftest(): Promise<number> {
 
   const cases: Array<[string, string, string | 0, string]> = [
     ["sql.ts", "await db.$executeRawUnsafe(`TRUNCATE TABLE ${x}`);\n", RULES.sqlTemplate, "template in raw query"],
+    ["dsh.tsx", "<style dangerouslySetInnerHTML={{ __html: css }} />\n", RULES.dangerousHtml, "dangerouslySetInnerHTML"],
     ["html.js", "el.innerHTML = data;\n", RULES.innerHtml, "innerHTML assign"],
     ["shell.mjs", "spawn('sh', [`ls ${dir}`]);\n", RULES.shellInjection, "spawn template"],
     ["eval.py", "eval(expr)\n", RULES.evalUse, "eval call"],
     ["pydef.py", "def eval(self):\n    pass\n", 0, "def eval is not a call"],
     ["pass.py", "try:\n    x()\nexcept Exception:\n    pass\n", RULES.swallowPass, "except pass"],
+    ["passc.py", "try:\n    x()\nexcept sqlite3.Error:\n    pass  # table without userId\ny()\n", RULES.swallowPass, "except pass with inline comment"],
     ["print.py", "try:\n    x()\nexcept Exception as e:\n    print(e)\ny()\n", RULES.swallowPrint, "print-only catch"],
-    ["stderr.py", "try:\n    x()\nexcept Exception as e:\n    print(e, file=sys.stderr)\ny()\n", 0, "stderr catch is surfaced"],
+    ["stderr.py", "try:\n    x()\nexcept Exception as e:\n    print(e, file=sys.stderr)\ny()\n", RULES.swallowPrint, "stderr-only catch is still print-only"],
+    ["record.py", "try:\n    x()\nexcept Exception as e:\n    failed.append(str(e))\nif failed:\n    print(failed, file=sys.stderr)\ny()\n", 0, "record + summary is handling"],
     ["allow.ts", "db.$executeRawUnsafe(`V ${p}`); // security-gate:allow sql-template - validated\n", 0, "allow marker suppresses"],
   ];
   for (const [name, body, expectedRule, label] of cases) {
@@ -201,7 +217,7 @@ async function selftest(): Promise<number> {
     else t(label, f.length === 1 && f[0]?.rule === expectedRule, JSON.stringify(f));
   }
   rmSync(dir, { recursive: true, force: true });
-  console.log(`security-gate selftest: ${9 - fail}/${9} pass`);
+  console.log(`security-gate selftest: ${cases.length - fail}/${cases.length} pass`);
   return fail;
 }
 

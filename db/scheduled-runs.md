@@ -76,6 +76,19 @@
   alone insufficient), pass#comment caught; selftest 12/12, scan CLEAN, batteries
   53/53 + 81/81 + 29/29 + 59/59, gate GREEN, pushed a5d182b9a5cf.
 
+- cycle 2/5 (2026-11-20): scanner round 3 resolved. VACUUM INTO truly parameterized
+  (verified bound-parameter support at bun:sqlite AND generated Prisma 6 SQLite client
+  levels; admin/db route + db-snapshot-core now $executeRawUnsafe("VACUUM INTO ?", path),
+  zero string building, charset guard retained); pg-validate TRUNCATE rebuilt as a single
+  STATIC statement (44 models + _prisma_migrations, derived from live information_schema)
+  with a live-vs-static drift guard; vendored modern-screenshot.umd.js removed
+  (unreferenced, binary-only usage); 4 unused vars deleted (ai.ts withRetry + stale
+  eslint-disable, SpeedRound locked, request-code db import, Blocks useMemo); a11y fixed
+  (aisettings 2 labels htmlFor/id, SpeedRound autoFocus removed). security-gate SQL rule
+  extended: concatenation in raw queries now flagged (bind params = only clean form);
+  selftest 14/14, scan CLEAN, tsc clean, eslint clean on changed files, batteries
+  53/53 + 81/81 + 29/29 + 59/59, gate GREEN, pushed e72f668ba109.
+
 ## Pending queue (update as tasks ship)
 - Task 149: read_state carries checklist readiness (feed the guide-checklist ratings
   Setting into guideStateLine so the coach sees readiness verdicts too)

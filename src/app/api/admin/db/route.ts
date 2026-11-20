@@ -29,15 +29,12 @@ export async function GET(req: Request) {
   const tmp = `${dbPath}.snapshot-${process.pid}-${Date.now()}.tmp`;
   try {
     try {
-      // VACUUM INTO takes a literal filename - SQLite has no bind parameters
-      // here. tmp is server-built from dbFilePath() (env-derived), pid and a
-      // timestamp; the guard refuses anything outside the safe charset, so
-      // the doubled-quote escaping below is a redundant safety net, not the
-      // defense itself. Statement assembled by concatenation - the security
-      // bar treats an interpolated template literal in a raw query as a
-      // finding, in any form, so the SQL text is built without one.
+      // VACUUM INTO accepts a bound filename parameter (verified against
+      // Prisma 6 + SQLite), so the path travels as a bind value - it is
+      // never interpolated or concatenated into the SQL text. The charset
+      // guard stays as defense in depth for the path itself.
       if (!/^[\w.\-/]+$/.test(tmp)) throw new Error("admin db snapshot: refusing unsafe snapshot path");
-      await db.$executeRawUnsafe("VACUUM INTO '" + tmp.replace(/'/g, "''") + "'");
+      await db.$executeRawUnsafe("VACUUM INTO ?", tmp);
     } catch {
       try {
         await db.$executeRawUnsafe("PRAGMA wal_checkpoint(TRUNCATE)");

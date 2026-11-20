@@ -5,7 +5,7 @@
 // ResultCard (assessment), report cards (analysis family). All built from the
 // shared Rah primitives.
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   BookOpen, Brain, CalendarDays, Check, CheckCircle2, GraduationCap, Headphones,
   LayoutGrid, ListChecks, Mic, PenLine, RotateCcw, Shuffle, SpellCheck, Stethoscope,

@@ -55,7 +55,6 @@ export default function SpeedRound({ onChange }: { onChange: () => void }) {
   const tallyRef = useRef({ correct: 0, total: 0, maxCombo: 0, score: 0 });
   const [result, setResult] = useState<Result | null>(null);
   const startedAt = useRef(0);
-  const locked = useRef(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const stopTimer = () => {
@@ -265,7 +264,6 @@ export default function SpeedRound({ onChange }: { onChange: () => void }) {
                 }}
               >
                 <input
-                  autoFocus
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder={item.q.includes("___") ? "Fill the blank" : "Type the English"}

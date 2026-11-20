@@ -39,7 +39,6 @@ function cleanEmDash(s: string): string {
 // Returns null on unparseable input instead of throwing - callers branch on
 // `if (!parsed)` and surface an honest fallback envelope. Typed `any` on
 // purpose: consumers destructure the envelope shape their route owns.
-/* eslint-disable @typescript-eslint/no-explicit-any */
 export function extractJson(raw: string): any {
   try {
     const cleaned = cleanEmDash(raw.trim());
@@ -83,19 +82,6 @@ function repairJson(body: string): string {
     out += open === "{" ? "}" : "]";
   }
   return out;
-}
-
-async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
-  let lastErr: unknown;
-  for (let i = 0; i < attempts; i++) {
-    try {
-      return await fn();
-    } catch (e) {
-      lastErr = e;
-      if (i < attempts - 1) await new Promise((r) => setTimeout(r, 600 * (i + 1)));
-    }
-  }
-  throw lastErr;
 }
 
 const CONTRACT_REMINDER =

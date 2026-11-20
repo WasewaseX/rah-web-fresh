@@ -58,17 +58,32 @@ async function main() {
   const allTables = await db.$queryRawUnsafe<{ table_name: string }[]>(
     `SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'`
   );
-  // Table IDENTIFIERS cannot be parameter-bound in SQL. The names come from
-  // information_schema (never user input); each must match a strict shape
-  // before it may be interpolated into the TRUNCATE list. Statement assembled
-  // by concatenation - the security bar treats an interpolated template
-  // literal in a raw query as a finding, in any form.
-  const SAFE_IDENT = /^[a-z_][a-z0-9_]*$/;
-  const tableNames = allTables.map((t) => t.table_name);
-  if (!tableNames.every((n) => SAFE_IDENT.test(n))) {
-    throw new Error(`pg-validate: unexpected table name shape, refusing TRUNCATE: ${tableNames.filter((n) => !SAFE_IDENT.test(n)).slice(0, 3).join(", ")}`);
+  // Table IDENTIFIERS cannot be parameter-bound in SQL, and the security bar
+  // rejects dynamic SQL built in application code (template literals AND
+  // concatenation). The truncate list is therefore a single STATIC statement
+  // matching the datamodel exactly (44 Prisma models + _prisma_migrations).
+  // The guard below compares the live schema against this list and fails the
+  // battery loudly on any drift - a new table must be added to the list on
+  // purpose, and nothing outside the list can ever be truncated.
+  const STATIC_TRUNCATE_TABLES = new Set([
+    "Achievement", "AiSettings", "Briefing", "CardState", "ChatMsg", "Checkpoint",
+    "ContentFlag", "DailyStat", "Exam", "ExamRun", "GameStat", "Goal", "GradeAck",
+    "GrammarDone", "League", "Learner", "ListeningLog", "LoginCode", "MailLog",
+    "Material", "MaterialCard", "MistakeFamily", "MistakeForgiven", "Placement",
+    "PlacementResult", "Quest", "QuizItem", "ReviewLog", "Rival", "RunState",
+    "Session", "SessionLog", "Setting", "SkillBand", "SkillLevel", "SoundLog",
+    "SpeakSession", "SpeakingAttempt", "TagMastery", "TagOverride", "TutorReport",
+    "User", "UserCard", "WritingSub", "_prisma_migrations",
+  ]);
+  const dbTables = new Set(allTables.map((t) => t.table_name));
+  const drift = [
+    ...[...dbTables].filter((n) => !STATIC_TRUNCATE_TABLES.has(n)),
+    ...[...STATIC_TRUNCATE_TABLES].filter((n) => !dbTables.has(n)),
+  ];
+  if (drift.length > 0) {
+    throw new Error(`pg-validate: datamodel drift vs static TRUNCATE list - update the list on purpose: ${drift.slice(0, 6).join(", ")}`);
   }
-  await db.$executeRawUnsafe("TRUNCATE TABLE " + tableNames.map((n) => '"' + n + '"').join(", ") + " RESTART IDENTITY CASCADE");
+  await db.$executeRawUnsafe("TRUNCATE TABLE \"Achievement\", \"AiSettings\", \"Briefing\", \"CardState\", \"ChatMsg\", \"Checkpoint\", \"ContentFlag\", \"DailyStat\", \"Exam\", \"ExamRun\", \"GameStat\", \"Goal\", \"GradeAck\", \"GrammarDone\", \"League\", \"Learner\", \"ListeningLog\", \"LoginCode\", \"MailLog\", \"Material\", \"MaterialCard\", \"MistakeFamily\", \"MistakeForgiven\", \"Placement\", \"PlacementResult\", \"Quest\", \"QuizItem\", \"ReviewLog\", \"Rival\", \"RunState\", \"Session\", \"SessionLog\", \"Setting\", \"SkillBand\", \"SkillLevel\", \"SoundLog\", \"SpeakSession\", \"SpeakingAttempt\", \"TagMastery\", \"TagOverride\", \"TutorReport\", \"User\", \"UserCard\", \"WritingSub\", \"_prisma_migrations\" RESTART IDENTITY CASCADE");
   const learner0 = await db.learner.count();
   ok("clean start", learner0 === 0);
 

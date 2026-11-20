@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
 import { issueLoginCode } from "@/lib/auth";
 import { sendLoginCode, smtpConfigured } from "@/lib/mailer";
 

@@ -209,18 +209,20 @@ export default function SettingsView({ boot, onDone }: { boot: Boot; onDone: () 
 
       <div className="card-rah p-6 mb-4">
         <div className="font-bold text-[14.5px] mb-3">Endpoint and key</div>
-        <label className="text-[12.5px] font-bold block mb-1">Base URL</label>
+        <label htmlFor="ai-base-url" className="text-[12.5px] font-bold block mb-1">Base URL</label>
         <input
+          id="ai-base-url"
           value={baseUrl}
           onChange={(e) => setBaseUrl(e.target.value)}
           className="w-full rounded-xl border px-4 py-2.5 text-[14px] mb-3"
           style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
           placeholder="https://api.openai.com/v1"
         />
-        <label className="text-[12.5px] font-bold block mb-1">
+        <label htmlFor="ai-api-key" className="text-[12.5px] font-bold block mb-1">
           API key {boot.ai.keyset ? <span className="font-normal" style={{ color: "var(--muted)" }}>(saved: {boot.ai.keyMasked}, leave blank to keep)</span> : null}
         </label>
         <input
+          id="ai-api-key"
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
           type="password"

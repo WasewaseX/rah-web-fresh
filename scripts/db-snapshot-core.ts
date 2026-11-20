@@ -35,14 +35,13 @@ try {
   const prunedSessions = await db.session.deleteMany({
     where: { expiresAt: { lt: now } },
   });
-  // VACUUM INTO takes a literal filename - SQLite has no bind parameters
-  // here. The target is server-generated (this script's own argument path),
-  // and the guard below refuses anything outside the safe charset, so the
-  // doubled-quote escaping is a provably redundant safety net, not the
-  // defense itself. Statement assembled by concatenation - the security bar
-  // treats an interpolated template literal in a raw query as a finding.
+  // VACUUM INTO accepts a bound filename parameter (verified against
+  // Prisma 6 + SQLite), so the target travels as a bind value - it is never
+  // interpolated or concatenated into the SQL text. The target is
+  // server-generated (this script's own argument path); the guard below
+  // stays as defense in depth for the path itself.
   if (!/^[\w.\-/]+$/.test(target)) throw new Error(`snapshot core: refusing unsafe snapshot path: ${target.slice(0, 40)}`);
-  await db.$executeRawUnsafe("VACUUM INTO '" + target.replace(/'/g, "''") + "'");
+  await db.$executeRawUnsafe("VACUUM INTO ?", target);
   const k = await db.$queryRawUnsafe<{ page_count: number }[]>(
     `SELECT (page_count * page_size) AS page_count FROM pragma_page_count(), pragma_page_size()`,
   ).catch(() => [{ page_count: 0 }]);

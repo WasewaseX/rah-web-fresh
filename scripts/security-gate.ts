@@ -1,8 +1,11 @@
 // security-gate: the PR security bar (holder order: "Hold every pull request
 // to this"). Every category below comes from the holder's findings lists
-// (cycle 0 + cycle 1):
+// (cycle 0 + cycle 1 + cycle 2):
 //
-//   security/sql-injection                - template literal interpolated into a raw query
+//   security/sql-injection                - dynamic SQL in a raw query: an
+//                                           interpolated template literal OR
+//                                           string concatenation (bind
+//                                           parameters are the only clean form)
 //   security/dangerously-set-innerhtml    - any dangerouslySetInnerHTML use
 //   security/innerhtml                    - direct .innerHTML assignment (XSS)
 //   security/shell-injection              - exec/spawn family called with a template literal
@@ -96,9 +99,12 @@ function scanFile(path: string): Finding[] {
   for (let i = 0; i < lines.length; i++) {
     const L = lines[i];
 
-    // security/sql-injection: raw query call with an interpolated template literal
-    if (/\$(queryRaw|executeRaw)(Unsafe)?\(/.test(L) && /`[^`]*\$\{/.test(L) && !hasAllow(lines, i)) {
-      findings.push({ rule: RULES.sqlTemplate, path, line: i + 1, message: "Possible SQL injection — template literal in query" });
+    // security/sql-injection: raw query call with dynamic SQL built in
+    // application code - an interpolated template literal OR string
+    // concatenation. Parameter binding ("VACUUM INTO ?", tmp) is the only
+    // clean form.
+    if (/\$(queryRaw|executeRaw)(Unsafe)?\(/.test(L) && (/`[^`]*\$\{/.test(L) || /["'`]\s*\+|\+\s*["'`]/.test(L)) && !hasAllow(lines, i)) {
+      findings.push({ rule: RULES.sqlTemplate, path, line: i + 1, message: "Possible SQL injection — template literal or string concatenation in query" });
     }
 
     // security/dangerously-set-innerhtml: any use of the dangerous API
@@ -198,6 +204,8 @@ async function selftest(): Promise<number> {
 
   const cases: Array<[string, string, string | 0, string]> = [
     ["sql.ts", "await db.$executeRawUnsafe(`TRUNCATE TABLE ${x}`);\n", RULES.sqlTemplate, "template in raw query"],
+    ["sqlconcat.ts", "await db.$executeRawUnsafe(\"VACUUM INTO '\" + p + \"'\");\n", RULES.sqlTemplate, "concat in raw query"],
+    ["sqlparam.ts", "await db.$executeRawUnsafe(\"VACUUM INTO ?\", p);\n", 0, "bind parameter in raw query is clean"],
     ["dsh.tsx", "<style dangerouslySetInnerHTML={{ __html: css }} />\n", RULES.dangerousHtml, "dangerouslySetInnerHTML"],
     ["html.js", "el.innerHTML = data;\n", RULES.innerHtml, "innerHTML assign"],
     ["shell.mjs", "spawn('sh', [`ls ${dir}`]);\n", RULES.shellInjection, "spawn template"],

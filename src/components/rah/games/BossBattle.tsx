@@ -5,7 +5,7 @@
 // Three hearts, no mercy. The boss's items come from your own mistake
 // families - you fight your leaks face to face.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Heart, Play, Skull, Swords } from "lucide-react";
 import { Btn, Card, Chip, FA, Spinner } from "../ui";
 import { submitGameResult } from "@/lib/offline";
@@ -267,7 +267,6 @@ export default function BossBattle({ onChange }: { onChange: () => void }) {
                 }}
               >
                 <input
-                  autoFocus
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder={item.q.includes("___") ? "Fill the blank" : "Type the English"}

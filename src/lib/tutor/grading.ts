@@ -32,7 +32,7 @@ export function typoEq(a: string, b: string): boolean {
   const la = a.length, lb = b.length;
   if (!la || !lb || Math.abs(la - lb) > 2) return false;
   const tol = Math.min(la, lb) >= 8 ? 2 : 1;
-  const d: number[][] = Array.from({ length: la + 1 }, () => new Array(lb + 1).fill(0));
+  const d: number[][] = Array.from({ length: la + 1 }, () => Array.from({ length: lb + 1 }, () => 0));
   for (let i = 0; i <= la; i++) d[i][0] = i;
   for (let j = 0; j <= lb; j++) d[0][j] = j;
   for (let i = 1; i <= la; i++) {
@@ -150,7 +150,7 @@ export function examinerPayload(
   });
 }
 
-export function parseExaminer(raw: unknown, quick: ReturnType<typeof quickGrade>): ExaminerOutput | null {
+export function parseExaminer(raw: unknown): ExaminerOutput | null {
   const o = raw as ExaminerOutput;
   if (!o || !Array.isArray(o.items) || !o.report) return null;
   const byQid = new Map<string, ExaminerOutput["items"][number]>();

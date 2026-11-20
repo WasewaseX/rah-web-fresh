@@ -70,7 +70,7 @@ function say(text: string) {
   }
 }
 
-export default function BlitzDeck({ state, onChange, onExit }: { state: AppState; onChange: () => void; onExit: () => void }) {
+export default function BlitzDeck({ state, onExit }: { state: AppState; onChange: () => void; onExit: () => void }) {
   const [queue, setQueue] = useState<QueueCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [idx, setIdx] = useState(0);
@@ -95,10 +95,12 @@ export default function BlitzDeck({ state, onChange, onExit }: { state: AppState
   const choices = isMcq && q ? mcqChoices(q.card) : [];
   const previews = q ? fsrsPreview(q.state, dayIndex(), state.learner.retention ?? 0.9) : null;
 
-  const stopDrain = () => {
+  // Stable across renders: touches only drainRef, so the drain interval's
+  // cleanup identity never churns.
+  const stopDrain = useCallback(() => {
     if (drainRef.current) clearInterval(drainRef.current);
     drainRef.current = null;
-  };
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -116,9 +118,11 @@ export default function BlitzDeck({ state, onChange, onExit }: { state: AppState
     return () => clearTimeout(t);
   }, [load]);
 
-  // Not memoized on purpose: the compiler lints manual memoization strictly,
-  // and a per-render closure is always consistent with the card it closes over.
-  const grade = async (g: number) => {
+  // Memoized with truthful deps: the closure stays consistent with the card
+  // it closes over (q, dir), and neither changes while the learner types, so
+  // the drain interval and the keyboard listener are not torn down per
+  // keystroke. Setters, refs and imports are stable and need no listing.
+  const grade = useCallback(async (g: number) => {
     if (!q || busy.current) return;
     busy.current = true;
     stopDrain();
@@ -132,10 +136,24 @@ export default function BlitzDeck({ state, onChange, onExit }: { state: AppState
     setChoice(null);
     busy.current = false;
     setIdx((i) => i + 1);
-  };
+  }, [q, dir, stopDrain]);
+
+  // Flip: judge the input (typed or tapped), remember correctness, start the
+  // decision clock. Memoized with truthful deps - it tracks input/choice, so
+  // it changes per keystroke, but its consumers (the keyboard listener)
+  // tolerate cheap re-attachment.
+  const flip = useCallback(() => {
+    if (!q) return;
+    const right = isMcq ? choice === q.card.fa : needsTyping ? acceptable(q.card, input, dir) : true;
+    setWasRight(right);
+    setFlipped(true);
+    flipAt.current = Date.now();
+  }, [q, isMcq, choice, needsTyping, input, dir]);
 
   // The 4-second decision bar: starts on flip, expires into an Again. The
   // drained bar is only rendered while flipped, so no sync reset needed here.
+  // grade is stable while typing (see above), so the interval is not
+  // restarted per keystroke - only per card or per flip.
   useEffect(() => {
     stopDrain();
     if (!q || !flipped) return;
@@ -150,17 +168,7 @@ export default function BlitzDeck({ state, onChange, onExit }: { state: AppState
       }
     }, 80);
     return stopDrain;
-  }, [q, flipped]);
-
-  // Flip: judge the input (typed or tapped), remember correctness, start the
-  // decision clock. Declared before the effects that use it.
-  const flip = () => {
-    if (!q) return;
-    const right = isMcq ? choice === q.card.fa : needsTyping ? acceptable(q.card, input, dir) : true;
-    setWasRight(right);
-    setFlipped(true);
-    flipAt.current = Date.now();
-  };
+  }, [q, flipped, grade, stopDrain]);
 
   // Keyboard grades.
   useEffect(() => {
@@ -178,8 +186,7 @@ export default function BlitzDeck({ state, onChange, onExit }: { state: AppState
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-     
-  }, [q, flipped]);
+  }, [q, flipped, flip, grade]);
 
   const onPointerDown = (e: React.PointerEvent) => {
     dragStart.current = { x: e.clientX, y: e.clientY };
@@ -327,7 +334,6 @@ export default function BlitzDeck({ state, onChange, onExit }: { state: AppState
                     }}
                   >
                     <input
-                      autoFocus
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
                       placeholder="Type your answer"

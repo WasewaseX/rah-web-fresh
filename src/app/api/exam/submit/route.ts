@@ -44,7 +44,7 @@ export async function POST(req: Request) {
       undefined,
       { thinking: true, attempts: 3 },
     );
-    const out = parseExaminer(raw, quick);
+    const out = parseExaminer(raw);
     if (out) {
       const fin = finalize(quick, out);
       items = fin.items;

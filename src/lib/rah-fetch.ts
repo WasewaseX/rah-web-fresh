@@ -42,7 +42,9 @@ export function clearRahToken(): void {
   try {
     localStorage.removeItem(KEY);
     sessionStorage.removeItem(KEY);
-  } catch {}
+  } catch {
+    // storage unavailable (private mode / quota) - the token simply is not remembered
+  }
 }
 
 export function getRahToken(): string | null {

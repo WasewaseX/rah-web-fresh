@@ -17,7 +17,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Boot } from "@/app/page";
-import { SectionTitle, Note, Fa } from "./bits";
+import { Note, Fa } from "./bits";
 import { answerEq, ivlLabel, preview as fsrsPreview, dayIndex, defaultState, type FsrsState } from "@/lib/fsrs";
 import { DECK } from "@/lib/content";
 import { submitGrade } from "@/lib/offline";
@@ -116,23 +116,27 @@ function Cloze({ text }: { text: string }) {
   );
 }
 
-export default function ReviewView({ boot, onDone, go }: { boot: Boot; onDone: () => void; go: (v: string) => void }) {
+export default function ReviewView({ onDone, go }: { boot: Boot; onDone: () => void; go: (v: string) => void }) {
   const [items, setItems] = useState<QueueItem[]>([]);
   const [counts, setCounts] = useState<{ due: number; fresh: number } | null>(null);
   const [idx, setIdx] = useState(0);
   const [input, setInput] = useState("");
   const [choice, setChoice] = useState<string | null>(null);
   const [picked, setPicked] = useState<number[]>([]);
-  const [revealed, setRevealed] = useState(false);
-  const [wasRight, setWasRight] = useState(false);
   const [phase, setPhase] = useState<"prompt" | "checked" | "reveal">("prompt");
   const [correct, setCorrect] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<null | { n: number; hit: number; secs: number }>(null);
-  const startedAt = useRef(Date.now());
-  const cardShownAt = useRef(Date.now());
+  // Wall-clock anchors are stamped post-render (react purity: no Date.now()
+  // during render); the mount effect runs before any user interaction can
+  // read them, and the [idx] effect restamps cardShownAt per card.
+  const startedAt = useRef(0);
+  const cardShownAt = useRef(0);
+  useEffect(() => {
+    if (startedAt.current === 0) startedAt.current = Date.now();
+  }, []);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   const gradeStats = useRef({ hit: 0, n: 0 });
 
@@ -187,8 +191,6 @@ export default function ReviewView({ boot, onDone, go }: { boot: Boot; onDone: (
     setInput("");
     setChoice(null);
     setPicked([]);
-    setRevealed(false);
-    setWasRight(false);
     setPhase("prompt");
     setCorrect(false);
     setTimeout(() => inputRef.current?.focus(), 60);
@@ -197,8 +199,6 @@ export default function ReviewView({ boot, onDone, go }: { boot: Boot; onDone: (
   }, [idx]);
 
   const reveal = useCallback((right: boolean) => {
-    setWasRight(right);
-    setRevealed(true);
     setPhase("checked");
     setCorrect(right);
     gradeStats.current.n += 1;
@@ -219,7 +219,6 @@ export default function ReviewView({ boot, onDone, go }: { boot: Boot; onDone: (
     }
     if (dir === "ef" || dir === "sent") {
       // self-graded recall: nothing to mark before the grade
-      setRevealed(true);
       setPhase("reveal");
       return;
     }
@@ -239,7 +238,6 @@ export default function ReviewView({ boot, onDone, go }: { boot: Boot; onDone: (
       reveal(acceptable(cur.card, input, "audio"));
       return;
     }
-    setRevealed(true);
     setPhase("reveal");
   }, [cur, phase, isBank, picked, tiles, dir, audioMcq, choice, input, reveal]);
 

@@ -131,7 +131,7 @@ export async function collectEvidence() {
 export function normText(s: string): string {
   return s
     .toLowerCase()
-    .replace(/[.,!?;:"'`()\-]/g, "")
+    .replace(/[.,!?;:"'`()-]/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }

@@ -303,7 +303,7 @@ export default function RahApp() {
     } catch {
       // offline blip; keep last state
     }
-  }, []);
+  }, [celebrateDeltas]);
 
   // Real offline sync (Task 68): install the reconnect-flush triggers once;
   // the badge announces what is queued, the toast announces what synced.

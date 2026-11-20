@@ -80,7 +80,6 @@ export async function queueCounts(preloaded?: { cardId: string; suspended: boole
   const matNew = matStates.filter((s) => !s.suspended && s.state === "new").length;
   const due = all.filter((s) => !s.suspended && s.state !== "new" && s.due <= today).length;
   const introducedToday = all.filter((s) => s.last === today && s.reps === 1).length;
-  const deckKnown = deckStates.filter((s) => s.state !== "new").length;
   const deckUnseen = Math.max(0, DECK.length - deckStates.length);
   const newLeft = Math.max(0, Math.min(l.newPerDay - introducedToday, deckUnseen + matNew));
   const future = all.filter((s) => !s.suspended && s.state !== "new" && s.due > today).map((s) => s.due);
@@ -107,7 +106,6 @@ export async function dueCount(): Promise<number> {
 export async function buildProfile(): Promise<ProfileJson> {
   const l = await getLearner();
   const u = await contentUserId().catch(() => "me");
-  const today = dayIndex();
   const due = await dueCount();
 
   // Recent trap tags from the last graded lapses drive AI focus.

@@ -485,7 +485,7 @@ export async function runAgent(
       // injected page must not be able to flip or forge either flag (forge
       // direction was fail-safe, but the invariant is cleaner: only the loop
       // speaks for these two keys).
-      const callArgs: ToolArgs = { ...(turn.args ?? {}) };
+      const callArgs: ToolArgs = { ...turn.args };
       delete callArgs._probe;
       delete callArgs._history;
       if (opts?.probe) callArgs._probe = true;

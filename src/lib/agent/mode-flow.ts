@@ -190,8 +190,8 @@ Rules:
 - No Farsi in the reply field. Never use the em dash character.`;
   const turn = await modeTurn(system, text, history, false);
   // Scene accounting: persist turns + trap tally so the exit report is real.
-  const traps = { ...(data.traps ?? {}) };
-  const examples: Record<string, { wrong: string; right: string }> = { ...(data.examples ?? {}) };
+  const traps = { ...data.traps };
+  const examples: Record<string, { wrong: string; right: string }> = { ...data.examples };
   for (const c of turn.corrections ?? []) {
     if (!c.wrong) continue;
     traps[c.trap] = (traps[c.trap] ?? 0) + 1;

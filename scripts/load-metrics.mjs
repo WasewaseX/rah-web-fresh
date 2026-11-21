@@ -32,10 +32,7 @@ async function measure(page) {
   return page.evaluate(
     () =>
       new Promise((resolve) => {
-        const nav = performance.getEntriesByType("navigation")[0];
-        const paint = performance.getEntriesByType("paint").find((p) => p.name === "first-contentful-paint");
-        const res = performance.getEntriesByType("resource");
-        const js = res.filter((r) => r.name.endsWith(".js") || r.name.includes("/_next/static/chunks"));
+        // metrics are re-read in done() so the numbers cover the full load
         const done = () => {
           const nav2 = performance.getEntriesByType("navigation")[0];
           const paint2 = performance.getEntriesByType("paint").find((p) => p.name === "first-contentful-paint");

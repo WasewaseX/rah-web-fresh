@@ -40,7 +40,6 @@ const TYPED = "The city a quiet stubbornness."; // "harbors" dropped entirely
 const learnerBefore = await prisma.learner.findUnique({ where: { id: "me" } });
 const cardCols = [`${LISTEN_CARD_PREFIX}${TOKEN}`];
 const cardsBefore = await prisma.cardState.findMany({ where: { cardId: { in: cardCols } } });
-const logsBeforeCount = await prisma.reviewLog.count();
 const listenLogsBefore = await prisma.reviewLog.findMany({ where: { cardId: { in: cardCols }, source: "dictation" } });
 const familyBefore = await prisma.mistakeFamily.findUnique({ where: { id: `listen:${TOKEN}` } });
 const questsBefore = await prisma.quest.findMany();

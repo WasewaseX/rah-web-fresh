@@ -1,6 +1,6 @@
 // Codemod: wire aiRateLimit into every AI-capable POST route.
 // Idempotent: skips files already carrying the guard.
-const fs = require("fs");
+import fs from "fs";
 
 const files = [
   "src/app/api/coach-agent/route.ts",

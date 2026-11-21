@@ -152,6 +152,7 @@ export default function WebGLBackdrop() {
     <canvas
       ref={ref}
       aria-hidden
+      tabIndex={-1}
       className="pointer-events-none fixed inset-0 -z-10 h-full w-full"
       style={{ display: "block" }}
     />

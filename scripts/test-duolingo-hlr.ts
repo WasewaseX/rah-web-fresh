@@ -310,8 +310,21 @@ function fsrsGrade(p: number): number {
   return p >= 0.99 ? 3 : p >= 0.5 ? 2 : 1;
 }
 
-function partC(rows: Row[], hlrCore: SpacedRepetitionModel, meanP: number): void {
-  console.log("PART C - CROSS-EXAM: FSRS-5 (ours) replays their traces vs the baselines");
+type TestRow = {
+  p: number;
+  pred: number;
+  tDays: number;
+  s: number;
+  core: Instance;
+  corePred: number;
+  leitPred: number;
+  pimPred: number;
+  coreH: number;
+  leitH: number;
+  pimH: number;
+};
+
+function buildTestSet(rows: Row[], hlrCore: SpacedRepetitionModel): { test: TestRow[]; groups: Map<string, Row[]> } {  console.log("PART C - CROSS-EXAM: FSRS-5 (ours) replays their traces vs the baselines");
   const leitnerModel = new SpacedRepetitionModel("leitner");
   const pimsleurModel = new SpacedRepetitionModel("pimsleur");
   const groups = new Map<string, Row[]>();
@@ -321,19 +334,7 @@ function partC(rows: Row[], hlrCore: SpacedRepetitionModel, meanP: number): void
     if (g) g.push(r);
     else groups.set(k, [r]);
   }
-  const test: {
-    p: number;
-    pred: number;
-    tDays: number;
-    s: number;
-    core: Instance;
-    corePred: number;
-    leitPred: number;
-    pimPred: number;
-    coreH: number;
-    leitH: number;
-    pimH: number;
-  }[] = [];
+  const test: TestRow[] = [];
   for (const g of groups.values()) {
     g.sort((a, b) => a.ts - b.ts);
     let s = -1;
@@ -396,6 +397,12 @@ function partC(rows: Row[], hlrCore: SpacedRepetitionModel, meanP: number): void
     }
   }
 
+  return { test, groups };
+}
+
+function partC(rows: Row[], hlrCore: SpacedRepetitionModel, meanP: number): void {
+  console.log("PART C - CROSS-EXAM: FSRS-5 (ours) replays their traces vs the baselines");
+  const { test, groups } = buildTestSet(rows, hlrCore);
   const gt = test.map((x) => x.p);
   const fsrsPreds = test.map((x) => Math.min(0.9999, Math.max(0.0001, x.pred)));
   const corePreds = test.map((x) => x.corePred);
@@ -410,7 +417,7 @@ function partC(rows: Row[], hlrCore: SpacedRepetitionModel, meanP: number): void
     return { mae, cor };
   };
   const eFsrs = stat("FSRS-5", fsrsPreds);
-  const eCore = stat("HLR core", corePreds);
+  const _eCore = stat("HLR core", corePreds); // printed by stat(); not compared
   const eLeit = stat("Leitner", leitPreds);
   const ePim = stat("Pimsleur", pimPreds);
   const eTriv = stat("trivial", trivial);

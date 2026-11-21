@@ -29,7 +29,7 @@ export function scoreShadow(target: string, transcript: string): ArenaScore {
   const m = g.length;
 
   // LCS table (small sentences: fine to allocate).
-  const dp: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  const dp: number[][] = Array.from({ length: n + 1 }, () => Array.from({ length: m + 1 }, () => 0));
   for (let i = 1; i <= n; i++) {
     for (let j = 1; j <= m; j++) {
       dp[i][j] = t[i - 1] === g[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);

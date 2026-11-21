@@ -37,9 +37,7 @@ async function throttle(page) {
   return cdp;
 }
 
-async function main() {
-  const browser = await chromium.launch();
-  const ctx = await browser.newContext({ ...devices["iPhone 13"], locale: "en-US" });
+async function preparePage(ctx) {
   if (process.env.RAH_SESSION) {
     // Authenticated probe (the lazy tabs live in the daily loop, behind the
     // session gate). RAH_SESSION carries the RAW token; the cookie name must
@@ -64,17 +62,10 @@ async function main() {
   await throttle(page);
 
   await page.goto(url, { waitUntil: "load", timeout: 60000 });
+  return page;
+}
 
-  // 1. boot-screen blocking: settle window after load
-  await page.waitForTimeout(4000);
-  const blocking = await page.evaluate(() => {
-    const tasks = window.__rahLongTasks || [];
-    const supported = !window.__rahLongTaskUnsupported;
-    const tbt = tasks.reduce((a, t) => a + Math.max(0, t.dur - 50), 0);
-    const worst = tasks.reduce((a, t) => Math.max(a, t.dur), 0);
-    return { supported, count: tasks.length, tbt, worst, tasks: tasks.slice(0, 10) };
-  });
-
+async function measureLazyTab(page, browser) {
   // 2. lazy-tab transition (first open = chunk fetch + data + render, throttled)
   //    Real learner-perceived cost: click -> the tab is ACTIVE and the view's
   //    content has settled (DOM text stops growing after the chunk + its data
@@ -162,6 +153,26 @@ async function main() {
   );
   const chunkBytes = chunks.reduce((a, c) => a + (c.bytes || 0), 0);
   const firstChunkMs = chunks.length ? Math.min(...chunks.map((c) => c.ms)) : null;
+  return { tabMs, chunkBytes, chunks, firstChunkMs };
+}
+
+async function main() {
+  const browser = await chromium.launch();
+  const ctx = await browser.newContext({ ...devices["iPhone 13"], locale: "en-US" });
+  const page = await preparePage(ctx);
+
+
+  // 1. boot-screen blocking: settle window after load
+  await page.waitForTimeout(4000);
+  const blocking = await page.evaluate(() => {
+    const tasks = window.__rahLongTasks || [];
+    const supported = !window.__rahLongTaskUnsupported;
+    const tbt = tasks.reduce((a, t) => a + Math.max(0, t.dur - 50), 0);
+    const worst = tasks.reduce((a, t) => Math.max(a, t.dur), 0);
+    return { supported, count: tasks.length, tbt, worst, tasks: tasks.slice(0, 10) };
+  });
+
+  const { tabMs, chunkBytes, chunks, firstChunkMs } = await measureLazyTab(page, browser);
 
   const out = {
     label,

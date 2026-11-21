@@ -60,7 +60,7 @@ function sim(a: string, b: string): number {
 export function alignWords(t: string[], g: string[]): { pairs: [string, string][]; missed: string[]; extra: string[] } {
   const n = t.length;
   const m = g.length;
-  const dp: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  const dp: number[][] = Array.from({ length: n + 1 }, () => Array.from({ length: m + 1 }, () => 0));
   for (let i = 1; i <= n; i++) dp[i][0] = dp[i - 1][0] - 1;
   for (let j = 1; j <= m; j++) dp[0][j] = dp[0][j - 1] - 1;
   for (let i = 1; i <= n; i++) {

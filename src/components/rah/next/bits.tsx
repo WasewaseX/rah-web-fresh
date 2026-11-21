@@ -87,7 +87,7 @@ export function strandColors(_strand: string): { deep: string; bright: string } 
    the same geometry. */
 export function LogoMark({ size = 26 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden role="img">
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden>
       <defs>
         <linearGradient id="rah-logo-g" x1="6" y1="2" x2="26" y2="30" gradientUnits="userSpaceOnUse">
           {/* Theme-following stops (owner request: the whole UI follows the

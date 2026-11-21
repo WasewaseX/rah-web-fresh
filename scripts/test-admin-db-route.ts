@@ -15,7 +15,6 @@ export {}; // module marker: top-level await needs it (tsc TS1375)
 import fs from "fs";
 
 const DIR = "/tmp/rah-admin-route-test";
-const DB = `${DIR}/custom.db`;
 const TOKEN = "test-token-0f4c1ba7";
 
 let failures = 0;

@@ -9,7 +9,9 @@ for (const l of lines) {
   try {
     const ev = JSON.parse(l.slice(6));
     if (ev.type === "final" && ev.envelope?.kind === "exam") exam = ev.envelope.exam;
-  } catch {}
+  } catch {
+    // malformed coach line - exam stays unset and the check below reports it
+  }
 }
 if (!exam) {
   console.error("no exam in stream");

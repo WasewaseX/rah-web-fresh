@@ -19,7 +19,7 @@
 //     its lapse-rate analytics (ok = reps - lapses) stay honest.
 
 import { review, defaultState, W } from "../src/lib/fsrs";
-import { fsrs, generatorParameters, createEmptyCard, Rating, type Card, type Grade } from "ts-fsrs";
+import { fsrs, generatorParameters, createEmptyCard, type Card, type Grade } from "ts-fsrs";
 
 // Deterministic RNG so failures are reproducible.
 function mulberry32(seed: number): () => number {

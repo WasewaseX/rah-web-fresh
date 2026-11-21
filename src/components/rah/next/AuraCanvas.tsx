@@ -149,6 +149,7 @@ export default function AuraCanvas() {
     <canvas
       ref={ref}
       aria-hidden
+      tabIndex={-1}
       className="pointer-events-none fixed inset-0 h-full w-full opacity-[0.16]"
       style={{ zIndex: 0, mixBlendMode: "screen" }}
     />

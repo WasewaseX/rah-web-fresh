@@ -59,7 +59,6 @@ async function main() {
       continue;
     }
     // MCQ pick first option
-    const mcq = page.locator("main button").filter({ hasText: /./ });
     log.push("stuck: no actionable control found");
     break;
   }

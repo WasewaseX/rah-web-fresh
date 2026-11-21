@@ -374,8 +374,9 @@ export default function WritingView({ onDone }: { boot: Boot; onDone: () => void
 
         <div className="card-rah p-6 mb-4">
           <div className="display text-[19px] font-bold mb-2">The repair, where the learning happens</div>
-          <label className="text-[12.5px] font-bold block mb-1 mt-3">1. The one error I keep making (worst one only)</label>
+          <label htmlFor="repair-error" className="text-[12.5px] font-bold block mb-1 mt-3">1. The one error I keep making (worst one only)</label>
           <textarea
+            id="repair-error"
             value={repaired}
             aria-label="The error I keep making"
             onChange={(e) => setRepaired(e.target.value)}
@@ -383,10 +384,11 @@ export default function WritingView({ onDone }: { boot: Boot; onDone: () => void
             style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
             placeholder='e.g. "I have seen him yesterday" needs past simple: I saw him yesterday. Time point means past tense.'
           />
-          <label className="text-[12.5px] font-bold block mb-1 mt-4">2. Now use that corrected structure in two brand new sentences</label>
+          <label htmlFor="reuse-0" className="text-[12.5px] font-bold block mb-1 mt-4">2. Now use that corrected structure in two brand new sentences</label>
           {reuse.map((v, i) => (
             <input
               key={i}
+              id={`reuse-${i}`}
               value={v}
               aria-label={`Reuse sentence ${i + 1}`}
               onChange={(e) => setReuse((xs) => xs.map((x, j) => (j === i ? e.target.value : x)))}

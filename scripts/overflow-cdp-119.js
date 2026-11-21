@@ -4,9 +4,9 @@
 // gives a REAL 390x844 @2x mobile viewport, then per view:
 //   - run the overflow probe (true bleeders + text-out-of-box, transform-aware)
 //   - save a screenshot for the eye check.
-// Usage: node scripts/overflow-cdp-119.js <ws-port> <session-token>
-const fs = require("fs");
-const http = require("http");
+// Usage: bun scripts/overflow-cdp-119.js <ws-port> <session-token>
+import fs from "fs";
+import http from "http";
 
 const PORT = process.argv[2] || "9231";
 const TOKEN = process.argv[3] || "";
@@ -78,7 +78,8 @@ function connect(url) {
       if (m.id && pending.has(m.id)) {
         const { res, rej } = pending.get(m.id);
         pending.delete(m.id);
-        m.error ? rej(new Error(JSON.stringify(m.error))) : res(m.result);
+        if (m.error) rej(new Error(JSON.stringify(m.error)));
+        else res(m.result);
       }
     };
   });

@@ -323,7 +323,9 @@ export default function SpeakingView({ onDone }: { onDone: () => void }) {
           {audioUrl ? (
             <div className="mb-5">
               <audio ref={audioRef} controls src={audioUrl}
-                     aria-label="Your recording" className="w-full" style={{ maxHeight: 44 }} />
+                     aria-label="Your recording" className="w-full" style={{ maxHeight: 44 }}>
+                <track kind="captions" />
+              </audio>
             </div>
           ) : null}
           {transcript && heard ? (
@@ -339,8 +341,9 @@ export default function SpeakingView({ onDone }: { onDone: () => void }) {
           ) : null}
           {typedMode && !heard ? (
             <div className="mb-5">
-              <label className="text-[12.5px] font-bold block mb-1">What you said, as close as you remember</label>
+              <label htmlFor="said-recall" className="text-[12.5px] font-bold block mb-1">What you said, as close as you remember</label>
               <textarea
+                id="said-recall"
                 value={transcript}
                 aria-label="What you said"
                 onChange={(e) => setTranscript(e.target.value)}

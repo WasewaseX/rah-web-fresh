@@ -5,7 +5,6 @@
 // detection, live-context assembly, history flattening, and theme parsing.
 // Run: bun scripts/test-router.ts
 import { parseSlash, routeByCommand, routeByTrigger } from "../src/lib/agent/planner";
-import { getSkill } from "../src/lib/agent/registry";
 import { extractTurn, isStateQuestion, buildLiveContext, sanitizeReply } from "../src/lib/coach-agent/loop";
 import { flattenCoach } from "../src/lib/coach-agent/history";
 import { sanitizeReply as verifyReply } from "../src/lib/agent/verify";

@@ -337,7 +337,9 @@ try {
   let bundle: any = null;
   try {
     bundle = JSON.parse(exText);
-  } catch {}
+  } catch {
+    // a non-JSON export must fail the check below, not the harness
+  }
   check(ex.status === 200 && bundle?.format === "rah.v1", "export is a rah.v1 bundle", exText.slice(0, 80));
 
   const badImport = await api("/api/import", { method: "POST", body: JSON.stringify({ dryRun: true, bundle: { format: "rah.v1", tables: { Learner: [{ id: "bogus" }] } } }) });
@@ -887,7 +889,7 @@ try {
       // stored-entry ZIP via the lib's own writer - a byte-true .apkg fixture.
       const { buildZip } = await import("@/lib/apkg");
       const { Database } = await import("bun:sqlite");
-      const { mkdtemp, writeFile, readFile, rm } = await import("node:fs/promises");
+      const { mkdtemp, readFile, rm } = await import("node:fs/promises");
       const { join } = await import("node:path");
       const { tmpdir } = await import("node:os");
       const dir = await mkdtemp(join(tmpdir(), "battery-apkg-"));

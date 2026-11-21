@@ -20,7 +20,7 @@ function check(name: string, cond: boolean, extra = "") {
   }
 }
 
-async function main() {
+async function BookStructure() {
   // ---------- book structure: counts match the printed TOC ----------
   console.log("-- structure");
   check("meta: 92 pages, 2023, author named", GUIDE_META.pages === 92 && GUIDE_META.year === 2023 && GUIDE_META.author.includes("Lucy"));
@@ -29,6 +29,9 @@ async function main() {
   check("grammar/vocab counts 12/10 14/10 12/10", counts === "12/10 14/10 12/10", counts);
   check("38 grammar + 30 vocabulary topics total", guideAllTopics().length === 68);
 
+}
+
+async function Pages() {
   // ---------- pages: every topic page inside the book, sections ordered ----------
   console.log("-- pages");
   let pagesOk = true;
@@ -44,6 +47,9 @@ async function main() {
   check("topic pages non-decreasing per level (TOC order)", orderOk);
   check("B2 pronunciation page 54 with typo note", GUIDE_LEVELS[1].pronunciation.pages === "54" && GUIDE_LEVELS[1].pronunciation.note.includes("typo"));
 
+}
+
+async function Checklists() {
   // ---------- checklists: provenance labels are honest ----------
   console.log("-- checklists");
   const b1 = guideSection("B1");
@@ -56,6 +62,9 @@ async function main() {
   check("rating legend is the book's 3 boxes", CHECKLIST_LEGEND.length === 3 && CHECKLIST_LEGEND[2] === "It is difficult for me.");
   check("study plans: 3 months each", GUIDE_LEVELS.every((s) => s.studyPlan.months === 3));
 
+}
+
+async function TopicIdsCurriculumCrosslinks() {
   // ---------- topic ids + curriculum cross-links ----------
   console.log("-- cross-links");
   const ids = guideAllTopics().map((t) => t.id);
@@ -82,6 +91,9 @@ async function main() {
   }));
   check("guideTopicsForNode(b2_prepositions) = prepositions", guideTopicsForNode("b2_prepositions").some((t) => t.id === "b1.prepositions"));
 
+}
+
+async function AIMemory() {
   // ---------- AI memory: the map is in both prompt surfaces ----------
   console.log("-- ai memory");
   const map = guideMapForPrompt();
@@ -95,6 +107,9 @@ async function main() {
   check("loop rule 1 mandates study_guide", typeof loop.systemPrompt === "function" ? loop.systemPrompt().includes("REQUIRES study_guide") : false);
   check("capability line includes level mapping", typeof loop.systemPrompt === "function" ? loop.systemPrompt().includes("map exactly what B1, B2 or C1 demands") : false);
 
+}
+
+async function StudyGuideTool() {
   // ---------- study_guide tool ----------
   console.log("-- study_guide tool");
   const tool = toolByName("study_guide");
@@ -111,6 +126,9 @@ async function main() {
   check("B1 checklist section with derived label", chk.ok === true && (chk.detail ?? "").includes("derived") && (chk.detail ?? "").includes("present perfect"));
   check("detail respects the 4000-char loop cap", (all.detail ?? "").length <= 4000 && (gram.detail ?? "").length <= 4000);
 
+}
+
+async function Task131() {
   // ---------- Task 131: the map is activated ----------
   console.log("-- task 131: activated map");
   const body = guideMemoryBody();
@@ -144,6 +162,9 @@ async function main() {
   const dryJson = (await dryRes.json()) as { readiness?: { easy?: number } };
   check("probe POST computes readiness without writing", dryJson?.readiness?.easy === 10);
 
+}
+
+async function Task133() {
   // ---------- Task 133: one-click practice commands ----------
   console.log("-- practice commands");
   const b2Cleft = guideSection("B2").grammar.find((t) => t.id === "b2.cleft_sentences");
@@ -172,6 +193,9 @@ async function main() {
   const w10 = studyPlan12Week("B2")[9];
   check("weekCommand: verification week (no topic lists) still works", weekCommand("B2", w10).includes(w10.action) && weekCommand("B2", w10).includes("week 10"));
 
+}
+
+async function Task136() {
   // ---------- Task 136: drill-request ledger ----------
   console.log("-- drill ledger");
   const { parseDrillMap, coverageFor } = await import("../src/app/api/guide-practice/route");
@@ -190,6 +214,9 @@ async function main() {
   const dryDrillJson = (await dryDrill.json()) as { dry?: boolean; wouldWrite?: { count?: number } };
   check("drill probe reports wouldWrite count 1 (nothing stored)", dryDrillJson.dry === true && dryDrillJson.wouldWrite?.count === 1);
 
+}
+
+async function Task146() {
   // ---------- Task 146: cross-level topic search ----------
   {
     const { searchGuideTopics } = await import("../src/lib/b1c1-guide");
@@ -209,6 +236,21 @@ async function main() {
 
   console.log(`\nb1c1-guide: ${pass} pass, ${fail} fail`);
   process.exit(fail === 0 ? 0 : 1);
+}
+
+async function main() {
+
+  await BookStructure();
+  await Pages();
+  await Checklists();
+  await TopicIdsCurriculumCrosslinks();
+  await AIMemory();
+  await StudyGuideTool();
+  await Task131();
+  await Task133();
+  await Task136();
+  await Task146();
+
 }
 
 main()

@@ -142,14 +142,15 @@ export default function ReadingView({ onDone }: { boot: Boot; onDone: () => void
                 const g = r.glossary.find((x) => x.w.toLowerCase() === w.toLowerCase().replace(/[.,!?;:]/g, ""));
                 if (!g) return <span key={j}>{w}</span>;
                 return (
-                  <span
+                  <button
                     key={j}
+                    type="button"
                     onClick={() => setGloss((x) => ({ ...x, [g.w]: !x[g.w] }))}
                     className="cursor-pointer underline decoration-dotted decoration-2 underline-offset-4"
                     style={{ textDecorationColor: "var(--accent)" }}
                   >
                     {w}
-                  </span>
+                  </button>
                 );
               })}
             </p>

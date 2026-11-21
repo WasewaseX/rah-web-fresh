@@ -26,7 +26,9 @@ for (const row of rows) {
     try {
       const unwrapped = JSON.parse(`"${m[1]}"`) as string;
       if (unwrapped.trim() && !unwrapped.trim().startsWith("{")) replacement = unwrapped;
-    } catch {}
+    } catch {
+      // quoted marker was not valid JSON - keep the computed replacement
+    }
   }
   parsed.reply = replacement;
   await prisma.chatMsg.update({ where: { id: row.id }, data: { content: JSON.stringify(parsed) } });

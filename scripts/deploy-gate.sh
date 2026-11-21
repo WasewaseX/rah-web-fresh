@@ -177,13 +177,14 @@ if ! bun scripts/security-gate.ts; then
   echo "GATE FAIL: security findings in project scope - fix them or add a documented security-gate:allow with validation"; exit 1
 fi
 
-# The external scanner lints project code with the same eslint rule set (a11y,
-# react compiler hooks, unused bindings, unicorn). Zero-warning here means the
-# next external round cannot surface a lint-class finding from src/. scripts/
-# is outside the repo eslint config (deliberate - the security gate owns it).
-step "4.6/6 lint (bunx eslint src - zero warnings, mirrors the external scanner)"
-if ! bunx eslint src --max-warnings 0; then
-  echo "GATE FAIL: eslint findings in src/ - the external scanner would flag these"; exit 1
+# The external scanner lints project code with the same eslint rule set (a11y
+# full plugin set, react compiler hooks, unused bindings, unicorn, import
+# hygiene, function-length on scripts). Zero findings here across src/ +
+# scripts/ + root configs means the next external round cannot surface a
+# lint-class finding from anywhere the scanner scans.
+step "4.6/6 lint (full scanner-parity ruleset: src + scripts + root configs)"
+if ! bunx eslint src scripts eslint.config.mjs --max-warnings 0; then
+  echo "GATE FAIL: eslint findings in scanner scope - the external scanner would flag these"; exit 1
 fi
 
 step "5/6 commit + push (only when dirty)"

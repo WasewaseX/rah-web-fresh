@@ -290,21 +290,20 @@ export default function TutorView({ boot }: { boot: Boot }) {
 // ---------- Chat (the Task 104 surface, unchanged contract) ----------
 
 function ChatTab() {
-  const [turns, setTurns] = useState<Turn[]>([]);
+  // Greeting is the initial state - no setState inside a mount effect
+  // (cascading render).
+  const [turns, setTurns] = useState<Turn[]>([
+    {
+      role: "assistant",
+      reply:
+        "Salam! I am your retrieval coach. Tell me about your week, and I will push you to produce English, not just understand it. Two sentences to start.",
+      fa_note: "چیزی که می‌نویسی مهم نیست، مهم این است که تولید کنی. شروع کن.",
+    },
+  ]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const scroller = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    setTurns([
-      {
-        role: "assistant",
-        reply:
-          "Salam! I am your retrieval coach. Tell me about your week, and I will push you to produce English, not just understand it. Two sentences to start.",
-        fa_note: "چیزی که می‌نویسی مهم نیست، مهم این است که تولید کنی. شروع کن.",
-      },
-    ]);
-  }, []);
 
   useEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" });
@@ -551,7 +550,10 @@ function ScanTab() {
   }, []);
 
   useEffect(() => {
-    void load(false);
+    // one-tick deferral: load() sets busy state synchronously, and a mount
+    // effect must not setState (cascading renders)
+    const t = setTimeout(() => void load(false), 0);
+    return () => clearTimeout(t);
   }, [load]);
 
   const conf = scan ? Math.round((scan.confidence ?? 0) * 100) : 0;
@@ -650,7 +652,9 @@ function ClinicTab() {
   }, []);
 
   useEffect(() => {
-    void load(false);
+    // one-tick deferral: load() sets busy state synchronously (see above)
+    const t = setTimeout(() => void load(false), 0);
+    return () => clearTimeout(t);
   }, [load]);
 
   // DrillCard grades locally; the outcome goes to /api/tutor/event, which
@@ -749,7 +753,9 @@ function ExamTab() {
   }, []);
 
   useEffect(() => {
-    void loadHistory();
+    // one-tick deferral: loadHistory() sets state synchronously
+    const t = setTimeout(() => void loadHistory(), 0);
+    return () => clearTimeout(t);
   }, [loadHistory]);
 
   const startExam = async () => {

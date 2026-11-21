@@ -3,7 +3,6 @@
  * content + screenshots during boot, and dump paint entries.
  */
 import { chromium, devices } from "playwright";
-import fs from "node:fs";
 
 const url = process.argv[2] || "http://localhost:3000/";
 const browser = await chromium.launch();

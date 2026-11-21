@@ -81,7 +81,7 @@ function align(t: string[], g: string[]): FullAlign {
   const n = t.length;
   const m = g.length;
   const score = (a: string, b: string): number => (a === b ? 2 : editDistance(a, b) <= (a.length >= 4 ? 2 : 1) ? 1 : -1);
-  const dp: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  const dp: number[][] = Array.from({ length: n + 1 }, () => Array.from({ length: m + 1 }, () => 0));
   for (let i = 1; i <= n; i++) dp[i][0] = dp[i - 1][0] - 1;
   for (let j = 1; j <= m; j++) dp[0][j] = dp[0][j - 1] - 1;
   for (let i = 1; i <= n; i++) {
@@ -89,7 +89,7 @@ function align(t: string[], g: string[]): FullAlign {
       dp[i][j] = Math.max(dp[i - 1][j - 1] + score(t[i - 1], g[j - 1]), dp[i - 1][j] - 1, dp[i][j - 1] - 1);
     }
   }
-  const matched: (string | null)[] = new Array(n).fill(null);
+  const matched: (string | null)[] = Array.from({ length: n }, () => null);
   const extra: string[] = [];
   let i = n;
   let j = m;

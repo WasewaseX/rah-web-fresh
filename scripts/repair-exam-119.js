@@ -6,9 +6,10 @@
 // "many of the answers were wrong" complaint traces to exactly this class.
 // This script replaces that one item with a sound, gated version and leaves
 // everything else untouched. One-shot; safe to re-run (idempotent by stem).
-const fs = require("fs");
+import fs from "fs";
+import { PrismaClient } from "@prisma/client";
+
 const url = (fs.readFileSync(".env", "utf8").match(/DATABASE_URL="?([^"\n]+)"?/) || [])[1];
-const { PrismaClient } = require("@prisma/client");
 const p = new PrismaClient({ datasources: { db: { url } } });
 
 const REPLACEMENT = {

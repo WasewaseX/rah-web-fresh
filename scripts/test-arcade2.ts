@@ -81,8 +81,7 @@ async function main() {
   process.exit(fail === 0 ? 0 : 1);
 }
 
-async function drive(day: number) {
-
+async function HEATTIERS() {
   console.log("\n=== HEAT TIERS (unit) ===");
   check("cold 1.0x", heatOf(0).mult === 1);
   check("warming 1.05x at 5", heatOf(5).mult === 1.05);
@@ -90,6 +89,9 @@ async function drive(day: number) {
   check("hot 1.2x at 15", heatOf(15).mult === 1.2);
   check("blazing 1.3x at 25", heatOf(25).mult === 1.3);
 
+}
+
+async function MOMENTUM() {
   console.log("\n=== MOMENTUM (live) ===");
   const chain0 = await jget("/api/state");
   const beforeChain = chain0.chain?.chain ?? 0;
@@ -103,6 +105,9 @@ async function drive(day: number) {
   const chain2 = await jget("/api/state");
   check("miss halves chain", chain2.chain.chain === Math.floor((beforeChain + 1) / 2), `-> ${chain2.chain.chain}`);
 
+}
+
+async function LEAGUE() {
   console.log("\n=== LEAGUE ===");
   const league = await jget("/api/arcade/league");
   check("8 standings", league.standings?.length === 8);
@@ -114,6 +119,9 @@ async function drive(day: number) {
   const leagueLeague = await db.league.findUnique({ where: { userId_id: { userId: "me", id: "me" } } });
   check("league row persisted", !!leagueLeague);
 
+}
+
+async function DAILYDUNGEON(day: number) {
   console.log("\n=== DAILY DUNGEON (server-graded) ===");
   // The dungeon is one run per day BY DESIGN, so a run left over from an
   // earlier attempt (user play or a crashed prior suite run) would poison
@@ -143,6 +151,9 @@ async function drive(day: number) {
   const dg2 = await jget("/api/arcade/dungeon");
   check("same rooms all day", dg2.done === true && dg2.floors[0].items[0].id === dg.floors[0].items[0].id);
 
+}
+
+async function RIVALDUEL() {
   console.log("\n=== RIVAL DUEL ===");
   const duel2 = await jget("/api/arcade/duel");
   check("8 items with keys", duel2.items?.length === 8 && duel2.items.every((i: any) => !!i.key));
@@ -155,6 +166,9 @@ async function drive(day: number) {
   const duelWins = await db.gameStat.findUnique({ where: { userId_key: { userId: "me", key: "duel:wins" } } });
   check("duel:wins >= 2", (duelWins?.best ?? 0) >= 2);
 
+}
+
+async function GAUNTLET() {
   console.log("\n=== GAUNTLET ===");
   let g = await jget("/api/arcade/gauntlet");
   check("item has no key", !("key" in g) && !("accepts" in g));
@@ -178,6 +192,9 @@ async function drive(day: number) {
   const gFresh = await jget("/api/arcade/gauntlet");
   check("GET after death rolls a new run", gFresh.done === false && gFresh.streak === 0);
 
+}
+
+async function TALENTS() {
   console.log("\n=== TALENTS ===");
   const perks0 = await jget("/api/arcade/perks");
   check("6 perks across 6 branches", perks0.perks?.length === 6 && new Set(perks0.perks.map((p: any) => p.branch)).size === 6);
@@ -197,6 +214,9 @@ async function drive(day: number) {
   const perksFinal = await jget("/api/arcade/perks");
   check("owned list persisted", perksFinal.owned.includes("duel_time") && perksFinal.owned.includes("chain_shield"));
 
+}
+
+async function FOCUSFLOW() {
   console.log("\n=== FOCUS FLOW ===");
   let flow0 = await jget("/api/flow");
   if (!Array.isArray(flow0.items) || flow0.items.length !== 12) flow0 = await jget("/api/flow"); // one bounce retry
@@ -207,6 +227,9 @@ async function drive(day: number) {
   const flowPost2 = await jpost("/api/flow", { correct: 3, total: 12, ms: 300_000 });
   check("3/12 pays 30, no bonus", flowPost2.body.xpGain === 30 && flowPost2.body.perfectBonus === false);
 
+}
+
+async function AIDIRECTOR(day: number) {
   console.log("\n=== AI DIRECTOR (live AI) ===");
   let briefed = false;
   try {
@@ -227,9 +250,27 @@ async function drive(day: number) {
   const prof = await db.learner.findUnique({ where: { id: "me" } });
   check("persona persisted", prof?.persona === "drill");
 
+}
+
+async function REPLAYSHELF() {
   console.log("\n=== REPLAY SHELF ===");
   const shelf = await jget("/api/exam/replay");
   check("shelf responds with exams array", Array.isArray(shelf.exams));
+}
+
+async function drive(day: number) {
+
+
+  await HEATTIERS();
+  await MOMENTUM();
+  await LEAGUE();
+  await DAILYDUNGEON(day);
+  await RIVALDUEL();
+  await GAUNTLET();
+  await TALENTS();
+  await FOCUSFLOW();
+  await AIDIRECTOR(day);
+  await REPLAYSHELF();
 }
 
 async function restore(ctx: { day: number; learner0: any; stat0: any; gs0: any[]; runRows0: any[]; quests0: any[]; brief0: any }) {

@@ -132,7 +132,6 @@ try {
   // ================= 3. SHOP + GEMS =================
   console.log("\n--- shop: gems economy ---");
 
-  const l0 = await prisma.learner.findUnique({ where: { id: "me" } });
   const dayIdx = Math.floor(Date.now() / 86400000);
   await prisma.learner.update({ where: { id: "me" }, data: { gems: 400, boostUntil: -1, freezes: 0, xp: 0 } });
 

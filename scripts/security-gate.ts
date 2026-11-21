@@ -49,8 +49,6 @@ const EXCLUDED_DIRS = new Set([
   ".git", "node_modules", ".next", ".next-teach", ".next-standalone",
   "upload", "download", "db", "skills", ".zcode", "tmp", "dist",
 ]);
-// vendored third-party bundles inside otherwise-scannable dirs
-const EXCLUDED_PATH_PARTS = [join(".github", "skills"), `${sep}vendor${sep}`];
 const SCANNED_EXT = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".py", ".html"]);
 
 interface Finding {

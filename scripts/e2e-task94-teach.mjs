@@ -50,7 +50,9 @@ async function waitForServer() {
     try {
       const r = await fetch(`${BASE}/api/version`);
       if (r.ok) return;
-    } catch {}
+    } catch {
+      // server not up yet - back off and poll again
+    }
     await new Promise((r) => setTimeout(r, 2000));
   }
   throw new Error("isolated stack never came up");
@@ -134,7 +136,9 @@ async function main() {
 main()
   .catch((e) => { fail++; console.log("  FAIL: harness error ->", e.message); })
   .finally(async () => {
-    try { process.kill(-stack.pid, "SIGTERM"); } catch {}
+    try { process.kill(-stack.pid, "SIGTERM"); } catch {
+      // stack already exited - nothing to tear down
+    }
     console.log(`\n=== TEACH CHAIN E2E: ${pass} passed, ${fail} failed ===`);
     process.exit(fail ? 1 : 0);
   });

@@ -4,7 +4,7 @@
  * answer a vocab??") as permanent negative fixtures, plus the fair items
  * that must keep passing. Deterministic, no AI, no db.
  */
-import { itemAnswerable, itemFairlyAsked } from "../src/lib/agent/exam-gate";
+import { evidenceItem, itemAnswerable, itemFairlyAsked } from "../src/lib/agent/exam-gate";
 
 let failures = 0;
 function drop(name: string, item: { type: string; q: string; a?: string; choices?: string[]; accept?: string[] }, why: string) {
@@ -136,7 +136,6 @@ else {
 
 // Evidence items: deterministic quota enforcement built from family evidence.
 // The blanked token must be the CORRECTION, not a bystander word.
-import { evidenceItem } from "../src/lib/agent/exam-gate";
 
 const ev1 = evidenceItem("articles", "I have lived here for 2019 -> I have lived here since 2019");
 if (ev1 && ev1.a === "since" && ev1.q.includes("___") && ev1.tag === "articles") console.log("PASS evidence item blanks the correction (for -> since)");

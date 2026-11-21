@@ -20,12 +20,12 @@ function check(name: string, cond: boolean, extra = "") {
   }
 }
 
-async function main() {
   const forecast = toolByName("review_forecast")!;
   const dict = toolByName("dictionary")!;
   const add = toolByName("add_cards")!;
   const goals = toolByName("set_goal")!;
 
+async function ReviewForecast() {
   // ---------- review_forecast: parts must sum to the whole queue ----------
   console.log("-- review_forecast");
   const f = await forecast.run({});
@@ -35,7 +35,7 @@ async function main() {
     select: { due: true },
   });
   let overdue = 0;
-  const perDay = new Array<number>(7).fill(0);
+  const perDay = Array.from({ length: 7 }, () => 0);
   let beyond = 0;
   for (const s of states) {
     if (s.due < today) overdue++;
@@ -53,6 +53,9 @@ async function main() {
   const horizonTotal = overdue + perDay.reduce((a, b) => a + b, 0) + beyond;
   check("7-day total line is honest", f.detail?.includes(`7-day total (overdue + due): ${overdue + perDay.reduce((a, b) => a + b, 0)}`) === true && horizonTotal === states.length, `beyond=${beyond} states=${states.length}`);
 
+}
+
+async function Dictionary() {
   // ---------- dictionary: live shape (soft-skipped when offline) ----------
   console.log("-- dictionary");
   let online = true;
@@ -74,6 +77,9 @@ async function main() {
   const empty = await dict.run({});
   check("dictionary rejects empty input", empty.ok === false, empty.summary);
 
+}
+
+async function AddCards() {
   // ---------- add_cards: validation matrix (probe mode = no writes) ----------
   console.log("-- add_cards validation");
   const uc0 = await db.userCard.count({ where: { learnerId: "me" } });
@@ -96,6 +102,9 @@ async function main() {
   const noArgs = await add.run({});
   check("add_cards: missing cards rejected", noArgs.ok === false, noArgs.summary);
 
+}
+
+async function SetGoal() {
   // ---------- set_goal: validation matrix ----------
   console.log("-- set_goal validation");
   const already = await goals.run({});
@@ -107,6 +116,9 @@ async function main() {
   const dry = await goals.run({ dailyGoal: 44, _probe: true });
   check("set_goal: valid probe dry-run ok", dry.ok === true && /dry-run/i.test(dry.summary), dry.summary);
 
+}
+
+async function LoopEnforcementDetectors() {
   // ---------- loop enforcement detectors (Task 125) ----------
   console.log("-- loop enforcement detectors");
   check("deck-add: live probe string", isDeckAddAsk("add the word serendipity to my vocab deck") === true);
@@ -120,6 +132,16 @@ async function main() {
   check("week-ask: past week NOT week-ask", isWeekAsk("what did I do last week?") === false);
 
   console.log(`\ncoach-tools: ${pass} pass, ${fail} fail`);
+}
+
+async function main() {
+
+
+  await ReviewForecast();
+  await Dictionary();
+  await AddCards();
+  await SetGoal();
+  await LoopEnforcementDetectors();
   process.exit(fail === 0 ? 0 : 1);
 }
 

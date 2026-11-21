@@ -274,7 +274,7 @@ export async function generateExam(
   // trap poisons the healing loop, so the tag is stripped, not the item).
   const vetInPlace = (pool: ExamItem[], label: string) =>
     vetItems(pool.map((it) => ({ id: it.id, type: it.type, skill: it.skill, q: it.q, choices: it.choices, a: it.a, accept: it.accept ?? [], tag: it.tag }))).then((vet) => {
-      for (const it of [...pool]) {
+      for (const it of pool.slice()) {
         const v = vet.get(it.id);
         if (v && !v.ok) {
           dropped.push(`[${label}: ${v.reason}] ${it.q.slice(0, 70)}`);

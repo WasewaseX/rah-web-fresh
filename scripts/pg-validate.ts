@@ -46,9 +46,7 @@ const WORKERS = 8;
 const ROUNDS = 25;
 const XP_PER_GRADE = 10;
 
-async function main() {
-  console.log("=== PG VALIDATION BATTERY (Rah datamodel on PostgreSQL 17.5) ===");
-
+async function checkSchemaShapeCleanSlate() {
   // ---- 1. schema shape + clean slate
   const tables = await db.$queryRawUnsafe<{ n: bigint }[]>(
     `SELECT count(*)::int AS n FROM information_schema.tables WHERE table_schema='public'`
@@ -87,6 +85,9 @@ async function main() {
   const learner0 = await db.learner.count();
   ok("clean start", learner0 === 0);
 
+}
+
+async function checkConcurrentGradePathWrites() {
   // ---- 2. concurrent grade-path writes (the route's transaction shape)
   await db.learner.create({ data: { id: "me", xp: 0, streak: 0 } });
   const userA = "me";
@@ -140,6 +141,9 @@ async function main() {
   const cs = await db.cardState.aggregate({ _sum: { reps: true } });
   ok("CardState upsert races aggregate exactly", Number(cs._sum.reps) === WORKERS * ROUNDS, `sum(reps)=${cs._sum.reps}`);
 
+}
+
+async function checkGradeAckGidIdempotencyRace() {
   // ---- 3. GradeAck gid idempotency under a TRUE race
   const GID = "pg-race-gid-0001";
   const ackBody = JSON.stringify({ xp: XP_PER_GRADE, replayed: false });
@@ -159,6 +163,9 @@ async function main() {
   const xpBeforeReplay = (await db.learner.findUnique({ where: { id: "me" } }))!.xp;
   ok("replay touches nothing (xp unchanged)", xpBeforeReplay === WORKERS * ROUNDS * XP_PER_GRADE);
 
+}
+
+async function checkTwoAccountIsolationSemantics() {
   // ---- 4. two-account isolation semantics at the DB layer
   await db.user.create({ data: { id: "user-a", email: "a@pg.test" } });
   await db.user.create({ data: { id: "user-b", email: "b@pg.test" } });
@@ -170,6 +177,9 @@ async function main() {
   ok("scoped read is per-user", aSees === 1 && bAfter === 1);
   ok("scoped delete kills only the caller's rows", scopedDeleteA.count === 1 && (await db.chatMsg.count({ where: { userId: "user-b" } })) === 1);
 
+}
+
+async function checkLogicalRestoreDrill() {
   // ---- 5. logical restore drill (whole-DB copy into rah_restored)
   const { execSync } = await import("node:child_process");
   // build a restore dump via SQL (no pg_dump in the userspace dist): one INSERT-set per table, schema via the same diff DDL
@@ -215,10 +225,25 @@ async function main() {
   ok("restored learner row matches (xp/streak)", rLearner.rows[0]?.xp === WORKERS * ROUNDS * XP_PER_GRADE, `xp=${rLearner.rows[0]?.xp}`);
   await r2.end();
 
+}
+
+async function checkHonestNegative() {
   // ---- 6. honest negative: SQLite migration dialect does not run on PG
   const sqliteMigration = fs.readFileSync("prisma/migrations/0001_init/migration.sql", "utf8").slice(0, 400);
   ok("sqlite migration SQL carries sqlite dialect (cutover MUST baseline via migrate diff)", /CREATE TABLE/i.test(sqliteMigration) && !/"schema_version"/.test(sqliteMigration));
 
+}
+
+async function main() {
+
+  console.log("=== PG VALIDATION BATTERY (Rah datamodel on PostgreSQL 17.5) ===");
+
+  await checkSchemaShapeCleanSlate();
+  await checkConcurrentGradePathWrites();
+  await checkGradeAckGidIdempotencyRace();
+  await checkTwoAccountIsolationSemantics();
+  await checkLogicalRestoreDrill();
+  await checkHonestNegative();
   console.log(`\n=== PG VALIDATION: ${pass} passed, ${fail} failed ===`);
   await db.$disconnect();
   process.exit(fail ? 1 : 0);

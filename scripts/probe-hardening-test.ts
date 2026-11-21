@@ -18,7 +18,6 @@ function check(name: string, cond: boolean, extra = "") {
   }
 }
 
-const CASE_KEY = "re:case:probe-hardening-tmp";
 const THEME_ID = "me";
 
 async function caseCount(): Promise<number> {

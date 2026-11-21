@@ -377,7 +377,7 @@ async function reviewForecast(): Promise<ToolResult> {
     select: { due: true },
   });
   const fresh = await db.cardState.count({ where: { learnerId: "me", suspended: false, state: "new" } });
-  const perDay = new Array<number>(7).fill(0); // [0] = today, [1..6] = the next days
+  const perDay = Array.from({ length: 7 }, () => 0); // [0] = today, [1..6] = the next days
   let overdue = 0;
   for (const s of states) {
     if (s.due < today) overdue++;

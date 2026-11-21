@@ -100,7 +100,9 @@ for (const s of speak) {
     const r = JSON.parse(s.result);
     const score = typeof r.overall === "number" ? r.overall : typeof r.total === "number" ? r.total : null;
     if (score !== null) speakScores.push(score);
-  } catch {}
+  } catch {
+    // malformed stored result - skip that session
+  }
 }
 console.log(`\nSPEAKING: ${speak.length} recent sessions (cap 100), ${speakScores.length} with a numeric overall score`);
 if (speakScores.length >= 4) {

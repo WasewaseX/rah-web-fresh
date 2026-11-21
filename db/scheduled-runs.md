@@ -117,6 +117,19 @@
   scanner. Whole-src eslint ZERO, tsc clean, batteries 53/53 + 81/81 + 29/29 +
   59/59, gate 14/14, scan CLEAN, gate GREEN, pushed 9f90339ae4f3.
 
+- cycle 5/5 (2026-11-21): scanner round 6 (588 findings) zeroed by scanner-parity
+  hardening. eslint.config.mjs enables the external rule set whose "off" overrides
+  had silenced the gate lint (no-unused-vars with _-patterns, no-empty, no-empty-
+  pattern, exhaustive-deps, jsx-a11y no-autofocus + control-has-associated-label,
+  import/no-duplicates). 31 dead files deleted (legacy rah/* generation, zero-ref
+  verified incl scripts/tests). 180 findings fixed: 62 unused, 86 label assoc
+  (empirical: only aria-label satisfies the rule; datalist+option are controls),
+  9 documented catches, 4 autofocus, 7 purity, 6 deps, 4 import dups, 1 pattern.
+  Login recall -> lazy initializers. Probe with all rules on showed only classes
+  the scanner never enforced - config stays at observed scope. Whole-src eslint
+  ZERO, tsc clean, batteries 53/53 + 81/81 + 29/29 + 59/59, gate 14/14, scan
+  CLEAN, gate GREEN, pushed 142dfcdd65a3.
+
 ## Pending queue (update as tasks ship)
 - Task 149: read_state carries checklist readiness (feed the guide-checklist ratings
   Setting into guideStateLine so the coach sees readiness verdicts too)

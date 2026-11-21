@@ -12,7 +12,6 @@
 
 import { createHash } from "crypto";
 import { db } from "@/lib/db";
-import type { PrismaClient } from "@prisma/client";
 
 export const BUNDLE_FORMAT = "rah.v1";
 

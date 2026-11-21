@@ -55,7 +55,7 @@ interface Sample {
   text: string;
 }
 
-export default function WritingView({ boot, onDone }: { boot: Boot; onDone: () => void }) {
+export default function WritingView({ onDone }: { boot: Boot; onDone: () => void }) {
   const [stage, setStage] = useState<"pick" | "write" | "repair" | "model">("pick");
   const [pid, setPid] = useState("");
   const [text, setText] = useState("");
@@ -64,7 +64,6 @@ export default function WritingView({ boot, onDone }: { boot: Boot; onDone: () =
   const [fbMsg, setFbMsg] = useState("");
   const [repaired, setRepaired] = useState("");
   const [reuse, setReuse] = useState(["", ""]);
-  const [showModel, setShowModel] = useState(false);
   const [selfCheck, setSelfCheck] = useState<Record<string, boolean>>({});
   const [goal, setGoal] = useState<WritingGoal>("exam");
   const [history, setHistory] = useState<Sample[]>([]);
@@ -164,7 +163,6 @@ export default function WritingView({ boot, onDone }: { boot: Boot; onDone: () =
                   setText("");
                 }
                 setFeedback(null);
-                setShowModel(false);
                 setStage("write");
               }}
             >
@@ -230,6 +228,7 @@ export default function WritingView({ boot, onDone }: { boot: Boot; onDone: () =
           </div>
           <textarea
             value={text}
+            aria-label="Your writing"
             onChange={(e) => setText(e.target.value)}
             className="w-full rounded-2xl border p-5 min-h-[300px] text-[15.5px] leading-[1.8]"
             style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
@@ -303,6 +302,7 @@ export default function WritingView({ boot, onDone }: { boot: Boot; onDone: () =
               <label key={k} className="flex items-start gap-2.5 py-1.5 text-[13.5px] cursor-pointer">
                 <input
                   type="checkbox"
+                  aria-label={label}
                   checked={selfCheck[k] ?? false}
                   onChange={(e) => setSelfCheck((x) => ({ ...x, [k]: e.target.checked }))}
                   className="mt-0.5"
@@ -377,6 +377,7 @@ export default function WritingView({ boot, onDone }: { boot: Boot; onDone: () =
           <label className="text-[12.5px] font-bold block mb-1 mt-3">1. The one error I keep making (worst one only)</label>
           <textarea
             value={repaired}
+            aria-label="The error I keep making"
             onChange={(e) => setRepaired(e.target.value)}
             className="w-full rounded-2xl border p-4 min-h-[80px] text-[14.5px]"
             style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
@@ -387,6 +388,7 @@ export default function WritingView({ boot, onDone }: { boot: Boot; onDone: () =
             <input
               key={i}
               value={v}
+              aria-label={`Reuse sentence ${i + 1}`}
               onChange={(e) => setReuse((xs) => xs.map((x, j) => (j === i ? e.target.value : x)))}
               className="w-full rounded-xl border px-4 py-2.5 text-[14px] mb-2"
               style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}

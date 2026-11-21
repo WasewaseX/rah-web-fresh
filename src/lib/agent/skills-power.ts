@@ -4,7 +4,7 @@
 
 import { db } from "@/lib/db";
 import { aiJson } from "@/lib/ai";
-import type { SkillDef, SkillContext, StepTrace } from "./types";
+import type { SkillDef, StepTrace } from "./types";
 import { generateExam } from "./exam";
 import { generateRepairDrill, type DrillPoint } from "./drill";
 import { startDaily, clearMode } from "./mode-flow";
@@ -456,7 +456,7 @@ Output ONE JSON object, no em dash.`,
     oneLiner: "Leave roleplay, debate, socratic or the daily challenge",
     commands: ["end", "exit", "stop"],
     triggers: [],
-    run: async (ctx) => {
+    run: async (_ctx) => {
       const steps: StepTrace[] = [];
       const learner = await db.learner.findUnique({ where: { id: "me" } });
       if (learner && learner.mode !== "coach") {
@@ -577,7 +577,7 @@ Output ONE JSON object, no em dash.`,
     oneLiner: "Your recurring mistakes, counted, with live evidence",
     commands: ["mistakes"],
     triggers: [/\b(recurring )?mistakes?\b/i, /what do i keep (getting )?wrong/i, /\bmy (weak|leak\w*) (points|spots|families)\b/i, /\berror (families|patterns)\b/i],
-    run: async (ctx) => {
+    run: async (_ctx) => {
       const steps: StepTrace[] = [];
       steps.push({ label: "Mining corrections", detail: "chat turns, essays, speaking rounds" });
       const families = await topMistakes(8);
@@ -625,13 +625,12 @@ Output ONE JSON object, no em dash.`,
       // learner content - the coach must never quote another account's rows.
       const evidenceUser = await contentUserId().catch(() => "me");
       steps.push({ label: "Collecting evidence", detail: "reviews, lapses, writing, speaking, chats" });
-      const [reviewCount, lapseRows, writes, speaks, corrections, quizItems, levels] = await Promise.all([
+      const [reviewCount, lapseRows, writes, speaks, corrections, levels] = await Promise.all([
         db.reviewLog.count({ where: { userId: evidenceUser } }),
         db.reviewLog.findMany({ where: { userId: evidenceUser, grade: 1 }, orderBy: { id: "desc" }, take: 20 }),
         db.writingSub.findMany({ where: { userId: evidenceUser }, orderBy: { id: "desc" }, take: 3 }),
         db.speakSession.findMany({ where: { userId: evidenceUser }, orderBy: { id: "desc" }, take: 3 }),
         db.chatMsg.findMany({ where: { userId: evidenceUser, role: "coach" }, orderBy: { id: "desc" }, take: 25 }),
-        db.quizItem.count(),
         getSkillLevels(),
       ]);
       const trapCards = lapseRows.length;
@@ -735,7 +734,7 @@ Output ONE JSON object: {"summary": "max 70 words, direct, second person", "band
     oneLiner: "Per-skill bands: grammar vs vocab vs the rest",
     commands: ["report", "bands"],
     triggers: [/(skill|progress) report/i, /\bbands?\b/i, /my (strong|weak) (skill|spot)/i, /skill levels/i],
-    run: async (ctx) => {
+    run: async (_ctx) => {
       const steps: StepTrace[] = [];
       steps.push({ label: "Reading measured bands", detail: "grammar, vocabulary, writing, speaking, reading, listening" });
       const levels = await getSkillLevels();
@@ -798,7 +797,7 @@ You are building a five-day plan, one line per day, each line a concrete task wi
     oneLiner: "Past exams and scores",
     commands: ["history"],
     triggers: [/(exam|test) (history|results?|scores?)/i, /past (exams|tests)/i, /how did i do on (the|my) (last|previous)/i, /what did i (score|get) on (the|my) (last|previous)/i, /\b(last|previous) (exam|test)('s)? (score|result|grade)\b/i, /my exam (score|result|grade)/i],
-    run: async (ctx) => {
+    run: async (_ctx) => {
       const steps: StepTrace[] = [];
       steps.push({ label: "Loading graded exams", detail: "newest first" });
       const rows = await db.exam.findMany({ orderBy: { createdAt: "desc" }, take: 5 });

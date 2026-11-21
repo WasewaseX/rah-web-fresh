@@ -100,7 +100,7 @@ export function minutesFor(track: ExamTrack, items: number): number {
 
 // Count clamp: a track exam is a passage-anchored section - short enough to
 // finish inside the timer, long enough to feel like the format.
-export function trackCount(track: ExamTrack, requested: number): number {
+export function trackCount(_track: ExamTrack, requested: number): number {
   return Math.max(6, Math.min(12, requested));
 }
 

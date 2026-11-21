@@ -22,7 +22,7 @@
 //      stripped wherever they appear, theme-inability claims when the topic
 //      is the theme.
 
-import { PRESETS, presetById, sanitizeTokens } from "@/lib/agent/theme";
+import { presetById, sanitizeTokens } from "@/lib/agent/theme";
 import type { ThemeTokens } from "@/lib/agent/types";
 
 export interface ThemeIntent {

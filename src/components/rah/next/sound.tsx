@@ -8,6 +8,10 @@ import { seededShuffle } from "@/lib/fsrs";
 
 // Perception first: hear, identify, distinguish, then reproduce. A 2025
 // meta-analysis of 65 studies found perception training beats shadowing.
+// Monotonic seed: every re-seed gets a fresh shuffle order without an
+// impure Date.now()/Math.random() call inside a component function body.
+let soundSeed = 0;
+
 type Mode = "pairs" | "stress" | "reduce";
 
 export default function SoundView({ onDone }: { onDone: () => void }) {
@@ -37,8 +41,8 @@ export default function SoundView({ onDone }: { onDone: () => void }) {
     setRound(0);
     setScore(0);
     setLastResult(null);
-    if (m === "pairs") setQueue(seededShuffle(MINIMAL_PAIRS.map((p) => p.id), Date.now() >>> 0).slice(0, 10));
-    if (m === "stress") setQueue(seededShuffle(STRESS_ITEMS.map((p) => p.id), Date.now() >>> 0).slice(0, 8));
+    if (m === "pairs") setQueue(seededShuffle(MINIMAL_PAIRS.map((p) => p.id), ++soundSeed).slice(0, 10));
+    if (m === "stress") setQueue(seededShuffle(STRESS_ITEMS.map((p) => p.id), ++soundSeed).slice(0, 8));
     if (m === "reduce") setQueue(LINK_ITEMS.map((p) => p.id));
   };
 

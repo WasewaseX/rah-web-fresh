@@ -128,7 +128,7 @@ ${evidence}
 Never use the em dash character anywhere.`;
 }
 
-export function assessSynthesisSystem(p: ProfileJson, previous: string, parts: string): string {
+export function assessSynthesisSystem(_p: ProfileJson, previous: string, parts: string): string {
   return `${PERSONA}
 
 You write the final assessment for a Farsi speaker. Previous overall level on record: ${previous}. Dimension findings from your analysis:

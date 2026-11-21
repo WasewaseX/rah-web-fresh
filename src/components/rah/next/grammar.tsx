@@ -13,15 +13,6 @@ export default function GrammarView({ onDone }: { onDone: () => void }) {
   const [reveal, setReveal] = useState<Record<number, boolean>>({});
   const [prodDone, setProdDone] = useState<Record<number, boolean>>({});
 
-  const load = () => {
-    fetch("/api/bootstrap")
-      .then((r) => r.json())
-      .then(() => {
-        // bootstrap carries only a count; fetch full list from track? keep client list
-      })
-      .catch(() => undefined);
-  };
-
   useEffect(() => {
     // fetch done lessons via checkpoint-less endpoint: reuse /api/writing? Use /api/ai? Simpler: /api/bootstrap stats only.
     // Full done set comes from the lesson list endpoint:
@@ -102,6 +93,7 @@ export default function GrammarView({ onDone }: { onDone: () => void }) {
                 <div className="flex gap-2 items-center">
                   <input
                     value={inputs[i] ?? ""}
+                    aria-label={r.q}
                     onChange={(e) => setInputs((x) => ({ ...x, [i]: e.target.value }))}
                     className="flex-1 rounded-xl border px-4 py-2.5 text-[14.5px]"
                     style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
@@ -135,6 +127,7 @@ export default function GrammarView({ onDone }: { onDone: () => void }) {
               <label key={i} className="flex items-start gap-3 rounded-xl border p-4 mb-2 cursor-pointer" style={{ borderColor: "var(--line)" }}>
                 <input
                   type="checkbox"
+                  aria-label="Practiced out loud"
                   checked={prodDone[i] ?? false}
                   onChange={(e) => setProdDone((x) => ({ ...x, [i]: e.target.checked }))}
                   className="mt-1"

@@ -127,6 +127,7 @@ export function ExamTaker({
           value={answers[q.id] ?? ""}
           onChange={(e) => setAnswer(e.target.value)}
           rows={6}
+          aria-label="Written answer"
           placeholder="Write your answer (about 150 words)..."
           className="mt-4 w-full rounded-2xl border-2 border-[#2a3242] bg-[#141924] px-4 py-3 text-sm text-[#f2f5fa] outline-none transition-colors placeholder:text-[#8b96a9] focus:border-(--accent)"
         />
@@ -135,6 +136,7 @@ export function ExamTaker({
           <input
             dir="ltr"
             value={answers[q.id] ?? ""}
+            aria-label="Your answer"
             onChange={(e) => setAnswer(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !isLast) setIdx((i) => i + 1);
@@ -256,6 +258,7 @@ export function DrillCard({ drill, onDone }: { drill: Drill; onDone: (o: DrillOu
         <input
           dir="ltr"
           value={given}
+          aria-label="Your answer"
           disabled={wasChecked}
           onChange={(e) => setGiven(e.target.value)}
           onKeyDown={(e) => {

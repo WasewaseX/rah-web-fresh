@@ -76,7 +76,6 @@ export function alignWords(t: string[], g: string[]): { pairs: [string, string][
   while (i > 0 && j > 0) {
     const diag = dp[i - 1][j - 1] + sim(t[i - 1], g[j - 1]);
     const up = dp[i - 1][j] - 1;
-    const left = dp[i][j - 1] - 1;
     if (dp[i][j] === diag) {
       if (t[i - 1] === g[j - 1]) {
         /* clean match: not interesting */

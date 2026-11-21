@@ -39,7 +39,6 @@ export async function POST(req: Request) {
   const total = Math.min(40, Math.max(0, Math.round(Number(b.total ?? 0))));
   const correct = Math.min(total, Math.max(0, Math.round(Number(b.correct ?? 0))));
   const maxCombo = Math.min(correct, Math.max(0, Math.round(Number(b.maxCombo ?? 0))));
-  const ms = Math.min(300_000, Math.max(1_000, Math.round(Number(b.ms ?? 60_000))));
   // Anti-cheat: the best score a run with `correct` hits and a max combo of
   // `maxCombo` can physically produce is one streak of maxCombo (capped at
   // 5x per item) plus every other hit isolated at 5x. Anything above that is

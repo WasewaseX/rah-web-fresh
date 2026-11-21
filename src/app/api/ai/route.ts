@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getLearner, getSettings } from "@/lib/server";
-import { chat, smartChat, effectiveProfile, extractJson, listModels, presets, isBuiltin, BUILTIN_PROFILE } from "@/lib/ai";
+import { getLearner } from "@/lib/server";
+import { chat, smartChat, effectiveProfile, extractJson, listModels, isBuiltin, BUILTIN_PROFILE } from "@/lib/ai";
 import { tutorSystem, quizSystem, importSystem, speakEvalSystem } from "@/lib/prompts";
 import { matchThemeIntent, themeTokensFor, matchExamDispute, examDisputeReply, isThemeishMessage, claimsInventedLimit, claimsThemeInability, themeHelpReply, limitResetReply } from "@/lib/tutor-intents";
 import { itemAnswerable } from "@/lib/agent/exam-gate";
@@ -34,7 +34,6 @@ export async function POST(req: Request) {
     }
     const out = await listModels(p);
     if (out.ok) {
-      const s = await getSettings();
       await db.aiSettings.update({
         where: { id: "main" },
         data: { discovered: JSON.stringify(out.models.slice(0, 200)) },

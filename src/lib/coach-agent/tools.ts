@@ -80,11 +80,15 @@ async function readState(): Promise<ToolResult> {
             const r = checklistReadiness(s.level, parsed as number[]);
             parts.push(`${s.level}: ${r.easy}/${r.total} easy, ${r.mid} some difficulty, ${r.hard} difficult - ${r.verdict}`);
           }
-        } catch {}
+        } catch {
+          // malformed checklist row - skip that level, the rest still report
+        }
       }
       if (parts.length > 0) guideSelfRatings = parts.join("; ");
     }
-  } catch {}
+  } catch {
+    // guide state unavailable - the briefing just omits the self-ratings line
+  }
 
   // Task 136: drill-request line from the guide's practice ledger. HONEST
   // LABELING: these are drill REQUESTS (panel clicks), not completed sessions
@@ -98,7 +102,9 @@ async function readState(): Promise<ToolResult> {
       const { guideStateLine } = await import("@/lib/guide-ledger");
       guideDrills = guideStateLine(JSON.parse(drillRow.value));
     }
-  } catch {}
+  } catch {
+    // practice ledger unavailable or malformed - omit the drill-request line
+  }
 
   const payload = {
     learner: l
@@ -815,13 +821,17 @@ async function progressReview(args: ToolArgs): Promise<ToolResult> {
     const lv = row.key.slice("guide:checklist:".length);
     try {
       ratings[lv] = JSON.parse(row.value);
-    } catch {}
+    } catch {
+      // malformed checklist row - that level contributes no ratings
+    }
   }
   let rawDrills: unknown = null;
   if (drillRow) {
     try {
       rawDrills = JSON.parse(drillRow.value);
-    } catch {}
+    } catch {
+      // malformed practice ledger - weekly progress line is omitted
+    }
   }
   const { weeklyProgress } = await import("@/lib/guide-ledger");
   const rep = weeklyProgress({ drills: rawDrills, ratings, nowMs: Date.now(), windowDays: days });

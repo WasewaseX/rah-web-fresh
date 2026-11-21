@@ -75,7 +75,6 @@ export async function POST(req: Request) {
     }
   }
   const missteps = Math.min(60, Math.max(0, Math.round(Number(b.missteps ?? 0))));
-  const ms = Math.min(600_000, Math.max(1_000, Math.round(Number(b.ms ?? 60_000))));
 
   const graded = matched.length;
   const clean = graded > 0 && missteps === 0;

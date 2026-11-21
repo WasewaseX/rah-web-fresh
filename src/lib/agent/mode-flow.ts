@@ -7,7 +7,7 @@
 
 import { db } from "@/lib/db";
 import { getLearner } from "@/lib/server";
-import { aiJson, profileBlock } from "@/lib/ai";
+import { aiJson } from "@/lib/ai";
 import { gradeAnswer } from "./fuzzy";
 import { noteExamAnswer } from "@/lib/mistakes";
 import { noteTagOutcome } from "@/lib/mastery";
@@ -264,7 +264,7 @@ Hard rules:
 async function dailyTurn(
   text: string,
   data: ModeData,
-  p: ProfileJson,
+  _p: ProfileJson,
   steps: StepTrace[],
   emit: (l: string, d?: string) => void,
 ): Promise<CoachEnvelope> {

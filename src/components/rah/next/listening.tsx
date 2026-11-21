@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SectionTitle, Note, Fa } from "./bits";
 import { PASSAGES, MISS_TYPES, splitSentences } from "@/lib/content";
 import { speak, stopSpeak, speakSlow, overlapPct } from "./speech";
@@ -25,7 +25,12 @@ export default function ListeningView({ onDone }: { onDone: () => void }) {
   const [qIdx, setQIdx] = useState(0);
   const [picked, setPicked] = useState<number | null>(null);
   const [quizScore, setQuizScore] = useState<number | null>(null);
-  const startRef = useRef(Date.now());
+  // Clock anchor stamped post-render (react purity: no Date.now() during
+  // render); the mount effect runs before any handler can read it.
+  const startRef = useRef(0);
+  useEffect(() => {
+    if (startRef.current === 0) startRef.current = Date.now();
+  }, []);
 
   const passage = PASSAGES.find((p) => p.id === pid);
   const segments = passage ? splitSentences(passage.transcript) : [];
@@ -154,6 +159,7 @@ export default function ListeningView({ onDone }: { onDone: () => void }) {
           {noVoice ? <div className="mt-4"><Note tone="warn">No system English voice found. Open Rah in your normal desktop browser (Chrome or Edge on Windows ships several voices) and audio will work. You can still do rounds 3 and 5 now.</Note></div> : null}
           <textarea
             value={caught}
+            aria-label="What you caught"
             onChange={(e) => setCaught(e.target.value)}
             className="w-full rounded-2xl border p-4 min-h-[130px] text-[15px] mt-6 leading-relaxed"
             style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
@@ -215,6 +221,7 @@ export default function ListeningView({ onDone }: { onDone: () => void }) {
           </div>
           <textarea
             value={detail}
+            aria-label="What you would say"
             onChange={(e) => setDetail(e.target.value)}
             className="w-full rounded-2xl border p-4 min-h-[80px] text-[14.5px]"
             style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
@@ -311,6 +318,7 @@ export default function ListeningView({ onDone }: { onDone: () => void }) {
           </p>
           <textarea
             value={repro}
+            aria-label="Reproduce from memory"
             onChange={(e) => setRepro(e.target.value)}
             className="w-full rounded-2xl border p-4 min-h-[140px] text-[15px] leading-relaxed"
             style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}

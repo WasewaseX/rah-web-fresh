@@ -13,8 +13,7 @@ import { Chip, Btn } from "./ui";
 import { clearRahToken } from "@/lib/rah-fetch";
 import { getCoachActivity } from "@/lib/activity-store";
 import { applyTheme, type RahTheme } from "@/lib/theme-bus";
-import type { ViewId } from "./App";
-import type { AppState } from "./App";
+import type { AppState, ViewId } from "./App";
 
 export interface CoachMessage {
   id: number;
@@ -73,7 +72,9 @@ function scrubHistoryReply(reply: string | undefined): string | undefined {
     try {
       const unwrapped = JSON.parse(`"${m[1]}"`) as string;
       if (unwrapped.trim() && !unwrapped.trim().startsWith("{")) return unwrapped;
-    } catch {}
+    } catch {
+      // unparseable protocol marker - fall through to the leak notice
+    }
   }
   return "(older turn - the raw agent protocol leaked here; it is fixed now)";
 }
@@ -293,7 +294,7 @@ export default function CoachSidebar({
             },
           ]);
         }
-      } catch (e) {
+      } catch {
         if (ctrl.signal.aborted) {
           setSteps((s) => [...s, { kind: "error", label: "Stopped" }]);
           setMessages((m) => [
@@ -314,7 +315,7 @@ export default function CoachSidebar({
         setRunning(false);
       }
     },
-    [running, executeCommand, refresh, loadWorkspace],
+    [running, executeCommand, refresh, loadWorkspace, view],
   );
 
   const stepIcon = (kind: LiveStep["kind"]) =>
@@ -612,6 +613,7 @@ export default function CoachSidebar({
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              aria-label="Message the agent"
               placeholder={running ? "Agent is working…" : "Ask the agent to do something…"}
               disabled={running}
               className="min-h-11 flex-1 rounded-xl border border-white/[0.08] bg-[var(--rah-surface)] px-3.5 text-[13px] text-[#f2f5fa] outline-none transition-colors placeholder:text-[#8b96a9] focus:border-[var(--rah-primary)]/50 disabled:opacity-50"

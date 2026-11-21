@@ -100,7 +100,6 @@ export async function buildExam(message: string, ctx: ExamCtx): Promise<Exam> {
 
   ctx.emit({ label: "Reading your recent work", state: "run" });
   const traps = ctx.profile.recentTraps.join(", ") || "none recorded";
-  const weak = ctx.profile.weakSkills.join(", ") || "none recorded";
   ctx.emit({ label: "Reading your recent work", state: "done", detail: `level ${ctx.profile.level}, leaks: ${traps}` });
 
   ctx.emit({ label: "Designing the exam", state: "run" });

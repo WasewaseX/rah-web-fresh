@@ -193,18 +193,6 @@ export async function buildDungeonFloors(day: number, band = "B2"): Promise<Dung
   const c1 = DECK.filter((c) => c.level === "C1");
   const hotPool = seededShuffle(hot, day);
   const rest = seededShuffle(DECK.filter((c) => !hot.includes(c)), day + 1);
-  const fill = (n: number, pool: Card[], start: number): Card[] => {
-    const out: Card[] = [];
-    for (const c of pool) {
-      if (out.length >= n) break;
-      if (!out.includes(c) && !hotPool.slice(0, start).includes(c)) out.push(c);
-    }
-    for (const c of rest) {
-      if (out.length >= n) break;
-      if (!out.includes(c)) out.push(c);
-    }
-    return out;
-  };
   const floors: DungeonFloor[] = [];
   // P3: the band sets the staircase's FLOOR, not just its ceiling. A2/B1
   // learners climb on B1/B2 material with C1 as spice; C1 learners get C1

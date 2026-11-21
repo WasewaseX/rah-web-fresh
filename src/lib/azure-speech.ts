@@ -40,21 +40,6 @@ export function azureSpeechConfigured(): boolean {
   return Boolean(process.env.AZURE_SPEECH_KEY && process.env.AZURE_SPEECH_REGION);
 }
 
-interface AzureBest {
-  Display?: string;
-  PronunciationAssessment?: { PronScore?: number; AccuracyScore?: number; FluencyScore?: number; CompletenessScore?: number };
-  Words?: {
-    Word: string;
-    PronunciationAssessment?: { AccuracyScore?: number; ErrorType?: string };
-    Phonemes?: { Phoneme: string; PronunciationAssessment?: { AccuracyScore?: number } }[];
-  }[];
-}
-
-interface AzureResponse {
-  DisplayText?: string;
-  NBest?: AzureBest[];
-}
-
 /**
  * Run Azure pronunciation assessment on 16k-mono WAV audio against a
  * reference text. Throws speakable Error messages; the route treats any

@@ -44,7 +44,9 @@ export async function GET() {
   if (row) {
     try {
       drills = parseDrillMap(JSON.parse(row.value));
-    } catch {}
+    } catch {
+      // stored drills were not valid JSON - start from an empty map
+    }
   }
   // Task 141: the panel's "this week" chip rides the same response (7-day
   // window, drill REQUESTS only).
@@ -64,7 +66,9 @@ export async function POST(req: Request) {
   if (row) {
     try {
       drills = parseDrillMap(JSON.parse(row.value));
-    } catch {}
+    } catch {
+      // stored drills were not valid JSON - treat as no history for this topic
+    }
   }
   const prev = drills[topicId]?.count ?? 0;
   const nextCount = prev + 1;

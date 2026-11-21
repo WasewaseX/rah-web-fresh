@@ -48,7 +48,6 @@ export async function POST(req: Request) {
 
   // Anti-cheat: 10 points per hit plus at most a 20-point speed bonus.
   const youScore = Math.min(correct * 10 + 20, correct * 10 + Math.max(0, 20 - Math.floor(ms / 4000)));
-  const l = await getLearner();
   const recent = await db.dailyStat.findMany({ where: { userId: await contentUserId().catch(() => "me"), day: { gte: dayIndex() - 14 } } });
   const tot = recent.reduce((s, r) => s + r.reviews, 0);
   const cor = recent.reduce((s, r) => s + r.correct, 0);

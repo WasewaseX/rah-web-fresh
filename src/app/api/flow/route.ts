@@ -31,7 +31,6 @@ export async function POST(req: Request) {
   const b = (await req.json()) as { correct?: number; total?: number; ms?: number };
   const total = Math.min(ITEMS, Math.max(0, Math.round(Number(b.total ?? 0))));
   const correct = Math.min(total, Math.max(0, Math.round(Number(b.correct ?? 0))));
-  const ms = Math.min(3_600_000, Math.max(30_000, Math.round(Number(b.ms ?? 900_000))));
   const gid = parseGid((b as { gid?: unknown }).gid);
   const uid = await contentUserId().catch(() => "me");
   const replay = await receiptReplay(gid, uid);

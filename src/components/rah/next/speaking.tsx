@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SectionTitle, Note } from "./bits";
 import { SPEAK_PROMPTS } from "@/lib/content";
 import Shadowing from "./shadowing";
@@ -45,34 +45,7 @@ export default function SpeakingView({ onDone }: { onDone: () => void }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const coachedRef = useRef<string>("");
 
-  // When the diagnose phase opens with a fresh recording, the coach runs
-  // once automatically: transcribe, then build the four-slot repair plan.
-  useEffect(() => {
-    if (phase === "diagnose" && audioB64 && coachedRef.current !== audioB64) {
-      coachedRef.current = audioB64;
-      runCoach(audioB64, "");
-    }
-  }, [phase, audioB64]);
-
-  const prompt0 = SPEAK_PROMPTS.find((p) => p.id === pid);
-
-  useEffect(() => {
-    return () => {
-      if (timer.current) clearInterval(timer.current);
-      if (recorder.current?.state === "recording") recorder.current.stop();
-    };
-  }, []);
-
-  const blobToB64 = (blob: Blob): Promise<string> =>
-    new Promise((resolve) => {
-      const fr = new FileReader();
-      fr.onload = () => resolve(String(fr.result ?? ""));
-      fr.readAsDataURL(blob);
-    });
-
-  // Transcript + coach evaluation. Works from a real recording or from
-  // typed text when the microphone is unavailable.
-  const runCoach = async (b64: string | null, typed: string) => {
+  const runCoach = useCallback(async (b64: string | null, typed: string) => {
     setAiBusy(true);
     setAiErr("");
     try {
@@ -118,7 +91,37 @@ export default function SpeakingView({ onDone }: { onDone: () => void }) {
     } finally {
       setAiBusy(false);
     }
-  };
+  }, [prompt, seconds]);
+
+  // When the diagnose phase opens with a fresh recording, the coach runs
+  // once automatically: transcribe, then build the four-slot repair plan.
+  useEffect(() => {
+    if (phase === "diagnose" && audioB64 && coachedRef.current !== audioB64) {
+      coachedRef.current = audioB64;
+      runCoach(audioB64, "");
+    }
+  }, [phase, audioB64, runCoach]);
+
+  const prompt0 = SPEAK_PROMPTS.find((p) => p.id === pid);
+
+  useEffect(() => {
+    return () => {
+      if (timer.current) clearInterval(timer.current);
+      if (recorder.current?.state === "recording") recorder.current.stop();
+    };
+  }, []);
+
+  const blobToB64 = (blob: Blob): Promise<string> =>
+    new Promise((resolve) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(String(fr.result ?? ""));
+      fr.readAsDataURL(blob);
+    });
+
+  // Transcript + coach evaluation. Works from a real recording or from
+  // typed text when the microphone is unavailable.
+  // Memoized so the auto-coach effect can list it truthfully without
+  // re-firing on every render.
 
   const startRecording = async () => {
     setMicNote("");
@@ -319,7 +322,8 @@ export default function SpeakingView({ onDone }: { onDone: () => void }) {
           </p>
           {audioUrl ? (
             <div className="mb-5">
-              <audio ref={audioRef} controls src={audioUrl} className="w-full" style={{ maxHeight: 44 }} />
+              <audio ref={audioRef} controls src={audioUrl}
+                     aria-label="Your recording" className="w-full" style={{ maxHeight: 44 }} />
             </div>
           ) : null}
           {transcript && heard ? (
@@ -338,6 +342,7 @@ export default function SpeakingView({ onDone }: { onDone: () => void }) {
               <label className="text-[12.5px] font-bold block mb-1">What you said, as close as you remember</label>
               <textarea
                 value={transcript}
+                aria-label="What you said"
                 onChange={(e) => setTranscript(e.target.value)}
                 rows={4}
                 className="w-full rounded-xl border px-4 py-3 text-[14px]"
@@ -368,6 +373,7 @@ export default function SpeakingView({ onDone }: { onDone: () => void }) {
               <label className="text-[12.5px] font-bold block mb-1">{label}</label>
               <input
                 value={ev[k]}
+                aria-label={label}
                 onChange={(e) => setEv((x) => ({ ...x, [k]: e.target.value }))}
                 className="w-full rounded-xl border px-4 py-2.5 text-[14px]"
                 style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}

@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { PLACEMENT_ITEMS, type PlacementItem } from "@/lib/content";
 import { aiJson, placementWritingSystem } from "@/lib/ai";
 import { validatePlacementW } from "@/lib/ai-validators";
-import { getLearner, bumpDaily } from "@/lib/server";
+import { bumpDaily } from "@/lib/server";
 import { tagLabel, foldPlacementMisses } from "@/lib/mistakes";
 import { contentUserId } from "@/lib/scope";
 
@@ -108,7 +108,6 @@ async function readRow() {
 }
 
 export async function GET() {
-  const l = await getLearner();
   const row = await readRow();
   const phase = row?.phase ?? "quiz";
   const s = await loadSession();

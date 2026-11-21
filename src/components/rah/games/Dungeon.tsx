@@ -38,10 +38,6 @@ interface GradeOut {
   xp?: number;
 }
 
-function normalize(s: string): string {
-  return s.toLowerCase().replace(/[.,!?;:'"()]/g, "").replace(/\s+/g, " ").trim();
-}
-
 export default function Dungeon({ onChange }: { onChange: () => void }) {
   const [run, setRun] = useState<RunView | null>(null);
   const [flash, setFlash] = useState<{ ok: boolean; key?: string } | null>(null);
@@ -135,8 +131,8 @@ export default function Dungeon({ onChange }: { onChange: () => void }) {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="Write your answer..."
+                  aria-label="Dungeon answer"
                   className="min-h-12 flex-1 rounded-2xl border border-white/[0.08] bg-white/[0.04] px-4 text-sm text-[#e7ecf5] outline-none focus:border-[var(--rah-primary)]/50"
-                  autoFocus
                 />
                 <Btn type="submit" disabled={!input.trim() || flash !== null}>
                   Enter

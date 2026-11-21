@@ -219,6 +219,7 @@ export default function CheckpointView({ onDone }: { boot: Boot; onDone: () => v
               <label className="text-[12.5px] font-bold block mb-1">{label}</label>
               <input
                 value={speaking[k]}
+                aria-label={label}
                 onChange={(e) => setSpeaking((x) => ({ ...x, [k]: e.target.value }))}
                 className="w-full rounded-xl border px-4 py-2.5 text-[14px]"
                 style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
@@ -237,6 +238,7 @@ export default function CheckpointView({ onDone }: { boot: Boot; onDone: () => v
           </p>
           <textarea
             value={writing}
+            aria-label="Writing sample"
             onChange={(e) => setWriting(e.target.value)}
             className="w-full rounded-2xl border p-5 min-h-[280px] text-[15px] leading-[1.8]"
             style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}

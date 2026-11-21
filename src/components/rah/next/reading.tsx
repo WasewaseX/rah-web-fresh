@@ -7,10 +7,9 @@ import { READINGS } from "@/lib/content";
 
 type Mode = "pick" | "extensive" | "intensive" | "import";
 
-export default function ReadingView({ boot, onDone }: { boot: Boot; onDone: () => void }) {
+export default function ReadingView({ onDone }: { boot: Boot; onDone: () => void }) {
   const [mode, setMode] = useState<Mode>("pick");
   const [rid, setRid] = useState("");
-  const [reading, setReading] = useState(0);
   const [gloss, setGloss] = useState<Record<string, boolean>>({});
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [checked, setChecked] = useState(false);
@@ -56,7 +55,7 @@ export default function ReadingView({ boot, onDone }: { boot: Boot; onDone: () =
               <div className="mt-auto flex gap-2">
                 <button
                   className="seg-quiet"
-                  onClick={() => { setRid(x.id); setMode("extensive"); setReading(0); setGloss({}); setAnswers({}); setChecked(false); }}
+                  onClick={() => { setRid(x.id); setMode("extensive"); setGloss({}); setAnswers({}); setChecked(false); }}
                 >
                   Extensive
                 </button>
@@ -80,6 +79,7 @@ export default function ReadingView({ boot, onDone }: { boot: Boot; onDone: () =
           </p>
           <textarea
             value={importText}
+            aria-label="Text to import"
             onChange={(e) => setImportText(e.target.value)}
             className="w-full rounded-2xl border p-4 min-h-[100px] text-[14px] placeholder:text-[#98a2b3]"
             style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
@@ -257,6 +257,7 @@ export default function ReadingView({ boot, onDone }: { boot: Boot; onDone: () =
             </p>
             <textarea
               value={recon}
+              aria-label="Your reconstruction"
               onChange={(e) => setRecon(e.target.value)}
               className="w-full rounded-2xl border p-4 min-h-[110px] text-[15px]"
               style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}

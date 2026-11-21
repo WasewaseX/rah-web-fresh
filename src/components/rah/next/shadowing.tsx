@@ -145,7 +145,6 @@ export default function Shadowing({ onDone }: { onDone: () => void }) {
   };
 
   const report = res?.report;
-  const mintedSet = new Set(res?.minted ?? []);
 
   return (
     <div>

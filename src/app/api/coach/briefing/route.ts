@@ -95,7 +95,6 @@ export async function POST(req: Request) {
   if (!rl.ok) return rl.response!;
 
   const b = (await req.json()) as { persona?: string; regen?: boolean };
-  const l = await getLearner();
   if (b.persona && ["mentor", "drill", "zen"].includes(b.persona)) {
     await db.learner.update({ where: { id: "me" }, data: { persona: b.persona } });
     return NextResponse.json({ ok: true, persona: b.persona });

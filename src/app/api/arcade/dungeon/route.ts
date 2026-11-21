@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { dayIndex } from "@/lib/fsrs";
 import { getLearner } from "@/lib/server";
 import { ladderFor } from "@/lib/ladder";
-import { awardGameXp, bumpStat, progressQuest, registerMiss, hasPerk, learnerPerks } from "@/lib/arcade";
+import { awardGameXp, bumpStat, progressQuest, registerMiss, hasPerk } from "@/lib/arcade";
 import { buildDungeonFloors, normalizeAnswer, type ArcadeItem, type DungeonFloor } from "@/lib/arcade-items";
 import type { XpResult } from "@/lib/arcade";
 import { contentUserId } from "@/lib/scope";

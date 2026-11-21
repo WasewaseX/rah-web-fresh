@@ -16,46 +16,6 @@ function cleanEmDash(s: string): string {
   return s.replace(/\s*[—–]\s*/g, ", ").replace(/[—–]/g, ",");
 }
 
-function repairJson(body: string): string {
-  const stack: string[] = [];
-  let inStr = false;
-  let esc = false;
-  for (const ch of body) {
-    if (inStr) {
-      if (esc) esc = false;
-      else if (ch === "\\") esc = true;
-      else if (ch === '"') inStr = false;
-      continue;
-    }
-    if (ch === '"') inStr = true;
-    else if (ch === "{" || ch === "[") stack.push(ch);
-    else if (ch === "}" || ch === "]") stack.pop();
-  }
-  let out = body;
-  if (inStr) out += '"';
-  out = out.replace(/,\s*$/, "").replace(/:\s*$/, ': ""').replace(/,\s*(?=[}\]])/g, "");
-  while (stack.length) {
-    const open = stack.pop();
-    out += open === "{" ? "}" : "]";
-  }
-  return out;
-}
-
-function extractTurn(raw: string): TurnResult {
-  const cleaned = cleanEmDash(raw.trim());
-  const fence = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const body = fence ? fence[1] : cleaned;
-  const start = body.indexOf("{");
-  const end = body.lastIndexOf("}");
-  if (start === -1) throw new Error("no json");
-  const candidate = end > start ? body.slice(start, end + 1) : body.slice(start);
-  try {
-    return JSON.parse(candidate) as TurnResult;
-  } catch {
-    return JSON.parse(repairJson(candidate)) as TurnResult;
-  }
-}
-
 function rawFallback(raw: string): TurnResult {
   return { reply: cleanEmDash(raw.trim().slice(0, 600)), corrections: [], fa_note: "", praised: false };
 }
@@ -97,7 +57,7 @@ export function profileBlock(p: ProfileJson): string {
 export async function coachTurn(
   system: string,
   ctx: SkillContext,
-  steps: StepTrace[],
+  _steps: StepTrace[],
   opts?: { thinkingGate?: (p: ProfileJson) => boolean },
 ): Promise<TurnResult> {
   const history = ctx.history

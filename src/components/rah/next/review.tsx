@@ -474,6 +474,7 @@ export default function ReviewView({ onDone, go }: { boot: Boot; onDone: () => v
             <input
               ref={inputRef as React.RefObject<HTMLInputElement>}
               value={input}
+              aria-label="Your answer"
               onChange={(e) => setInput(e.target.value)}
               className="cloze-input text-[18px]"
               placeholder="type it"
@@ -561,6 +562,7 @@ export default function ReviewView({ onDone, go }: { boot: Boot; onDone: () => v
             <textarea
               ref={inputRef as React.RefObject<HTMLTextAreaElement>}
               value={input}
+              aria-label="Rebuild the sentence"
               onChange={(e) => setInput(e.target.value)}
               className="w-full rounded-2xl border p-4 min-h-[110px] text-[15.5px] leading-relaxed"
               style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}

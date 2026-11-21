@@ -267,6 +267,7 @@ export default function SpeedRound({ onChange }: { onChange: () => void }) {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder={item.q.includes("___") ? "Fill the blank" : "Type the English"}
+                  aria-label="Speed round answer"
                   className="min-h-12 flex-1 rounded-2xl border-2 border-[#2a3242] bg-[#141924] px-4 text-base text-[#f2f5fa] outline-none placeholder:text-[#5c6678] focus:border-[var(--rah-primary)]"
                   dir="ltr"
                   autoComplete="off"

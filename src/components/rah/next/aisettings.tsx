@@ -212,6 +212,7 @@ export default function SettingsView({ boot, onDone }: { boot: Boot; onDone: () 
         <label htmlFor="ai-base-url" className="text-[12.5px] font-bold block mb-1">Base URL</label>
         <input
           id="ai-base-url"
+          aria-label="Base URL"
           value={baseUrl}
           onChange={(e) => setBaseUrl(e.target.value)}
           className="w-full rounded-xl border px-4 py-2.5 text-[14px] mb-3"
@@ -223,6 +224,7 @@ export default function SettingsView({ boot, onDone }: { boot: Boot; onDone: () 
         </label>
         <input
           id="ai-api-key"
+          aria-label="API key"
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
           type="password"
@@ -263,8 +265,8 @@ export default function SettingsView({ boot, onDone }: { boot: Boot; onDone: () 
           placeholder="model id"
           list="model-list"
         />
-        <datalist id="model-list">
-          {models.map((m) => <option key={m} value={m} />)}
+        <datalist id="model-list" aria-label="Model suggestions">
+          {models.map((m) => <option key={m} value={m}>{m}</option>)}
         </datalist>
         {models.length ? (
           <div className="max-h-52 overflow-y-auto rounded-xl border" style={{ borderColor: "var(--line)" }}>

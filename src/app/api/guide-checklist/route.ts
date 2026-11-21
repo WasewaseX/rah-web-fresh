@@ -44,7 +44,9 @@ export async function GET() {
         if (Array.isArray(parsed) && parsed.length === items.length) {
           ratings = parseRatings(parsed, items.length);
         }
-      } catch {}
+      } catch {
+        // stored checklist was not valid JSON - fall through to fresh ratings
+      }
     }
     const complete = ratings !== null && ratings.every((r) => r !== null);
     levels[level] = { ratings, readiness: complete ? checklistReadiness(level, ratings as number[]) : null };

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { DECK, cardById, type Card } from "@/lib/content";
 import { dayIndex, cardR, defaultState, type FsrsState } from "@/lib/fsrs";
-import { getLearner, queueCounts } from "@/lib/server";
+import { queueCounts } from "@/lib/server";
 import { materialCardById } from "@/lib/materials";
 import { derivedExamCard } from "@/lib/exam-cards";
 import { bankTiles } from "@/lib/bank";
@@ -79,7 +79,6 @@ export async function GET(req: Request) {
   const today = dayIndex();
   const all = await db.cardState.findMany({ where: { userId: await contentUserId(req).catch(() => "me") } });
   const byId = new Map(all.map((s) => [s.cardId, s]));
-  const l = await getLearner();
 
   let pool: Card[] = [];
   // Task 89 perf: `all` was already loaded above - passing it here removes the

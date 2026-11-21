@@ -74,7 +74,10 @@ export default function GuidePanel() {
   const readiness = allRated && myRatings ? checklistReadiness(level, myRatings as number[]) : null;
   // Task 145: drilled topics whose last request went stale (14d+). Honest
   // framing in the chip: a nudge to re-drill, never "you forgot X".
-  const stale = staleTopics(drills as LedgerDrillMap, Date.now()).filter((s) => s.level === level);
+  // Page-load clock: staleness is measured against the moment the panel
+  // mounted (react purity - no Date.now() during render).
+  const [now] = useState(() => Date.now());
+  const stale = staleTopics(drills as LedgerDrillMap, now).filter((s) => s.level === level);
 
   // Task 136: a drill REQUEST is recorded (a click = a request, never proof
   // of completion). Fire-and-forget: the handoff to the coach must not wait
@@ -174,6 +177,7 @@ export default function GuidePanel() {
         <div className="mt-3">
           <input
             value={query}
+            aria-label="Search guide topics"
             onChange={(e) => setQuery(e.target.value)}
             placeholder={`Search all ${TOPIC_COUNT} topics (e.g. cleft, phrasal, travel)...`}
             className="w-full rounded-xl bg-[#171c28] px-3 py-2 text-xs text-[#e7ecf5] outline-none placeholder:text-[#5d687c] focus:ring-1 focus:ring-[var(--rah-primary)]"

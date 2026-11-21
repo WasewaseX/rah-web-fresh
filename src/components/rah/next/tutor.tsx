@@ -396,6 +396,7 @@ function ChatTab() {
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            aria-label="Message the tutor"
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();

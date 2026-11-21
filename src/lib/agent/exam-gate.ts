@@ -140,7 +140,6 @@ export function repairChoices(choices: string[]): string[] {
   const cleaned = choices.map((c) => String(c).trim()).filter(Boolean);
   const seen = new Set<string>();
   const out: string[] = [];
-  const key = out; // order-preserving dedupe below
   for (const c of cleaned) {
     const n = norm(c);
     if (seen.has(n)) continue;

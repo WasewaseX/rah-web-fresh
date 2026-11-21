@@ -27,7 +27,7 @@ const TRAP_LABELS: Record<string, string> = {
   adjectives: "adjective order",
 };
 
-export default function PlacementView({ boot, onDone, go }: { boot: Boot; onDone: () => void; go: (v: string) => void }) {
+export default function PlacementView({ onDone, go }: { boot: Boot; onDone: () => void; go: (v: string) => void }) {
   const [step, setStep] = useState(0); // 0=intro, 1..n questions, n+1 writing, n+2 result
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [writing, setWriting] = useState("");
@@ -171,6 +171,7 @@ export default function PlacementView({ boot, onDone, go }: { boot: Boot; onDone
           <p className="text-[15.5px] leading-relaxed mb-4">{prompt}</p>
           <textarea
             value={writing}
+            aria-label="Writing sample"
             onChange={(e) => setWriting(e.target.value)}
             className="w-full rounded-2xl border p-4 min-h-[220px] text-[15px] leading-relaxed"
             style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}

@@ -185,8 +185,8 @@ export default function Duel({ onChange }: { onChange: () => void }) {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="Fast - type it..."
+                  aria-label="Duel answer"
                   className="min-h-12 flex-1 rounded-2xl border border-white/[0.08] bg-white/[0.04] px-4 text-sm text-[#e7ecf5] outline-none focus:border-[var(--rah-primary)]/50"
-                  autoFocus
                 />
                 <Btn type="submit" disabled={!input.trim()}>
                   Enter

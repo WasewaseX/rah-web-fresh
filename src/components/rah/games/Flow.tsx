@@ -167,8 +167,8 @@ export default function Flow({ onChange }: { onChange: () => void }) {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="Calm and precise..."
+                  aria-label="Flow answer"
                   className="min-h-12 flex-1 rounded-2xl border border-white/[0.08] bg-white/[0.04] px-4 text-sm text-[#e7ecf5] outline-none focus:border-[#3ccb7f]/50"
-                  autoFocus
                 />
                 <Btn type="submit" disabled={!input.trim()}>
                   Enter

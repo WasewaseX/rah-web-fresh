@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { aiJson, quizSystem } from "@/lib/ai";
 import { validateQuiz } from "@/lib/ai-validators";
-import { buildProfile, bumpDaily } from "@/lib/server";
+import { buildProfile } from "@/lib/server";
 import { awardXp } from "@/lib/arcade";
 
 import { aiRateLimit } from "@/lib/rate-limit";

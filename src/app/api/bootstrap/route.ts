@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { getLearner, getSettings, today } from "@/lib/server";
 import { profileView } from "@/lib/ai";
 import { toFsrs } from "@/lib/fsrs";
-import { DECK, CARD_BY_ID } from "@/lib/content";
+import { DECK } from "@/lib/content";
 
 // Per-learner, session-gated payload: never prerender, never cache.
 export const dynamic = "force-dynamic";

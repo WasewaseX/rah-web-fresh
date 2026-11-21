@@ -40,7 +40,13 @@ interface SessionInfo {
 
 export default function Login({ onSignedIn }: { onSignedIn: (user: { email: string; name: string }) => void }) {
   const [checking, setChecking] = useState(true);
-  const [email, setEmail] = useState("");
+  // Keep-me-signed-in UX: the email used last time is seeded straight into
+  // state (lazy initializers), so the owner only types the access code - no
+  // setState inside the mount effect (cascading renders).
+  // Keep-me-signed-in UX: the email used last time is seeded straight into
+  // state (lazy initializers), so the owner only types the access code - no
+  // setState inside the mount effect (cascading renders).
+  const [email, setEmail] = useState(() => recalledEmail());
   const [code, setCode] = useState("");
   const [stage, setStage] = useState<"email" | "code" | "access">("email");
   const [busy, setBusy] = useState(false);
@@ -49,20 +55,13 @@ export default function Login({ onSignedIn }: { onSignedIn: (user: { email: stri
   const [sentTo, setSentTo] = useState("");
   const [googleOk, setGoogleOk] = useState(false);
   const [accessOk, setAccessOk] = useState(false);
-  const [accessEmail, setAccessEmail] = useState("");
+  const [accessEmail, setAccessEmail] = useState(() => recalledEmail());
   const [accessCode, setAccessCode] = useState("");
   // Derived in render, not state: an embedded context cannot change while
   // the component is mounted, so there is nothing to re-render on.
   const framed = isEmbedded();
 
   useEffect(() => {
-    // Keep-me-signed-in UX: recall the email used last time so the owner only
-    // types the access code (no email retyping on every sign-in).
-    const last = recalledEmail();
-    if (last) {
-      setEmail(last);
-      setAccessEmail(last);
-    }
     fetch("/api/auth/session", { cache: "no-store" })
       .then((r) => r.json())
       .then((s: SessionInfo) => {
@@ -200,6 +199,7 @@ export default function Login({ onSignedIn }: { onSignedIn: (user: { email: stri
                 <Mail className="h-4 w-4 shrink-0 text-[#5d6879]" />
                 <input
                   id="login-email"
+                  aria-label="Email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -269,6 +269,7 @@ export default function Login({ onSignedIn }: { onSignedIn: (user: { email: stri
               <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-white/[0.08] bg-[#141c2e] px-3 focus-within:border-[var(--rah-primary)]/50">
                 <ShieldCheck className="h-4 w-4 shrink-0 text-[#5d6879]" />
                 <input
+                  aria-label="Login code"
                   inputMode="numeric"
                   maxLength={6}
                   value={code}
@@ -315,6 +316,7 @@ export default function Login({ onSignedIn }: { onSignedIn: (user: { email: stri
                 <Mail className="h-4 w-4 shrink-0 text-[#5d6879]" />
                 <input
                   id="access-email"
+                  aria-label="Owner email"
                   type="email"
                   value={accessEmail}
                   onChange={(e) => setAccessEmail(e.target.value)}
@@ -328,6 +330,7 @@ export default function Login({ onSignedIn }: { onSignedIn: (user: { email: stri
                 <ShieldCheck className="h-4 w-4 shrink-0 text-[#5d6879]" />
                 <input
                   id="access-code"
+                  aria-label="Access code"
                   type="text"
                   value={accessCode}
                   onChange={(e) => setAccessCode(e.target.value)}

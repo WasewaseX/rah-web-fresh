@@ -4,7 +4,7 @@ async function main() {
   try {
     const c = await zai.chat.completions.create({
       messages: [
-        { role: "assistant", content: 'Reply with ONE JSON object: {"a": "say \"quoted\" inside"}' },
+        { role: "assistant", content: 'Reply with ONE JSON object: {"a": "say "quoted" inside"}' },
         { role: "user", content: "go" },
       ],
       thinking: { type: "disabled" },

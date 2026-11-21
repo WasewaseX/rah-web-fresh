@@ -10,8 +10,6 @@
 //   5. RAH_ADMIN_TOKEN env works as a token source when the file is absent.
 //   6. Snapshot temp files are always cleaned up (no *.tmp left in the db dir).
 process.env.DATABASE_URL = "file:/tmp/rah-admin-route-test/custom.db";
-export {}; // module marker: top-level await needs it (tsc TS1375)
-
 import fs from "fs";
 
 const DIR = "/tmp/rah-admin-route-test";

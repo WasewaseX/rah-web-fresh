@@ -91,5 +91,3 @@ check(rewrites.length === 0 || instructionless.length === 0, "every rewrite carr
 
 console.log(failures === 0 ? "\nALL EXAM QUALITY CHECKS PASS" : `\n${failures} CHECK(S) FAILED`);
 process.exit(failures === 0 ? 0 : 1);
-
-export {}

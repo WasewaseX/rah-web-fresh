@@ -92,6 +92,100 @@ interface TurnIn {
   coach?: unknown;
 }
 
+// Validate + normalize the posted history. More than MAX_TURNS from a client
+// is a bug or an attack, not a long conversation - reject it (the client
+// always sends <= 6). Never clamp a live model call out of garbage.
+function readTurns(body: any): { turns: { you: string; coach: string }[]; bad?: NextResponse } {
+  const rawArr = Array.isArray((body as { turns?: unknown }).turns) ? (((body as { turns: unknown[] }).turns ?? []) as TurnIn[]) : [];
+  if (rawArr.length > MAX_TURNS) {
+    return { turns: [], bad: NextResponse.json({ error: `The conversation caps at ${MAX_TURNS} turns.` }, { status: 400 }) };
+  }
+  const rawTurns = rawArr.slice(0, MAX_TURNS);
+  const turns = rawTurns
+    .map((t) => ({ you: String(t.you ?? "").slice(0, 1200).trim(), coach: String(t.coach ?? "").slice(0, 600).trim() }))
+    .filter((t) => t.you.length > 0);
+  if (turns.length === 0) {
+    return { turns: [], bad: NextResponse.json({ error: "Say something first - the transcript is empty." }, { status: 400 }) };
+  }
+  if (turns.length > MAX_TURNS) {
+    return { turns: [], bad: NextResponse.json({ error: `The conversation caps at ${MAX_TURNS} turns.` }, { status: 400 }) };
+  }
+  return { turns };
+}
+
+// Degraded honesty (audit P1-7): the () => ({}) fallback used to render a
+// silent "..." coach line - degraded content presented as if the partner
+// really spoke. Track it, swap in the honest in-scene placeholder line, and
+// flag the turn so the UI can banner it.
+async function coachTurn(
+  system: string,
+  profile: Record<string, unknown>,
+  historyText: string,
+  last: { you: string },
+  done: boolean,
+  turnCount: number,
+): Promise<{ turnOut: { reply?: string; corrections?: { wrong?: string; right?: string; fa?: string; trap?: string }[] }; degradedFallback: boolean; err?: string }> {
+  let turnOut: { reply?: string; corrections?: { wrong?: string; right?: string; fa?: string; trap?: string }[] } = {};
+  let degradedFallback = false;
+  try {
+    turnOut = await aiJson<{ reply?: string; corrections?: { wrong?: string; right?: string; fa?: string; trap?: string }[] }>(
+      system + "\n\n" + profileBlock(profile),
+      [
+        {
+          role: "user",
+          content: `${historyText}\n\nThe learner just said (turn ${turnCount}): "${last.you}"\n${
+            done
+              ? "The scene is ending - give a warm in-character sign-off."
+              : "Continue the scene."
+          }`,
+        },
+      ],
+      () => ({}),
+      {
+        deep: false,
+        temperature: 0.7,
+        degraded: () => {
+          degradedFallback = true;
+        },
+      },
+    );
+    return { turnOut, degradedFallback };
+  } catch (e) {
+    return { turnOut, degradedFallback, err: (e as Error).message };
+  }
+}
+
+// On the final turn, persist a SpeakSession so the Improvement ledger sees
+// the conversation with HONEST engine-computed scores (not AI self-scores).
+async function finalReport(
+  body: any,
+  turns: { you: string; coach: string }[],
+  corrections: { wrong: string; right: string; fa: string; trap: string }[],
+  scenario: Scenario,
+) {
+  const last = turns[turns.length - 1];
+  const words = turns.map((t) => t.you.split(/\s+/).filter(Boolean).length);
+  const avgWords = words.reduce((a, b) => a + b, 0) / words.length;
+  const corrTotal = corrections.length;
+  const clamp10 = (v: number) => Math.min(10, Math.max(0, Math.round(v * 10) / 10));
+  // Deterministic proxies: accuracy is dinged 0.5 per correction across the
+  // whole conversation (client accumulates the tally into trapCount),
+  // fluency rewards sustained turns of ~40+ words.
+  const trapCount = Math.max(0, Math.min(40, Number((body as { trapCount?: unknown }).trapCount ?? 0)) + corrTotal);
+  const accuracy = clamp10(10 - 0.5 * trapCount);
+  const fluency = clamp10(4 + avgWords / 8);
+  const scores = { fluency, range: clamp10(5 + Math.min(5, new Set(last.you.toLowerCase().split(/\s+/)).size / 6)), accuracy, delivery: clamp10((fluency + accuracy) / 2) };
+  await db.speakSession.create({
+    data: {
+      prompt: `conversation: ${scenario.title}`,
+      transcript: turns.map((t) => `You: ${t.you}\nCoach: ${t.coach}`.slice(0, 2400)).join("\n---\n").slice(0, 5000),
+      round: 1,
+      result: JSON.stringify({ scores, errors: corrections.map((c) => ({ bad: c.wrong, good: c.right, fa: c.fa, trap: c.trap })), upgrades: [], round2: { constraint: "Run the conversation again - same scene, fewer traps.", same_prompt: true }, verdict: `${turns.length}-turn conversation in "${scenario.title}".`, fa_note: "" }),
+    },
+  });
+  return { scores, turns: turns.length, corrections: trapCount, scenario: scenario.id, goal: scenario.goal } as Record<string, unknown>;
+}
+
 export async function POST(req: Request) {
   // Abuse limit (audit P1-6): AI calls cost real money - 30/min per client IP.
   const rl = aiRateLimit(req);
@@ -102,17 +196,8 @@ export async function POST(req: Request) {
   const scenario = SCENARIOS.find((s) => s.id === scenarioId);
   if (!scenario) return NextResponse.json({ error: "Unknown scenario." }, { status: 400 });
 
-  const rawArr = Array.isArray((body as { turns?: unknown }).turns) ? (((body as { turns: unknown[] }).turns ?? []) as TurnIn[]) : [];
-  // More than MAX_TURNS from a client is a bug or an attack, not a long
-  // conversation - reject it (the client always sends <= 6). Never clamp a
-  // live model call out of garbage.
-  if (rawArr.length > MAX_TURNS) return NextResponse.json({ error: `The conversation caps at ${MAX_TURNS} turns.` }, { status: 400 });
-  const rawTurns = rawArr.slice(0, MAX_TURNS);
-  const turns = rawTurns
-    .map((t) => ({ you: String(t.you ?? "").slice(0, 1200).trim(), coach: String(t.coach ?? "").slice(0, 600).trim() }))
-    .filter((t) => t.you.length > 0);
-  if (turns.length === 0) return NextResponse.json({ error: "Say something first - the transcript is empty." }, { status: 400 });
-  if (turns.length > MAX_TURNS) return NextResponse.json({ error: `The conversation caps at ${MAX_TURNS} turns.` }, { status: 400 });
+  const { turns, bad } = readTurns(body);
+  if (bad) return bad;
 
   const done = turns.length >= MAX_TURNS || Boolean((body as { end?: unknown }).end);
   const profile = await buildProfile();
@@ -133,40 +218,11 @@ Rules:
 - No Farsi in the reply field. Never use the em dash character.
 ${ladderBrief(lad, "speak")}`;
 
-  let turnOut: { reply?: string; corrections?: { wrong?: string; right?: string; fa?: string; trap?: string }[] };
-  // Degraded honesty (audit P1-7): the () => ({}) fallback used to render a
-  // silent "..." coach line - degraded content presented as if the partner
-  // really spoke. Track it, swap in the honest in-scene placeholder line, and
-  // flag the turn so the UI can banner it.
-  let degradedFallback = false;
-  try {
-    turnOut = await aiJson<{ reply?: string; corrections?: { wrong?: string; right?: string; fa?: string; trap?: string }[] }>(
-      system + "\n\n" + profileBlock(profile),
-      [
-        {
-          role: "user",
-          content: `${historyText}\n\nThe learner just said (turn ${turns.length}): "${last.you}"\n${
-            done
-              ? "The scene is ending - give a warm in-character sign-off."
-              : "Continue the scene."
-          }`,
-        },
-      ],
-      () => ({}),
-      {
-        deep: false,
-        temperature: 0.7,
-        degraded: () => {
-          degradedFallback = true;
-        },
-      },
-    );
-  } catch (e) {
-    return NextResponse.json({ error: `Coach is unreachable: ${(e as Error).message}` }, { status: 502 });
-  }
+  const run = await coachTurn(system, profile, historyText, last, done, turns.length);
+  if (run.err) return NextResponse.json({ error: `Coach is unreachable: ${run.err}` }, { status: 502 });
 
-  const coachLine = degradedFallback ? DEGRADED_CONVERSATION_LINE : String(turnOut.reply ?? "").trim() || "...";
-  const corrections = (Array.isArray(turnOut.corrections) ? turnOut.corrections.slice(0, 2) : []).map((c) => ({
+  const coachLine = run.degradedFallback ? DEGRADED_CONVERSATION_LINE : String(run.turnOut.reply ?? "").trim() || "...";
+  const corrections = (Array.isArray(run.turnOut.corrections) ? run.turnOut.corrections.slice(0, 2) : []).map((c) => ({
     wrong: String(c.wrong ?? "").slice(0, 120),
     right: String(c.right ?? "").slice(0, 120),
     fa: String(c.fa ?? "").slice(0, 300),
@@ -183,31 +239,8 @@ ${ladderBrief(lad, "speak")}`;
   await awardXp(done ? 15 : 3, { chainHit: true });
   await progressQuest("speak_1", 1);
 
-  // On the final turn, persist a SpeakSession so the Improvement ledger sees
-  // the conversation with HONEST engine-computed scores (not AI self-scores).
   let report: Record<string, unknown> | null = null;
-  if (done) {
-    const words = turns.map((t) => t.you.split(/\s+/).filter(Boolean).length);
-    const avgWords = words.reduce((a, b) => a + b, 0) / words.length;
-    const corrTotal = corrections.length;
-    const clamp10 = (v: number) => Math.min(10, Math.max(0, Math.round(v * 10) / 10));
-    // Deterministic proxies: accuracy is dinged 0.5 per correction across the
-    // whole conversation (client accumulates the tally into trapCount),
-    // fluency rewards sustained turns of ~40+ words.
-    const trapCount = Math.max(0, Math.min(40, Number((body as { trapCount?: unknown }).trapCount ?? 0)) + corrTotal);
-    const accuracy = clamp10(10 - 0.5 * trapCount);
-    const fluency = clamp10(4 + avgWords / 8);
-    const scores = { fluency, range: clamp10(5 + Math.min(5, new Set(last.you.toLowerCase().split(/\s+/)).size / 6)), accuracy, delivery: clamp10((fluency + accuracy) / 2) };
-    report = { scores, turns: turns.length, corrections: trapCount, scenario: scenario.id, goal: scenario.goal };
-    await db.speakSession.create({
-      data: {
-        prompt: `conversation: ${scenario.title}`,
-        transcript: turns.map((t) => `You: ${t.you}\nCoach: ${t.coach}`.slice(0, 2400)).join("\n---\n").slice(0, 5000),
-        round: 1,
-        result: JSON.stringify({ scores, errors: corrections.map((c) => ({ bad: c.wrong, good: c.right, fa: c.fa, trap: c.trap })), upgrades: [], round2: { constraint: "Run the conversation again - same scene, fewer traps.", same_prompt: true }, verdict: `${turns.length}-turn conversation in "${scenario.title}".`, fa_note: "" }),
-      },
-    });
-  }
+  if (done) report = await finalReport(body, turns, corrections, scenario);
 
-  return NextResponse.json({ coachLine, corrections, done, report, ...(degradedFallback ? degradedTurnPayload() : {}) });
+  return NextResponse.json({ coachLine, corrections, done, report, ...(run.degradedFallback ? degradedTurnPayload() : {}) });
 }

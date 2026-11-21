@@ -116,6 +116,77 @@ def cmd_lookup(args):
     _print(results, args.json)
 
 
+def _report_pe_section(a, pe, pe_err):
+    """PE structure, imports and heuristic flags."""
+    if pe:
+        a("## PE structure")
+        a("")
+        a(f"* machine: {pe['machine']} | subsystem: {pe['subsystem']} | .NET: {pe['dotnet']}")
+        a(f"* entry point: {pe['entry_point']}")
+        a(f"* overlay after sections: {pe['overlay_bytes']} bytes")
+        if pe["imphash_best_effort"]:
+            a(f"* imphash (best-effort, re-core): `{pe['imphash_best_effort']}`")
+        a("")
+        a("| Section | VA | VSize | RawSize | Entropy | Exec | Writable |")
+        a("|---|---|---|---|---|---|---|")
+        for s in pe["sections"]:
+            a(f"| {s['name']} | 0x{s['virtual_address']:x} | 0x{s['virtual_size']:x} | "
+              f"0x{s['raw_size']:x} | {s['entropy']} | {s['executable']} | {s['writable']} |")
+        a("")
+        a("### Imports")
+        a("")
+        for imp in pe["imports"][:40]:
+            funcs = ", ".join(imp["functions"][:20]) or "-"
+            more = f" (+{len(imp['functions']) - 20} more)" if len(imp["functions"]) > 20 else ""
+            a(f"* `{imp['dll']}`: {funcs}{more}")
+        a("")
+        if pe["flags"]:
+            a("### Heuristic flags")
+            a("")
+            for f in pe["flags"]:
+                a(f"* {f} (heuristic)")
+            a("")
+    else:
+        a(f"## PE structure")
+        a("")
+        a(f"* not parsed: {pe_err}")
+        a("")
+
+
+def _report_iocs_section(a, iocs):
+    """Extracted indicator strings, grouped by category."""
+    a("## Indicators (extracted strings)")
+    a("")
+    for cat in ("urls", "ips", "shell_commands", "registry", "suspicious_apis",
+                "base64_candidates", "mutex_strings"):
+        items = iocs.get(cat) or []
+        if items:
+            a(f"* **{cat}**: " + "; ".join(f"`{i}`" for i in items[:15]) +
+              (f" (+{len(items) - 15})" if len(items) > 15 else ""))
+    if not any(iocs.get(c) for c in ("urls", "ips", "shell_commands", "registry",
+                                     "suspicious_apis", "base64_candidates", "mutex_strings")):
+        a("* no notable IOCs extracted")
+    a("")
+
+
+def _report_intel_section(a, ext, links):
+    """External hash lookups + browser-first next steps."""
+    a("## External intelligence (hash lookups, no upload)")
+    a("")
+    a("| Platform | Mode | Status | Summary |")
+    a("|---|---|---|---|")
+    for r in ext:
+        s = r["summary"]
+        s = json.dumps(s, ensure_ascii=True) if isinstance(s, dict) else str(s)
+        a(f"| {r['platform']} | {r['mode']} | {r['status']} | {s[:180]} |")
+    a("")
+    a("### Browser-first next steps")
+    a("")
+    for link in links:
+        a(f"* [{link['platform']}]({link['url']}) - {link['note']}")
+    a("")
+
+
 def cmd_report(args):
     path = Path(args.file)
     idn = core.identify(args.file)
@@ -161,65 +232,9 @@ def cmd_report(args):
     a(f"| UPX magic | {ent['upx_magic']} | measured |")
     a(f"| packing verdict | {ent['verdict']} | heuristic |")
     a("")
-    if pe:
-        a("## PE structure")
-        a("")
-        a(f"* machine: {pe['machine']} | subsystem: {pe['subsystem']} | .NET: {pe['dotnet']}")
-        a(f"* entry point: {pe['entry_point']}")
-        a(f"* overlay after sections: {pe['overlay_bytes']} bytes")
-        if pe["imphash_best_effort"]:
-            a(f"* imphash (best-effort, re-core): `{pe['imphash_best_effort']}`")
-        a("")
-        a("| Section | VA | VSize | RawSize | Entropy | Exec | Writable |")
-        a("|---|---|---|---|---|---|---|")
-        for s in pe["sections"]:
-            a(f"| {s['name']} | 0x{s['virtual_address']:x} | 0x{s['virtual_size']:x} | "
-              f"0x{s['raw_size']:x} | {s['entropy']} | {s['executable']} | {s['writable']} |")
-        a("")
-        a("### Imports")
-        a("")
-        for imp in pe["imports"][:40]:
-            funcs = ", ".join(imp["functions"][:20]) or "-"
-            more = f" (+{len(imp['functions']) - 20} more)" if len(imp["functions"]) > 20 else ""
-            a(f"* `{imp['dll']}`: {funcs}{more}")
-        a("")
-        if pe["flags"]:
-            a("### Heuristic flags")
-            a("")
-            for f in pe["flags"]:
-                a(f"* {f} (heuristic)")
-            a("")
-    else:
-        a(f"## PE structure")
-        a("")
-        a(f"* not parsed: {pe_err}")
-        a("")
-    a("## Indicators (extracted strings)")
-    a("")
-    for cat in ("urls", "ips", "shell_commands", "registry", "suspicious_apis",
-                "base64_candidates", "mutex_strings"):
-        items = iocs.get(cat) or []
-        if items:
-            a(f"* **{cat}**: " + "; ".join(f"`{i}`" for i in items[:15]) +
-              (f" (+{len(items) - 15})" if len(items) > 15 else ""))
-    if not any(iocs.get(c) for c in ("urls", "ips", "shell_commands", "registry",
-                                     "suspicious_apis", "base64_candidates", "mutex_strings")):
-        a("* no notable IOCs extracted")
-    a("")
-    a("## External intelligence (hash lookups, no upload)")
-    a("")
-    a("| Platform | Mode | Status | Summary |")
-    a("|---|---|---|---|")
-    for r in ext:
-        s = r["summary"]
-        s = json.dumps(s, ensure_ascii=True) if isinstance(s, dict) else str(s)
-        a(f"| {r['platform']} | {r['mode']} | {r['status']} | {s[:180]} |")
-    a("")
-    a("### Browser-first next steps")
-    a("")
-    for link in links:
-        a(f"* [{link['platform']}]({link['url']}) - {link['note']}")
-    a("")
+    _report_pe_section(a, pe, pe_err)
+    _report_iocs_section(a, iocs)
+    _report_intel_section(a, ext, links)
     a("## Limitations")
     a("")
     a("* Static, read-only analysis only. No dynamic claims are made about behaviour;")

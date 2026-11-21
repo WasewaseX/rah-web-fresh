@@ -55,13 +55,10 @@ export default function Duel({ onChange }: { onChange: () => void }) {
   const locked = useRef(false);
 
   const load = useCallback(() => {
-    fetch("/api/arcade/duel", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d: DuelData) => {
-        setData(d);
-        setPhase("idle");
-      })
-      .catch(() => undefined);
+    fetchDuelData((d) => {
+      setData(d);
+      setPhase("idle");
+    });
   }, []);
   useEffect(load, [load]);
   useEffect(() => () => {
@@ -74,17 +71,8 @@ export default function Duel({ onChange }: { onChange: () => void }) {
       locked.current = true;
       if (timerRef.current) clearInterval(timerRef.current);
       setPhase("done");
-      const res = await submitGameResult("/api/arcade/duel", {
-        seed: data.seed,
-        correct: finalCorrect,
-        total: data.items.length,
-        ms,
-      });
-      if (res.online) {
-        setResult(res.data as unknown as DuelResult);
-      } else {
-        setResult({ queued: true, win: false, youScore: 0, rivalScore: 0, xpGain: 0, capped: false, totalXp: 0, leveledUp: false, unlocked: [] } as DuelResult);
-      }
+      const res = await submitGameResult("/api/arcade/duel", { seed: data.seed, correct: finalCorrect, total: data.items.length, ms });
+      applyDuelResult(res, setResult);
       onChange();
     },
     [data, onChange],
@@ -125,100 +113,155 @@ export default function Duel({ onChange }: { onChange: () => void }) {
   return (
     <div className="flex flex-col gap-4">
       <Card>
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#ff6b81]/[0.14] text-[#ffa3b1]">
-            <Swords className="h-4 w-4" />
-          </span>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-extrabold text-[#f2f5fa]">Rival Duel</span>
-              <span className="rounded-full border border-[#a78bfa]/40 bg-[#a78bfa]/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#cfc3fc]" title="A simulated opponent - no other learner is on the other side">practice bot</span>
-            </div>
-            <div className="text-[11px] text-[#7d889c]">
-              Wins {data.wins} · streak {data.streak} · the rival parries about {data.parHits}/8
-            </div>
-          </div>
-          {phase === "running" && (
-            <Chip tone={left < 10_000 ? "rose" : "blue"}>
-              <Timer className="h-3 w-3" /> {(left / 1000).toFixed(1)}s
-            </Chip>
-          )}
-        </div>
-
-        {phase === "idle" && (
-          <div className="flex flex-col gap-3">
-            <div className="text-sm text-[#a9b4c6]">
-              Same eight items, same clock. The rival&apos;s score for this run is already sealed ({data.rivalScore} points of par). You need more than {data.parHits} hits.
-            </div>
-            <Btn variant="primary" onClick={start}>
-              <Play className="h-4 w-4" /> Draw
-            </Btn>
-          </div>
-        )}
-
+        <DuelHeader data={data} phase={phase} left={left} />
+        {phase === "idle" && <DuelIdle data={data} onStart={start} />}
         {phase === "running" && item && (
-          <div className="flex flex-col gap-3">
-            <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-              <div className="h-full rounded-full bg-[var(--rah-primary)] transition-all" style={{ width: `${(left / (data.timer * 1000)) * 100}%` }} />
-            </div>
-            <div className="whitespace-pre-line text-[15px] font-semibold leading-relaxed text-[#e7ecf5]">{item.q}</div>
-            {item.choices ? (
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {item.choices.map((c) => (
-                  <Btn key={c} variant="soft" onClick={() => hit(c === item.key)}>
-                    {c}
-                  </Btn>
-                ))}
-              </div>
-            ) : (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (input.trim()) {
-                    hit(item.accepts.includes(normalize(input)));
-                    setInput("");
-                  }
-                }}
-                className="flex gap-2"
-              >
-                <input
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Fast - type it..."
-                  aria-label="Duel answer"
-                  className="min-h-12 flex-1 rounded-2xl border border-white/[0.08] bg-white/[0.04] px-4 text-sm text-[#e7ecf5] outline-none focus:border-[var(--rah-primary)]/50"
-                />
-                <Btn type="submit" disabled={!input.trim()}>
-                  Enter
-                </Btn>
-              </form>
-            )}
-            {flash && <div className={`text-xs font-bold ${flash === "ok" ? "text-[#7fe0ac]" : "text-[#ffa3b1]"}`}>{flash === "ok" ? "Hit!" : "Miss"}</div>}
-            <div className="text-xs text-[#7d889c]">
-              {correct}/{data.items.length} hits
-            </div>
-          </div>
+          <DuelRunning
+            item={item}
+            left={left}
+            timerMs={data.timer * 1000}
+            input={input}
+            onInput={setInput}
+            onHit={hit}
+            flash={flash}
+            correct={correct}
+            total={data.items.length}
+          />
         )}
-
-        {phase === "done" && result && (
-          <div className="flex flex-col gap-2">
-            <div className={`text-lg font-black ${result.win ? "text-[#7fe0ac]" : "text-[#ffa3b1]"}`}>{result.win ? "Duel won." : "Duel lost."}</div>
-            <div className="text-sm text-[#a9b4c6]">
-              You {result.youScore} — rival {result.rivalScore} · {result.xpGain > 0 ? `+${result.xpGain} XP` : "no XP"}
-              {result.queued && <span className="ml-2 text-[11px] text-amber-300">Offline - queued to sync</span>}
-              {result.leveledUp ? " · LEVEL UP" : ""}
-            </div>
-            {!result.win && (
-              <Note tone="rose">
-                The rival takes the round. Hand the coach your revenge plan from Home&apos;s race card.
-              </Note>
-            )}
-            <Btn variant="soft" onClick={load}>
-              Rematch
-            </Btn>
-          </div>
-        )}
+        {phase === "done" && result && <DuelDone result={result} onRematch={load} />}
       </Card>
+    </div>
+  );
+}
+
+function fetchDuelData(onData: (d: DuelData) => void) {
+  fetch("/api/arcade/duel", { cache: "no-store" })
+    .then((r) => r.json())
+    .then((d: DuelData) => onData(d))
+    .catch(() => undefined);
+}
+
+function applyDuelResult(
+  res: Awaited<ReturnType<typeof submitGameResult>>,
+  setResult: (r: DuelResult | null) => void,
+) {
+  if (res.online) {
+    setResult(res.data as unknown as DuelResult);
+  } else {
+    setResult({ queued: true, win: false, youScore: 0, rivalScore: 0, xpGain: 0, capped: false, totalXp: 0, leveledUp: false, unlocked: [] } as DuelResult);
+  }
+}
+
+function DuelHeader({ data, phase, left }: { data: DuelData; phase: string; left: number }) {
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-2">
+      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#ff6b81]/[0.14] text-[#ffa3b1]">
+        <Swords className="h-4 w-4" />
+      </span>
+      <div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-extrabold text-[#f2f5fa]">Rival Duel</span>
+          <span className="rounded-full border border-[#a78bfa]/40 bg-[#a78bfa]/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#cfc3fc]" title="A simulated opponent - no other learner is on the other side">practice bot</span>
+        </div>
+        <div className="text-[11px] text-[#7d889c]">
+          Wins {data.wins} · streak {data.streak} · the rival parries about {data.parHits}/8
+        </div>
+      </div>
+      {phase === "running" && (
+        <Chip tone={left < 10_000 ? "rose" : "blue"}>
+          <Timer className="h-3 w-3" /> {(left / 1000).toFixed(1)}s
+        </Chip>
+      )}
+    </div>
+  );
+}
+
+function DuelIdle({ data, onStart }: { data: DuelData; onStart: () => void }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="text-sm text-[#a9b4c6]">
+        Same eight items, same clock. The rival&apos;s score for this run is already sealed ({data.rivalScore} points of par). You need more than {data.parHits} hits.
+      </div>
+      <Btn variant="primary" onClick={onStart}>
+        <Play className="h-4 w-4" /> Draw
+      </Btn>
+    </div>
+  );
+}
+
+function DuelRunning({ item, left, timerMs, input, onInput, onHit, flash, correct, total }: {
+  item: Item;
+  left: number;
+  timerMs: number;
+  input: string;
+  onInput: (v: string) => void;
+  onHit: (ok: boolean) => void;
+  flash: "ok" | "miss" | null;
+  correct: number;
+  total: number;
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+        <div className="h-full rounded-full bg-[var(--rah-primary)] transition-all" style={{ width: `${(left / timerMs) * 100}%` }} />
+      </div>
+      <div className="whitespace-pre-line text-[15px] font-semibold leading-relaxed text-[#e7ecf5]">{item.q}</div>
+      {item.choices ? (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {item.choices.map((c) => (
+            <Btn key={c} variant="soft" onClick={() => onHit(c === item.key)}>
+              {c}
+            </Btn>
+          ))}
+        </div>
+      ) : (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (input.trim()) {
+              onHit(item.accepts.includes(normalize(input)));
+              onInput("");
+            }
+          }}
+          className="flex gap-2"
+        >
+          <input
+            value={input}
+            onChange={(e) => onInput(e.target.value)}
+            placeholder="Fast - type it..."
+            aria-label="Duel answer"
+            className="min-h-12 flex-1 rounded-2xl border border-white/[0.08] bg-white/[0.04] px-4 text-sm text-[#e7ecf5] outline-none focus:border-[var(--rah-primary)]/50"
+          />
+          <Btn type="submit" disabled={!input.trim()}>
+            Enter
+          </Btn>
+        </form>
+      )}
+      {flash && <div className={`text-xs font-bold ${flash === "ok" ? "text-[#7fe0ac]" : "text-[#ffa3b1]"}`}>{flash === "ok" ? "Hit!" : "Miss"}</div>}
+      <div className="text-xs text-[#7d889c]">
+        {correct}/{total} hits
+      </div>
+    </div>
+  );
+}
+
+function DuelDone({ result, onRematch }: { result: DuelResult; onRematch: () => void }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className={`text-lg font-black ${result.win ? "text-[#7fe0ac]" : "text-[#ffa3b1]"}`}>{result.win ? "Duel won." : "Duel lost."}</div>
+      <div className="text-sm text-[#a9b4c6]">
+        You {result.youScore} — rival {result.rivalScore} · {result.xpGain > 0 ? `+${result.xpGain} XP` : "no XP"}
+        {result.queued && <span className="ml-2 text-[11px] text-amber-300">Offline - queued to sync</span>}
+        {result.leveledUp ? " · LEVEL UP" : ""}
+      </div>
+      {!result.win && (
+        <Note tone="rose">
+          The rival takes the round. Hand the coach your revenge plan from Home&apos;s race card.
+        </Note>
+      )}
+      <Btn variant="soft" onClick={onRematch}>
+        Rematch
+      </Btn>
     </div>
   );
 }

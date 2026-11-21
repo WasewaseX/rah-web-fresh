@@ -24,6 +24,7 @@
  * Never touches the SQLite live DB or the app's Prisma client (separate
  * schema.postgres.prisma -> prisma/pg-client output).
  */
+import fs from "fs";
 import { PrismaClient } from "../prisma/pg-client/index.js";
 
 const db = new PrismaClient({

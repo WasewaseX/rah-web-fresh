@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import type * as React from "react";
 import { Geist, Geist_Mono, Vazirmatn } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";

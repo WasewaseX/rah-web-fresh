@@ -73,6 +73,87 @@ export function interleaveBySkill(unseen: Card[], budget: number): Card[] {
   return out;
 }
 
+// Extra practice: the learner asked for more after the scheduled round.
+// Serve the soonest-coming-back known cards (not yet due). FSRS folds an
+// early review into the schedule normally - it is safe, just optional.
+// The 40 soonest are shuffled so consecutive extra rounds do not repeat
+// the exact same order; the due-first bias still holds for big backlogs.
+async function aheadPool(all: { cardId: string; suspended: boolean; state: string; due: number }[], today: number): Promise<Card[]> {
+  const soonest = all
+    .filter((s) => !s.suspended && s.state !== "new" && s.due > today)
+    .sort((a, b) => a.due - b.due || cardR(a as unknown as FsrsState, today) - cardR(b as unknown as FsrsState, today))
+    .slice(0, 40);
+  return shuffle(
+    (
+      await Promise.all(
+        soonest.map(async (s) => cardById(s.cardId) ?? (await derivedExamCard(s.cardId)) ?? (await materialCardById(s.cardId))),
+      )
+    ).filter((c): c is Card => !!c),
+  );
+}
+
+// The normal (scheduled) pool: due cards interleaved 2:1 with the new budget.
+// New budget: cards never reviewed, limited per day (shared counter).
+// BYO-material cards come FIRST in the new pool - the learner's own
+// content is the priority - and share the same budget so the Home badge
+// promise (due + newLeft) stays exactly what one round delivers.
+async function normalPool(
+  all: { cardId: string; suspended: boolean; state: string; due: number; dir: string }[],
+  byId: Map<string, { cardId: string; suspended: boolean; state: string; due: number; dir: string }>,
+  counts: { newLeft: number },
+  today: number,
+): Promise<Card[]> {
+  // Due: known cards past their schedule, most at-risk first.
+  const dueStates = all
+    .filter((s) => !s.suspended && s.state !== "new" && s.due <= today)
+    .sort(
+      (a, b) => cardR(a as unknown as FsrsState, today) - cardR(b as unknown as FsrsState, today),
+    );
+
+  const matNewStates = all
+    .filter((s) => s.cardId.startsWith("mat:") && !s.suspended && s.state === "new")
+    .sort((a, b) => a.due - b.due);
+  const matNewCards = (
+    await Promise.all(matNewStates.map((s) => materialCardById(s.cardId)))
+  ).filter((c): c is Card => !!c);
+  const deckNewBudget = Math.max(0, counts.newLeft - matNewCards.length);
+  const newCards = [
+    ...matNewCards,
+    ...interleaveBySkill(
+      DECK.filter((c) => {
+        const s = byId.get(c.id);
+        return !s || s.state === "new";
+      }),
+      deckNewBudget,
+    ),
+  ];
+
+  // Interleave: 2 due for every 1 new, shuffled inside each pool so skills mix.
+  // Deck cards resolve from content; exam:<tag> healing cards (written by the
+  // exam->FSRS bridge) resolve at queue time from the family's own recorded
+  // evidence; mat:<id> BYO-material cards resolve from the imported material.
+  // A family with no evidence or no unblankable correction drops out honestly
+  // instead of rendering a broken card.
+  const dueCards = (
+    await Promise.all(
+      dueStates.map(async (s) =>
+        cardById(s.cardId) ?? (await derivedExamCard(s.cardId)) ?? (await materialCardById(s.cardId)),
+      ),
+    )
+  ).filter((c): c is Card => !!c);
+  const d = shuffle(dueCards);
+  const n = shuffle(newCards);
+  const pool: Card[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < d.length || j < n.length) {
+    if (i < d.length) pool.push(d[i++]);
+    if (i < d.length) pool.push(d[i++]);
+    if (j < n.length) pool.push(n[j++]);
+  }
+  return pool;
+}
+
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const ahead = url.searchParams.get("ahead") === "1";
@@ -87,75 +168,10 @@ export async function GET(req: Request) {
   let mode: "normal" | "ahead" = "normal";
 
   if (ahead) {
-    // Extra practice: the learner asked for more after the scheduled round.
-    // Serve the soonest-coming-back known cards (not yet due). FSRS folds an
-    // early review into the schedule normally - it is safe, just optional.
-    // The 40 soonest are shuffled so consecutive extra rounds do not repeat
-    // the exact same order; the due-first bias still holds for big backlogs.
-    const soonest = all
-      .filter((s) => !s.suspended && s.state !== "new" && s.due > today)
-      .sort((a, b) => a.due - b.due || cardR(a as unknown as FsrsState, today) - cardR(b as unknown as FsrsState, today))
-      .slice(0, 40);
-    pool = shuffle(
-      (
-        await Promise.all(
-          soonest.map(async (s) => cardById(s.cardId) ?? (await derivedExamCard(s.cardId)) ?? (await materialCardById(s.cardId))),
-        )
-      ).filter((c): c is Card => !!c),
-    );
+    pool = await aheadPool(all, today);
     mode = "ahead";
   } else {
-    // Due: known cards past their schedule, most at-risk first.
-    const dueStates = all
-      .filter((s) => !s.suspended && s.state !== "new" && s.due <= today)
-      .sort(
-        (a, b) => cardR(a as unknown as FsrsState, today) - cardR(b as unknown as FsrsState, today),
-      );
-
-    // New budget: cards never reviewed, limited per day (shared counter).
-    // BYO-material cards come FIRST in the new pool - the learner's own
-    // content is the priority - and share the same budget so the Home badge
-    // promise (due + newLeft) stays exactly what one round delivers.
-    const matNewStates = all
-      .filter((s) => s.cardId.startsWith("mat:") && !s.suspended && s.state === "new")
-      .sort((a, b) => a.due - b.due);
-    const matNewCards = (
-      await Promise.all(matNewStates.map((s) => materialCardById(s.cardId)))
-    ).filter((c): c is Card => !!c);
-    const deckNewBudget = Math.max(0, counts.newLeft - matNewCards.length);
-    const newCards = [
-      ...matNewCards,
-      ...interleaveBySkill(
-        DECK.filter((c) => {
-          const s = byId.get(c.id);
-          return !s || s.state === "new";
-        }),
-        deckNewBudget,
-      ),
-    ];
-
-    // Interleave: 2 due for every 1 new, shuffled inside each pool so skills mix.
-    // Deck cards resolve from content; exam:<tag> healing cards (written by the
-    // exam->FSRS bridge) resolve at queue time from the family's own recorded
-    // evidence; mat:<id> BYO-material cards resolve from the imported material.
-    // A family with no evidence or no unblankable correction drops out honestly
-    // instead of rendering a broken card.
-    const dueCards = (
-      await Promise.all(
-        dueStates.map(async (s) =>
-          cardById(s.cardId) ?? (await derivedExamCard(s.cardId)) ?? (await materialCardById(s.cardId)),
-        ),
-      )
-    ).filter((c): c is Card => !!c);
-    const d = shuffle(dueCards);
-    const n = shuffle(newCards);
-    let i = 0;
-    let j = 0;
-    while (i < d.length || j < n.length) {
-      if (i < d.length) pool.push(d[i++]);
-      if (i < d.length) pool.push(d[i++]);
-      if (j < n.length) pool.push(n[j++]);
-    }
+    pool = await normalPool(all, byId, counts, today);
   }
 
   const batch = pool.slice(0, 20).map((c) => {

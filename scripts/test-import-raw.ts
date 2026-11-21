@@ -30,7 +30,7 @@ async function main() {
   console.log("HEAD:", JSON.stringify(t.slice(0, 120)));
   console.log("TAIL:", JSON.stringify(t.slice(-160)));
   // emulate extractJson
-  const s = t.replace(/\`\`\`json/g, "\`\`\`").replace(/\`\`\`/g, "").trim();
+  const s = t.replace(/```json/g, "```").replace(/```/g, "").trim();
   const a = s.indexOf("{"), b = s.lastIndexOf("}");
   try {
     JSON.parse(s.slice(a, b + 1));

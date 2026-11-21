@@ -101,105 +101,32 @@ export default function BossBattle({ onChange }: { onChange: () => void }) {
     if (!item || flash) return;
     const nt = { correct: tally.correct + (ok ? 1 : 0), total: tally.total + 1 };
     setTally(nt);
-    if (ok) {
-      setFlash("ok");
-      setTimeout(() => {
-        setFlash(null);
-        setInput("");
-        if (i + 1 >= (cur?.items.length ?? 0)) {
-          // Phase cleared.
-          if (p + 1 >= phases.length) {
-            void settle(true, p + 1, hearts, nt);
-          } else {
-            setP(p + 1);
-            setI(0);
-            setBanner(`Phase ${p + 2} · ${phases[p + 1]?.name ?? ""}`);
-            setTimeout(() => setBanner(null), 1400);
-          }
-        } else {
-          setI(i + 1);
-        }
-      }, 300);
-    } else {
-      const nh = hearts - 1;
-      setHearts(nh);
-      setFlash("miss");
-      setTimeout(() => {
-        setFlash(null);
-        setInput("");
-        if (nh <= 0) {
-          void settle(false, p + 1, 0, nt);
-        } else if (i + 1 >= (cur?.items.length ?? 0)) {
-          // Phase survived on a miss: advance anyway (the boss bar tracks items, misses cost hearts).
-          if (p + 1 >= phases.length) {
-            void settle(true, p + 1, nh, nt);
-          } else {
-            setP(p + 1);
-            setI(0);
-            setBanner(`Phase ${p + 2} · ${phases[p + 1]?.name ?? ""}`);
-            setTimeout(() => setBanner(null), 1400);
-          }
-        } else {
-          setI(i + 1);
-        }
-      }, 650);
-    }
+    setFlash(ok ? "ok" : "miss");
+    resolveBossAnswer({
+      ok,
+      i,
+      p,
+      hearts,
+      phaseItems: cur?.items.length ?? 0,
+      phaseCount: phases.length,
+      tally: nt,
+      nextName: phases[p + 1]?.name ?? "",
+      settle,
+      setP,
+      setI,
+      setHearts,
+      setBanner,
+      setInput,
+      setFlash,
+    });
   };
 
   if (phase === "idle" || phase === "loading") {
-    return (
-      <Card className="py-10 text-center">
-        {phase === "loading" ? (
-          <Spinner label="The Examiner is assembling your fight" />
-        ) : (
-          <>
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#ff6b81]/[0.14] text-[#ffa3b1]">
-              <Swords className="h-8 w-8" />
-            </div>
-            <div className="mt-4 text-xl font-black tracking-tight text-[#f2f5fa]">Boss Battle: The Examiner</div>
-            <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-[#a9b4c6]">
-              Three phases, eight items each, three hearts. Every weapon is pulled from your own recurring mistakes. Win and the badge is yours.
-            </p>
-            <Btn variant="danger" onClick={start} className="mt-6">
-              <Play className="h-4 w-4" /> Enter the fight
-            </Btn>
-          </>
-        )}
-      </Card>
-    );
+    return <BossIntro phase={phase} onStart={start} />;
   }
 
   if (phase === "won" || phase === "lost") {
-    const won = phase === "won";
-    return (
-      <Card className="rah-pop py-10 text-center">
-        <div
-          className={`mx-auto flex h-16 w-16 items-center justify-center rounded-2xl ${won ? "bg-[#2fc273]/[0.14] text-[#2fc273]" : "bg-[#ff6b81]/[0.14] text-[#ff6b81]"}`}
-        >
-          {won ? <Swords className="h-8 w-8" /> : <Skull className="h-8 w-8" />}
-        </div>
-        <div className="mt-4 text-xl font-black tracking-tight text-[#f2f5fa]">
-          {won ? "The Examiner falls." : "The Examiner wins this one."}
-        </div>
-        <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-          <Chip tone="emerald">{tally.correct} hits landed</Chip>
-          <Chip tone="rose">{hearts} heart{hearts === 1 ? "" : "s"} left</Chip>
-          <Chip tone="cyan">+{result?.xpGain ?? 0} XP</Chip>
-          {result?.queued && <span className="text-[11px] text-amber-300">Offline - the battle is queued to sync</span>}
-          {result?.leveledUp && <Chip tone="violet">LEVEL UP · Lv {result.level}</Chip>}
-        </div>
-        <p className="mx-auto mt-4 max-w-sm text-sm leading-relaxed text-[#a9b4c6]">
-          {won
-            ? hearts === 3
-              ? "Flawless. Untouchable. The badge cabinet just got heavier."
-              : "Won, but bleeding. Flawless runs pay double pride."
-            : "The boss fought you with your own leaks. The coach has seen the wounds - hunt those families first, then come back."}
-        </p>
-        <Btn variant={won ? "go" : "danger"} onClick={start} className="mt-6">
-          <Play className="h-4 w-4" /> {won ? "Fight a fresh boss" : "Rematch"}
-        </Btn>
-      </Card>
-    );
+    return <BossOutcome won={phase === "won"} tally={tally} hearts={hearts} result={result} onStart={start} />;
   }
 
   // fighting
@@ -207,10 +134,144 @@ export default function BossBattle({ onChange }: { onChange: () => void }) {
   const bossHp = ((phaseItems - i) / phaseItems) * 100;
   return (
     <div className="flex flex-col gap-4">
+      <BossStatus banner={banner} taunt={phases[p]?.taunt ?? ""} hearts={hearts} p={p} phaseItems={phaseItems} i={i} bossHp={bossHp} />
+      {item && <BossItem item={item} flash={flash} input={input} onInput={setInput} onAnswer={answer} />}
+    </div>
+  );
+}
+
+// Post-answer choreography, shared by hit and miss: clear flash + input, then
+// settle the fight, enter the next phase, or step to the next item. The boss
+// bar tracks items; misses cost hearts (Phase survived on a miss: advance
+// anyway).
+type BossControls = {
+  ok: boolean;
+  i: number;
+  p: number;
+  hearts: number;
+  phaseItems: number;
+  phaseCount: number;
+  tally: { correct: number; total: number };
+  nextName: string;
+  settle: (won: boolean, phaseReached: number, heartsLeft: number, t: { correct: number; total: number }) => void;
+  setP: (n: number) => void;
+  setI: (n: number) => void;
+  setHearts: (n: number) => void;
+  setBanner: (s: string | null) => void;
+  setInput: (s: string) => void;
+  setFlash: (f: "ok" | "miss" | null) => void;
+};
+
+function advanceBoss(a: BossControls, heartsLeft: number) {
+  if (a.i + 1 >= a.phaseItems) {
+    if (a.p + 1 >= a.phaseCount) {
+      void a.settle(true, a.p + 1, heartsLeft, a.tally);
+    } else {
+      a.setP(a.p + 1);
+      a.setI(0);
+      a.setBanner(`Phase ${a.p + 2} · ${a.nextName}`);
+      setTimeout(() => a.setBanner(null), 1400);
+    }
+  } else {
+    a.setI(a.i + 1);
+  }
+}
+
+function resolveBossAnswer(a: BossControls) {
+  if (a.ok) {
+    setTimeout(() => {
+      a.setFlash(null);
+      a.setInput("");
+      advanceBoss(a, a.hearts);
+    }, 300);
+  } else {
+    const nh = a.hearts - 1;
+    a.setHearts(nh);
+    setTimeout(() => {
+      a.setFlash(null);
+      a.setInput("");
+      if (nh <= 0) void a.settle(false, a.p + 1, 0, a.tally);
+      else advanceBoss(a, nh);
+    }, 650);
+  }
+}
+
+function BossIntro({ phase, onStart }: { phase: "idle" | "loading"; onStart: () => void }) {
+  return (
+    <Card className="py-10 text-center">
+      {phase === "loading" ? (
+        <Spinner label="The Examiner is assembling your fight" />
+      ) : (
+        <>
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#ff6b81]/[0.14] text-[#ffa3b1]">
+            <Swords className="h-8 w-8" />
+          </div>
+          <div className="mt-4 text-xl font-black tracking-tight text-[#f2f5fa]">Boss Battle: The Examiner</div>
+          <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-[#a9b4c6]">
+            Three phases, eight items each, three hearts. Every weapon is pulled from your own recurring mistakes. Win and the badge is yours.
+          </p>
+          <Btn variant="danger" onClick={onStart} className="mt-6">
+            <Play className="h-4 w-4" /> Enter the fight
+          </Btn>
+        </>
+      )}
+    </Card>
+  );
+}
+
+function BossOutcome({ won, tally, hearts, result, onStart }: {
+  won: boolean;
+  tally: { correct: number; total: number };
+  hearts: number;
+  result: Result | null;
+  onStart: () => void;
+}) {
+  return (
+    <Card className="rah-pop py-10 text-center">
+      <div
+        className={`mx-auto flex h-16 w-16 items-center justify-center rounded-2xl ${won ? "bg-[#2fc273]/[0.14] text-[#2fc273]" : "bg-[#ff6b81]/[0.14] text-[#ff6b81]"}`}
+      >
+        {won ? <Swords className="h-8 w-8" /> : <Skull className="h-8 w-8" />}
+      </div>
+      <div className="mt-4 text-xl font-black tracking-tight text-[#f2f5fa]">
+        {won ? "The Examiner falls." : "The Examiner wins this one."}
+      </div>
+      <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+        <Chip tone="emerald">{tally.correct} hits landed</Chip>
+        <Chip tone="rose">{hearts} heart{hearts === 1 ? "" : "s"} left</Chip>
+        <Chip tone="cyan">+{result?.xpGain ?? 0} XP</Chip>
+        {result?.queued && <span className="text-[11px] text-amber-300">Offline - the battle is queued to sync</span>}
+        {result?.leveledUp && <Chip tone="violet">LEVEL UP · Lv {result.level}</Chip>}
+      </div>
+      <p className="mx-auto mt-4 max-w-sm text-sm leading-relaxed text-[#a9b4c6]">
+        {won
+          ? hearts === 3
+            ? "Flawless. Untouchable. The badge cabinet just got heavier."
+            : "Won, but bleeding. Flawless runs pay double pride."
+          : "The boss fought you with your own leaks. The coach has seen the wounds - hunt those families first, then come back."}
+      </p>
+      <Btn variant={won ? "go" : "danger"} onClick={onStart} className="mt-6">
+        <Play className="h-4 w-4" /> {won ? "Fight a fresh boss" : "Rematch"}
+      </Btn>
+    </Card>
+  );
+}
+
+function BossStatus({ banner, taunt, hearts, p, phaseItems, i, bossHp }: {
+  banner: string | null;
+  taunt: string;
+  hearts: number;
+  p: number;
+  phaseItems: number;
+  i: number;
+  bossHp: number;
+}) {
+  return (
+    <>
       {banner && (
         <div className="rah-pop rounded-2xl border border-[#ff6b81]/30 bg-gradient-to-br from-[#2a1218] to-[#1a1014] px-5 py-4 text-center">
           <div className="text-[11px] font-black uppercase tracking-[0.14em] text-[#ffa3b1]">{banner}</div>
-          <div className="mt-1 text-sm italic text-[#c3cddd]">"{phases[p]?.taunt}"</div>
+          <div className="mt-1 text-sm italic text-[#c3cddd]">"{taunt}"</div>
         </div>
       )}
       <div className="flex items-center justify-between gap-3">
@@ -233,61 +294,69 @@ export default function BossBattle({ onChange }: { onChange: () => void }) {
           />
         </div>
       </div>
+    </>
+  );
+}
 
-      {item && (
-        <Card className={`min-h-64 transition-colors ${flash === "ok" ? "border-[#2fc273]/60" : flash === "miss" ? "border-[#ff6b81]/60" : ""}`}>
-          <div className="mb-3 text-center text-[11px] font-bold uppercase tracking-[0.12em] text-[#5f8fe8]">
-            {item.kind === "mcq" ? "Counter: pick the meaning" : "Counter: type the answer"}
-          </div>
-          {item.kind === "mcq" ? (
-            <>
-              <div className="text-center text-[24px] font-extrabold leading-snug tracking-tight text-[#f2f5fa]">{item.q}</div>
-              <div className="mt-6 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                {(item.choices ?? []).map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => answer(c === item.key)}
-                    className="rounded-2xl border-2 border-[#2a3242] px-4 py-3.5 text-sm font-semibold text-[#b7c1d3] transition-all hover:border-[#3f4c63] hover:bg-white/[0.03] active:scale-[.99]"
-                  >
-                    <FA className="text-[#f2f5fa]">{c}</FA>
-                  </button>
-                ))}
-              </div>
-            </>
-          ) : (
-            <>
-              <FA className="block text-center text-[22px] font-bold leading-snug text-[#f2f5fa]">{item.q}</FA>
-              <form
-                className="mt-6 flex gap-2.5"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const got = normalize(input);
-                  if (!got) return;
-                  answer(item.accepts.includes(got));
-                }}
+function BossItem({ item, flash, input, onInput, onAnswer }: {
+  item: Item;
+  flash: "ok" | "miss" | null;
+  input: string;
+  onInput: (v: string) => void;
+  onAnswer: (ok: boolean) => void;
+}) {
+  return (
+    <Card className={`min-h-64 transition-colors ${flash === "ok" ? "border-[#2fc273]/60" : flash === "miss" ? "border-[#ff6b81]/60" : ""}`}>
+      <div className="mb-3 text-center text-[11px] font-bold uppercase tracking-[0.12em] text-[#5f8fe8]">
+        {item.kind === "mcq" ? "Counter: pick the meaning" : "Counter: type the answer"}
+      </div>
+      {item.kind === "mcq" ? (
+        <>
+          <div className="text-center text-[24px] font-extrabold leading-snug tracking-tight text-[#f2f5fa]">{item.q}</div>
+          <div className="mt-6 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+            {(item.choices ?? []).map((c) => (
+              <button
+                key={c}
+                onClick={() => onAnswer(c === item.key)}
+                className="rounded-2xl border-2 border-[#2a3242] px-4 py-3.5 text-sm font-semibold text-[#b7c1d3] transition-all hover:border-[#3f4c63] hover:bg-white/[0.03] active:scale-[.99]"
               >
-                <input
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder={item.q.includes("___") ? "Fill the blank" : "Type the English"}
-                  aria-label="Boss battle answer"
-                  className="min-h-12 flex-1 rounded-2xl border-2 border-[#2a3242] bg-[#141924] px-4 text-base text-[#f2f5fa] outline-none placeholder:text-[#5c6678] focus:border-[var(--rah-primary)]"
-                  dir="ltr"
-                  autoComplete="off"
-                />
-                <Btn type="submit" variant="primary" disabled={!input.trim()}>
-                  Strike
-                </Btn>
-              </form>
-            </>
-          )}
-          {flash === "miss" && (
-            <div className="mt-4 text-center text-sm font-bold text-[#ffa3b1]">
-              The Examiner strikes: {item.key} {item.hint && item.hint !== item.key ? `· ${item.hint}` : ""}
-            </div>
-          )}
-        </Card>
+                <FA className="text-[#f2f5fa]">{c}</FA>
+              </button>
+            ))}
+          </div>
+        </>
+      ) : (
+        <>
+          <FA className="block text-center text-[22px] font-bold leading-snug text-[#f2f5fa]">{item.q}</FA>
+          <form
+            className="mt-6 flex gap-2.5"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const got = normalize(input);
+              if (!got) return;
+              onAnswer(item.accepts.includes(got));
+            }}
+          >
+            <input
+              value={input}
+              onChange={(e) => onInput(e.target.value)}
+              placeholder={item.q.includes("___") ? "Fill the blank" : "Type the English"}
+              aria-label="Boss battle answer"
+              className="min-h-12 flex-1 rounded-2xl border-2 border-[#2a3242] bg-[#141924] px-4 text-base text-[#f2f5fa] outline-none placeholder:text-[#5c6678] focus:border-[var(--rah-primary)]"
+              dir="ltr"
+              autoComplete="off"
+            />
+            <Btn type="submit" variant="primary" disabled={!input.trim()}>
+              Strike
+            </Btn>
+          </form>
+        </>
       )}
-    </div>
+      {flash === "miss" && (
+        <div className="mt-4 text-center text-sm font-bold text-[#ffa3b1]">
+          The Examiner strikes: {item.key} {item.hint && item.hint !== item.key ? `· ${item.hint}` : ""}
+        </div>
+      )}
+    </Card>
   );
 }

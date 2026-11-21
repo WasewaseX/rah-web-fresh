@@ -14,6 +14,7 @@ export const dynamic = "force-dynamic";
 // Adaptive placement: four sections walked by a difficulty ladder
 // (2 right in a row climb one rung, 1 miss drops one), then a writing
 // sample graded by the built-in AI. Ported from crates/rah-core placement.rs.
+// POST dispatches to the per-action phase handlers below.
 
 const RUNGS = ["B1", "B2", "B2+", "C1"];
 const SECTIONS = ["grammar", "vocab", "collocation", "reading"];
@@ -132,90 +133,66 @@ export async function GET() {
   });
 }
 
-export async function POST(req: Request) {
-  // Abuse limit (audit P1-6): AI calls cost real money - 30/min per client IP.
-  const rl = aiRateLimit(req);
-  if (!rl.ok) return rl.response!;
-
-  const body = await req.json();
-  const action = String(body.action ?? "");
-
-  if (action === "start") {
-    const s = freshSession();
-    await saveSession(s, "quiz");
-    await db.learner.update({ where: { id: "me" }, data: { placementPhase: "quiz" } });
-    const first = pickItem(s);
-    if (!first) {
-      await saveSession(s, "writing");
-      return NextResponse.json({ phase: "writing" });
-    }
-    return NextResponse.json({
-      phase: "quiz",
-      sec: s.sec,
-      secIndex: 0,
-      sections: SECTIONS.length,
-      idx: 0,
-      rung: RUNGS[s.rung],
-      item: shuffled(first),
-    });
+async function startAction() {
+  const s = freshSession();
+  await saveSession(s, "quiz");
+  await db.learner.update({ where: { id: "me" }, data: { placementPhase: "quiz" } });
+  const first = pickItem(s);
+  if (!first) {
+    await saveSession(s, "writing");
+    return NextResponse.json({ phase: "writing" });
   }
+  return NextResponse.json({
+    phase: "quiz",
+    sec: s.sec,
+    secIndex: 0,
+    sections: SECTIONS.length,
+    idx: 0,
+    rung: RUNGS[s.rung],
+    item: shuffled(first),
+  });
+}
 
-  if (action === "answer") {
-    const s = await loadSession();
-    const item = PLACEMENT_ITEMS.find((i) => i.id === body.itemId);
-    if (!item) return NextResponse.json({ error: "bad item" }, { status: 400 });
-    const correct = item.a === body.choice;
-    // Keep the exact text the learner picked: it becomes the miss evidence
-    // folded into the mistake families when the placement completes.
-    s.answers.push({ id: item.id, rung: item.rung, correct, trap: item.trap, pick: String(body.choice ?? "") });
-    s.asked[item.id] = true;
-    if (correct) {
-      s.streak += 1;
-      if (s.streak >= 2) {
-        s.streak = 0;
-        s.rung = Math.min(3, s.rung + 1);
-      }
-    } else {
+async function answerAction(body: any) {
+  const s = await loadSession();
+  const item = PLACEMENT_ITEMS.find((i) => i.id === body.itemId);
+  if (!item) return NextResponse.json({ error: "bad item" }, { status: 400 });
+  const correct = item.a === body.choice;
+  // Keep the exact text the learner picked: it becomes the miss evidence
+  // folded into the mistake families when the placement completes.
+  s.answers.push({ id: item.id, rung: item.rung, correct, trap: item.trap, pick: String(body.choice ?? "") });
+  s.asked[item.id] = true;
+  if (correct) {
+    s.streak += 1;
+    if (s.streak >= 2) {
       s.streak = 0;
-      s.rung = Math.max(0, s.rung - 1);
+      s.rung = Math.min(3, s.rung + 1);
     }
-    s.idx += 1;
+  } else {
+    s.streak = 0;
+    s.rung = Math.max(0, s.rung - 1);
+  }
+  s.idx += 1;
 
-    if (sectionDone(s)) {
-      const secAnswers = s.answers.filter((a) => sectionOf(a.id) === s.sec);
-      const right = secAnswers.filter((a) => a.correct).length;
-      s.sectionScores[s.sec] = Math.floor((100 * right) / secAnswers.length + 0.5);
-      const nextSec = SECTIONS.find((sec) => !(sec in s.sectionScores));
-      if (!nextSec) {
-        await saveSession(s, "writing");
-        await db.learner.update({ where: { id: "me" }, data: { placementPhase: "writing" } });
-        return NextResponse.json({ correct, key: item.a, trapLabel: correct ? "" : tagLabel(item.trap), phase: "writing" });
-      }
-      s.sec = nextSec;
-      s.idx = 0;
-      s.streak = 0;
-      const item2 = pickItem(s);
-      if (!item2) {
-        await saveSession(s, "writing");
-        await db.learner.update({ where: { id: "me" }, data: { placementPhase: "writing" } });
-        return NextResponse.json({ correct, key: item.a, trapLabel: correct ? "" : tagLabel(item.trap), phase: "writing" });
-      }
-      await saveSession(s, "quiz");
-      await bumpDaily("reviews");
-      return NextResponse.json({
-        correct,
-        key: item.a,
-        trapLabel: correct ? "" : tagLabel(item.trap),
-        phase: "quiz",
-        sec: s.sec,
-        secIndex: SECTIONS.indexOf(s.sec),
-        idx: s.idx,
-        rung: RUNGS[Math.max(0, Math.min(3, s.rung))],
-        item: shuffled(item2),
-      });
+  if (sectionDone(s)) {
+    const secAnswers = s.answers.filter((a) => sectionOf(a.id) === s.sec);
+    const right = secAnswers.filter((a) => a.correct).length;
+    s.sectionScores[s.sec] = Math.floor((100 * right) / secAnswers.length + 0.5);
+    const nextSec = SECTIONS.find((sec) => !(sec in s.sectionScores));
+    if (!nextSec) {
+      await saveSession(s, "writing");
+      await db.learner.update({ where: { id: "me" }, data: { placementPhase: "writing" } });
+      return NextResponse.json({ correct, key: item.a, trapLabel: correct ? "" : tagLabel(item.trap), phase: "writing" });
     }
-
-    const nextItem = pickItem(s);
+    s.sec = nextSec;
+    s.idx = 0;
+    s.streak = 0;
+    const item2 = pickItem(s);
+    if (!item2) {
+      await saveSession(s, "writing");
+      await db.learner.update({ where: { id: "me" }, data: { placementPhase: "writing" } });
+      return NextResponse.json({ correct, key: item.a, trapLabel: correct ? "" : tagLabel(item.trap), phase: "writing" });
+    }
     await saveSession(s, "quiz");
     await bumpDaily("reviews");
     return NextResponse.json({
@@ -227,53 +204,81 @@ export async function POST(req: Request) {
       secIndex: SECTIONS.indexOf(s.sec),
       idx: s.idx,
       rung: RUNGS[Math.max(0, Math.min(3, s.rung))],
-      item: nextItem ? shuffled(nextItem) : null,
+      item: shuffled(item2),
     });
   }
 
-  if (action === "writing") {
-    const text = String(body.text ?? "").trim();
-    if (text.length < 40) return NextResponse.json({ error: "Write at least a few sentences." }, { status: 400 });
-    type WRes = { level: string; confidence: number; reasons: string; writingFallback?: boolean };
-    const s = await loadSession();
-    const g = s.sectionScores["grammar"] ?? 50;
-    const v = s.sectionScores["vocab"] ?? 50;
-    const r = s.sectionScores["reading"] ?? 50;
-    const mcq = pctToLevel(Math.round(0.35 * g + 0.35 * v + 0.3 * r));
-    // Writing sample is the strongest single signal; MCQ is the cross-check.
-    // The grader is never allowed to brick placement: if the AI is unreachable
-    // (quota window, outage), the MCQ sections place the learner and the flag
-    // says so - completion first, refinement whenever the model is back.
-    let res: WRes;
-    try {
-      res = await aiJson<WRes>(placementWritingSystem(), [{ role: "user", content: text }], undefined, { validate: validatePlacementW });
-    } catch {
-      res = { level: mcq, confidence: 0.3, reasons: "Writing grader was unreachable, so this level comes from your multiple-choice sections alone. It will sharpen as you use the app.", writingFallback: true };
-    }
-    const finalLevel = RUNGS.indexOf(res.level) >= 0 ? res.level : mcq;
-    await db.placement.upsert({
-      where: { userId_id: { userId: await contentUserId().catch(() => "me"), id: "main" } },
-      create: { userId: await contentUserId().catch(() => "me"), id: "main", answers: JSON.stringify(s), phase: "done", level: finalLevel, writingLevel: res.level },
-      update: { answers: JSON.stringify(s), phase: "done", level: finalLevel, writingLevel: res.level },
-    });
-    await db.learner.update({
-      where: { id: "me" },
-      data: { placementPhase: "done", level: finalLevel },
-    });
-    // The diagnostic's whole point: every tagged miss seeds the healing loop,
-    // so the first exam after placement already hunts these traps.
-    const traps = await foldPlacementMisses(
-      s.answers
-        .filter((a) => !a.correct)
-        .map((a) => {
-          const it = PLACEMENT_ITEMS.find((i) => i.id === a.id);
-          return { tag: a.trap || it?.trap || "", wrong: a.pick || "(blank)", right: it?.a ?? "" };
-        })
-        .filter((m) => m.right),
-    );
-    await bumpDaily("written");
-    return NextResponse.json({ phase: "done", level: finalLevel, writingLevel: res.level, mcq, reasons: res.reasons, traps, signals: (res as { signals?: unknown }).signals ?? [] });
+  const nextItem = pickItem(s);
+  await saveSession(s, "quiz");
+  await bumpDaily("reviews");
+  return NextResponse.json({
+    correct,
+    key: item.a,
+    trapLabel: correct ? "" : tagLabel(item.trap),
+    phase: "quiz",
+    sec: s.sec,
+    secIndex: SECTIONS.indexOf(s.sec),
+    idx: s.idx,
+    rung: RUNGS[Math.max(0, Math.min(3, s.rung))],
+    item: nextItem ? shuffled(nextItem) : null,
+  });
+}
+
+async function writingAction(body: any) {
+  const text = String(body.text ?? "").trim();
+  if (text.length < 40) return NextResponse.json({ error: "Write at least a few sentences." }, { status: 400 });
+  type WRes = { level: string; confidence: number; reasons: string; writingFallback?: boolean };
+  const s = await loadSession();
+  const g = s.sectionScores["grammar"] ?? 50;
+  const v = s.sectionScores["vocab"] ?? 50;
+  const r = s.sectionScores["reading"] ?? 50;
+  const mcq = pctToLevel(Math.round(0.35 * g + 0.35 * v + 0.3 * r));
+  // Writing sample is the strongest single signal; MCQ is the cross-check.
+  // The grader is never allowed to brick placement: if the AI is unreachable
+  // (quota window, outage), the MCQ sections place the learner and the flag
+  // says so - completion first, refinement whenever the model is back.
+  let res: WRes;
+  try {
+    res = await aiJson<WRes>(placementWritingSystem(), [{ role: "user", content: text }], undefined, { validate: validatePlacementW });
+  } catch {
+    res = { level: mcq, confidence: 0.3, reasons: "Writing grader was unreachable, so this level comes from your multiple-choice sections alone. It will sharpen as you use the app.", writingFallback: true };
   }
+  const finalLevel = RUNGS.indexOf(res.level) >= 0 ? res.level : mcq;
+  await db.placement.upsert({
+    where: { userId_id: { userId: await contentUserId().catch(() => "me"), id: "main" } },
+    create: { userId: await contentUserId().catch(() => "me"), id: "main", answers: JSON.stringify(s), phase: "done", level: finalLevel, writingLevel: res.level },
+    update: { answers: JSON.stringify(s), phase: "done", level: finalLevel, writingLevel: res.level },
+  });
+  await db.learner.update({
+    where: { id: "me" },
+    data: { placementPhase: "done", level: finalLevel },
+  });
+  // The diagnostic's whole point: every tagged miss seeds the healing loop,
+  // so the first exam after placement already hunts these traps.
+  const traps = await foldPlacementMisses(
+    s.answers
+      .filter((a) => !a.correct)
+      .map((a) => {
+        const it = PLACEMENT_ITEMS.find((i) => i.id === a.id);
+        return { tag: a.trap || it?.trap || "", wrong: a.pick || "(blank)", right: it?.a ?? "" };
+      })
+      .filter((m) => m.right),
+  );
+  await bumpDaily("written");
+  return NextResponse.json({ phase: "done", level: finalLevel, writingLevel: res.level, mcq, reasons: res.reasons, traps, signals: (res as { signals?: unknown }).signals ?? [] });
+}
+
+export async function POST(req: Request) {
+  // Abuse limit (audit P1-6): AI calls cost real money - 30/min per client IP.
+  const rl = aiRateLimit(req);
+  if (!rl.ok) return rl.response!;
+
+  const body = await req.json();
+  const action = String(body.action ?? "");
+
+  if (action === "start") return startAction();
+  if (action === "answer") return answerAction(body);
+  if (action === "writing") return writingAction(body);
 
   return NextResponse.json({ error: "unknown action" }, { status: 400 });
 }

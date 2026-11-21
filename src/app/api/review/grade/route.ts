@@ -9,31 +9,60 @@ export const dynamic = "force-dynamic";
 
 const ACK_TTL_DAYS = 7;
 
+// Offline replay idempotency (Task 68): the client stamps every grade with
+// a uuid. A flush retry (or a second device flushing the same outbox)
+// returns the ORIGINAL response instead of re-grading - no double XP, no
+// double quest progress, no schedule double-step.
+async function replayReceipt(gid: string, u: string): Promise<NextResponse | null> {
+  const ack = await db.gradeAck.findUnique({ where: { gid } });
+  if (ack && ack.userId === u) {
+    try {
+      const stored = JSON.parse(ack.response) as Record<string, unknown>;
+      return NextResponse.json({ ...stored, replayed: true });
+    } catch {
+      // corrupted receipt: fall through and grade normally (the log row
+      // from the first attempt still exists; this is the rare torn row)
+    }
+  }
+  return null;
+}
+
+// XP, streak, quest and mistake-family effects of a live grade.
+async function gradeEffects(grade: number) {
+  await bumpDaily("reviews");
+  await awardXp(grade >= 3 ? 10 : 5, { chainHit: grade >= 3, perkXp: "review" });
+  if (grade < 2) await registerMiss();
+  if (grade >= 2) await bumpDaily("correct");
+  await touchStreak();
+  await progressQuest("reviews_20", 1);
+  await progressQuest("reviews_35", 1);
+  if (grade >= 3) await progressQuest("correct_15", 1);
+}
+
+// Store the receipt (best-effort: a failed receipt write must not fail a
+// live grade) and expire stale ones - receipts only need to outlive the
+// reconnect window, not the learner.
+async function storeReceipt(gid: string, u: string, payload: Record<string, unknown>) {
+  await db.gradeAck
+    .create({ data: { gid, userId: u, response: JSON.stringify(payload) } })
+    .catch(() => undefined);
+  const cutoff = new Date(Date.now() - ACK_TTL_DAYS * 86_400_000);
+  await db.gradeAck.deleteMany({ where: { userId: u, at: { lt: cutoff } } }).catch(() => undefined);
+}
+
 export async function POST(req: Request) {
   const body = await req.json();
   const cardId = String(body.cardId ?? "");
   const grade = Math.min(4, Math.max(1, Number(body.grade ?? 3)));
   const dir = String(body.dir ?? "");
-  // Offline replay idempotency (Task 68): the client stamps every grade with
-  // a uuid. A flush retry (or a second device flushing the same outbox)
-  // returns the ORIGINAL response instead of re-grading - no double XP, no
-  // double quest progress, no schedule double-step.
   const gid = typeof body.gid === "string" && body.gid.length >= 8 && body.gid.length <= 64 ? body.gid : "";
   if (!cardId) return NextResponse.json({ error: "cardId required" }, { status: 400 });
 
   const u = await contentUserId(req);
 
   if (gid) {
-    const ack = await db.gradeAck.findUnique({ where: { gid } });
-    if (ack && ack.userId === u) {
-      try {
-        const stored = JSON.parse(ack.response) as Record<string, unknown>;
-        return NextResponse.json({ ...stored, replayed: true });
-      } catch {
-        // corrupted receipt: fall through and grade normally (the log row
-        // from the first attempt still exists; this is the rare torn row)
-      }
-    }
+    const replay = await replayReceipt(gid, u);
+    if (replay) return replay;
   }
 
   const l = await getLearner();
@@ -87,14 +116,7 @@ export async function POST(req: Request) {
   // per-review instead of the card's last-used direction. Empty dir (legacy
   // callers) stays excluded from that chart.
   await db.reviewLog.create({ data: { cardId, grade, ivl: out.ivl, day: today, userId: u, dir } });
-  await bumpDaily("reviews");
-  await awardXp(grade >= 3 ? 10 : 5, { chainHit: grade >= 3, perkXp: "review" });
-  if (grade < 2) await registerMiss();
-  if (grade >= 2) await bumpDaily("correct");
-  await touchStreak();
-  await progressQuest("reviews_20", 1);
-  await progressQuest("reviews_35", 1);
-  if (grade >= 3) await progressQuest("correct_15", 1);
+  await gradeEffects(grade);
 
   const next = await db.cardState.findUnique({ where: { userId_cardId: { userId: u, cardId } } });
   const payload = {
@@ -104,16 +126,7 @@ export async function POST(req: Request) {
     state: next,
   };
 
-  if (gid) {
-    // Store the receipt (best-effort: a failed receipt write must not fail a
-    // live grade) and expire stale ones - receipts only need to outlive the
-    // reconnect window, not the learner.
-    await db.gradeAck
-      .create({ data: { gid, userId: u, response: JSON.stringify(payload) } })
-      .catch(() => undefined);
-    const cutoff = new Date(Date.now() - ACK_TTL_DAYS * 86_400_000);
-    await db.gradeAck.deleteMany({ where: { userId: u, at: { lt: cutoff } } }).catch(() => undefined);
-  }
+  if (gid) await storeReceipt(gid, u, payload);
 
   return NextResponse.json(payload);
 }

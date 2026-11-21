@@ -6,12 +6,11 @@ const events: string[] = [];
 const turn = await runAgent(
   "add the word serendipity to my vocab deck",
   [],
-  undefined,
-  (e) => events.push(`${e.type}${e.label ? `:${e.label.slice(0, 90)}` : ""}`),
-  "home",
-  null,
-  undefined,
-  { probe: true },
+  {
+    emit: (e) => events.push(`${e.type}${e.label ? `:${e.label.slice(0, 90)}` : ""}`),
+    currentView: "home",
+    probe: true,
+  },
 );
 console.log("events:", events.join(" | "));
 console.log("toolsUsed:", turn.toolsUsed);

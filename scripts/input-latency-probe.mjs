@@ -73,7 +73,7 @@ await withPage(browser, async (page) => {
   results.reviewTapMs = await page.evaluate(() => new Promise((resolve) => {
     const t0 = performance.now();
     const btns = [...document.querySelectorAll("button")];
-    const target = btns.find((b) => /^GOOD/.test((b.textContent || "").trim()));
+    const target = btns.find((b) => (b.textContent || "").trim().startsWith("GOOD"));
     if (!target) return resolve(-1);
     const before = target.className + "|" + document.body.innerText.length;
     const mo = new MutationObserver(() => {

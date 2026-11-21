@@ -82,78 +82,105 @@ export default function Dungeon({ onChange }: { onChange: () => void }) {
   return (
     <div className="flex flex-col gap-4">
       <Card>
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#a78bfa]/[0.14] text-[#cfc3fc]">
-            <Castle className="h-4 w-4" />
-          </span>
-          <div>
-            <div className="text-sm font-extrabold text-[#f2f5fa]">Today&apos;s Dungeon</div>
-            <div className="text-[11px] text-[#7d889c]">One run a day. Floors: {run.floors.map((f) => f.name).join(" → ")}. Best: {run.best ?? 0} floors.</div>
-          </div>
-          <div className="ml-auto flex items-center gap-1">
-            {Array.from({ length: run.maxHearts }, (_, i) =>
-              i < run.hearts ? <Heart key={i} className="h-4 w-4 fill-[#ff6b81] text-[#ff6b81]" /> : <HeartCrack key={i} className="h-4 w-4 text-[#4a5364]" />,
-            )}
-          </div>
-        </div>
-
-        {run.done ? (
-          <div className="flex flex-col gap-2">
-            <div className="text-sm font-extrabold text-[#f2f5fa]">
-              {out?.perfect ? "Flawless vault run — every heart intact!" : run.cleared >= 3 ? "Dungeon cleared!" : `The dungeon keeps ${3 - run.cleared} floor${3 - run.cleared === 1 ? "" : "s"}.`}
-            </div>
-            {out && out.xp ? <Chip tone="violet">+{out.xp} XP{out.perfect ? " (perfect bonus)" : ""}</Chip> : <Chip tone="slate">No XP this time — return tomorrow.</Chip>}
-            {out && out.perfect && <div className="text-xs text-[#7d889c]">Dungeon Master territory. The Examiner felt that one.</div>}
-          </div>
-        ) : item ? (
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.1em] text-[#7d889c]">
-              Floor {floorOf(current).n} · {floorOf(current).name} · item {all.findIndex((_, i) => i === current) + 1}/12
-            </div>
-            <div className="whitespace-pre-line text-[15px] font-semibold leading-relaxed text-[#e7ecf5]">{item.q}</div>
-            {item.choices ? (
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {item.choices.map((c) => (
-                  <Btn key={c} variant="soft" onClick={() => answer(c)} disabled={flash !== null}>
-                    {c}
-                  </Btn>
-                ))}
-              </div>
-            ) : (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (input.trim()) answer(input);
-                }}
-                className="flex gap-2"
-              >
-                <input
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Write your answer..."
-                  aria-label="Dungeon answer"
-                  className="min-h-12 flex-1 rounded-2xl border border-white/[0.08] bg-white/[0.04] px-4 text-sm text-[#e7ecf5] outline-none focus:border-[var(--rah-primary)]/50"
-                />
-                <Btn type="submit" disabled={!input.trim() || flash !== null}>
-                  Enter
-                </Btn>
-              </form>
-            )}
-            {flash && (
-              <Note tone={flash.ok ? "emerald" : "rose"}>
-                {flash.ok ? "Hit. The door opens." : `A heart shatters. The key was: ${flash.key}`}
-              </Note>
-            )}
-          </div>
-        ) : (
-          <Btn variant="primary" onClick={load}>
-            <Play className="h-4 w-4" /> Re-enter
-          </Btn>
-        )}
+        <DungeonHeader run={run} />
+        <DungeonBody run={run} out={out} item={item} current={current} flash={flash} input={input} onInput={setInput} onAnswer={answer} onReload={load} />
       </Card>
       <Card className="text-xs text-[#7d889c]">
         The dungeon is server-graded: answers are checked on the server, keys never reach your browser before you commit. Clear floors for 40/90/160 XP, keep every heart for +50.
       </Card>
+    </div>
+  );
+}
+
+function DungeonHeader({ run }: { run: RunView }) {
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-2">
+      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#a78bfa]/[0.14] text-[#cfc3fc]">
+        <Castle className="h-4 w-4" />
+      </span>
+      <div>
+        <div className="text-sm font-extrabold text-[#f2f5fa]">Today&apos;s Dungeon</div>
+        <div className="text-[11px] text-[#7d889c]">One run a day. Floors: {run.floors.map((f) => f.name).join(" → ")}. Best: {run.best ?? 0} floors.</div>
+      </div>
+      <div className="ml-auto flex items-center gap-1">
+        {Array.from({ length: run.maxHearts }, (_, i) =>
+          i < run.hearts ? <Heart key={i} className="h-4 w-4 fill-[#ff6b81] text-[#ff6b81]" /> : <HeartCrack key={i} className="h-4 w-4 text-[#4a5364]" />,
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DungeonBody({ run, out, item, current, flash, input, onInput, onAnswer, onReload }: {
+  run: RunView;
+  out: GradeOut | null;
+  item: PubItem | null;
+  current: number;
+  flash: { ok: boolean; key?: string } | null;
+  input: string;
+  onInput: (v: string) => void;
+  onAnswer: (pick: string) => void;
+  onReload: () => void;
+}) {
+  const all = run.floors.flatMap((f) => f.items);
+  const floorOf = (i: number) => run.floors[Math.floor(i / 4)];
+  if (run.done) {
+    return (
+      <div className="flex flex-col gap-2">
+        <div className="text-sm font-extrabold text-[#f2f5fa]">
+          {out?.perfect ? "Flawless vault run — every heart intact!" : run.cleared >= 3 ? "Dungeon cleared!" : `The dungeon keeps ${3 - run.cleared} floor${3 - run.cleared === 1 ? "" : "s"}.`}
+        </div>
+        {out && out.xp ? <Chip tone="violet">+{out.xp} XP{out.perfect ? " (perfect bonus)" : ""}</Chip> : <Chip tone="slate">No XP this time — return tomorrow.</Chip>}
+        {out && out.perfect && <div className="text-xs text-[#7d889c]">Dungeon Master territory. The Examiner felt that one.</div>}
+      </div>
+    );
+  }
+  if (!item) {
+    return (
+      <Btn variant="primary" onClick={onReload}>
+        <Play className="h-4 w-4" /> Re-enter
+      </Btn>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.1em] text-[#7d889c]">
+        Floor {floorOf(current).n} · {floorOf(current).name} · item {all.findIndex((_, i) => i === current) + 1}/12
+      </div>
+      <div className="whitespace-pre-line text-[15px] font-semibold leading-relaxed text-[#e7ecf5]">{item.q}</div>
+      {item.choices ? (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {item.choices.map((c) => (
+            <Btn key={c} variant="soft" onClick={() => onAnswer(c)} disabled={flash !== null}>
+              {c}
+            </Btn>
+          ))}
+        </div>
+      ) : (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (input.trim()) onAnswer(input);
+          }}
+          className="flex gap-2"
+        >
+          <input
+            value={input}
+            onChange={(e) => onInput(e.target.value)}
+            placeholder="Write your answer..."
+            aria-label="Dungeon answer"
+            className="min-h-12 flex-1 rounded-2xl border border-white/[0.08] bg-white/[0.04] px-4 text-sm text-[#e7ecf5] outline-none focus:border-[var(--rah-primary)]/50"
+          />
+          <Btn type="submit" disabled={!input.trim() || flash !== null}>
+            Enter
+          </Btn>
+        </form>
+      )}
+      {flash && (
+        <Note tone={flash.ok ? "emerald" : "rose"}>
+          {flash.ok ? "Hit. The door opens." : `A heart shatters. The key was: ${flash.key}`}
+        </Note>
+      )}
     </div>
   );
 }

@@ -8,16 +8,9 @@ import { contentUserId } from "@/lib/scope";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const today = dayIndex();
-  const u = await contentUserId().catch(() => "me");
-  // Task 89 perf: this route used to await eight queries in sequence (~140ms
-  // in dev). None of them depends on another's result, so they go out as one
-  // parallel batch. diagnose() keeps its own internals.
-  // Task 106: the recovered ProgressView (next/progress.tsx) needs the
-  // per-review direction accuracy, strand minutes and weekly checkpoint
-  // scores too - those join the same batch (four more parallel reads).
-  const [stats, states, diag, writes, speaks, totalReviews, totalLapses, skillLevels, learner, gradedExams, strandRows, checkpointRows, dirAllRows, dirOkRows, retrDays] = await Promise.all([
+// Phase 1: one parallel batch of every independent read (Task 89 perf).
+async function loadBatch(u: string, today: number) {
+  return Promise.all([
     db.dailyStat.findMany({ where: { userId: u, day: { gte: today - 34 } } }),
     db.cardState.findMany({ where: { userId: u } }),
     diagnose(),
@@ -41,6 +34,122 @@ export async function GET() {
     // calendar activity (broader signal, its own documented convention).
     db.reviewLog.groupBy({ by: ["day"], where: { userId: u, day: { gte: today - 34 } }, _count: { _all: true } }),
   ]);
+}
+
+function trendOf(rows: { at: Date; result: string; keys: string[] }[]) {
+  return rows
+    .map((w) => {
+      try {
+        const r = JSON.parse(w.result) as { scores: Record<string, number> };
+        const avg = Math.round((w.keys.reduce((a, k) => a + r.scores[k], 0) / w.keys.length) * 10) / 10;
+        return { at: w.at, avg };
+      } catch {
+        return null;
+      }
+    })
+    .filter((x): x is { at: Date; avg: number } => !!x)
+    .reverse();
+}
+
+// P5: the CEFR band map's evidence, computed from real rows only - the
+// engine decides what is proven, nothing here asks the AI. A band is
+// PROVEN when a measured skill sits at that level or a recent graded exam
+// targeted it; otherwise the band is honestly unproven.
+function bandEvidence(gradedExams: { spec: string; result: string | null }[], skillLevels: { level: string; skill: string; score: number; samples: number }[]) {
+  const examByBand: Record<string, { graded: number; passed: number; bestPct: number }> = {};
+  for (const e of gradedExams) {
+    try {
+      const spec = JSON.parse(e.spec) as { level?: string };
+      const result = JSON.parse(e.result ?? "{}") as { pct?: number };
+      const band = String(spec.level ?? "?").toUpperCase();
+      if (!band) continue;
+      examByBand[band] ??= { graded: 0, passed: 0, bestPct: 0 };
+      examByBand[band].graded += 1;
+      if ((result.pct ?? 0) >= 60) examByBand[band].passed += 1;
+      examByBand[band].bestPct = Math.max(examByBand[band].bestPct, result.pct ?? 0);
+    } catch {
+      // malformed spec: skip that exam's band evidence
+    }
+  }
+  const BANDS = ["A1", "A2", "B1", "B2", "C1"] as const;
+  return BANDS.map((band) => {
+    const skills = skillLevels.filter((s) => s.level === band).map((s) => ({ skill: s.skill, score: s.score, samples: s.samples }));
+    const exams = examByBand[band] ?? { graded: 0, passed: 0, bestPct: 0 };
+    return { band, skills, exams, proven: skills.length > 0 || exams.graded > 0 };
+  });
+}
+
+// Task 106: the recovered ProgressView contract. Everything here is measured
+// from rows that already arrived in the batch above - accuracy uses the same
+// grade>=2 convention the grade route writes into DailyStat.correct.
+function weeklyStats(
+  days: { day: number; reviews: number; correct: number; xp: number }[],
+  retrDays: { day: number; _count: { _all: number } }[],
+  states: { state: string; s: number; lapses: number }[],
+  strandRows: { strand: string; _sum: { minutes: number | null } }[],
+  checkpointRows: { day: number; listeningPct: number; readingScore: number }[],
+  dirAllRows: { dir: string; _count: { _all: number } }[],
+  dirOkRows: { dir: string; _count: { _all: number } }[],
+) {
+  const week = days.slice(-7);
+  const prevWeek = days.slice(-14, -7);
+  const retrMap = new Map(retrDays.map((r) => [r.day, r._count._all]));
+  const retrCount = (d: number) => retrMap.get(d) ?? 0;
+  const reviewsThisWeek = week.reduce((a, x) => a + retrCount(x.day), 0);
+  const reviewsPrevWeek = prevWeek.reduce((a, x) => a + retrCount(x.day), 0);
+  // Accuracy keeps its own documented convention: DailyStat.correct over
+  // DailyStat.reviews (numerator and denominator from the SAME source - the
+  // grade route writes both). Mixing that numerator with the ReviewLog count
+  // could push the percentage over 100 on legacy-overcount days.
+  const dsThisWeek = week.reduce((a, x) => a + x.reviews, 0);
+  const dsPrevWeek = prevWeek.reduce((a, x) => a + x.reviews, 0);
+  const accNow = dsThisWeek ? Math.round((week.reduce((a, x) => a + x.correct, 0) / dsThisWeek) * 100) : 0;
+  const accPrev = dsPrevWeek ? Math.round((prevWeek.reduce((a, x) => a + x.correct, 0) / dsPrevWeek) * 100) : 0;
+  const byDay = days.slice(-14).map((x) => ({ day: x.day, count: retrCount(x.day) }));
+  const strands: Record<string, number> = {};
+  for (const r of strandRows) strands[r.strand] = r._sum.minutes ?? 0;
+  const startedCount = states.filter((s) => s.state !== "new").length;
+  const matureCount = states.filter((s) => s.state !== "new" && s.s >= 21).length;
+  const mastery = {
+    new: states.length - startedCount,
+    young: startedCount - matureCount,
+    mature: matureCount,
+    lapses: states.filter((s) => s.lapses > 0).length,
+  };
+  const calendar = days.map((x) => ({ day: x.day, active: x.reviews > 0 }));
+  const dirTotal = new Map(dirAllRows.map((r) => [r.dir, r._count._all]));
+  const dirs: Record<string, number> = {};
+  for (const r of dirOkRows) {
+    const t = dirTotal.get(r.dir) ?? 0;
+    if (t > 0) dirs[r.dir] = Math.round((r._count._all / t) * 100);
+  }
+  const checkpoints = checkpointRows
+    .map((c) => ({ day: c.day, listeningPct: c.listeningPct, readingScore: c.readingScore }))
+    .reverse();
+  return {
+    accuracy: accNow,
+    delta: accNow - accPrev,
+    reviewsThisWeek,
+    reviewsPrevWeek,
+    byDay,
+    strands,
+    mastery,
+    calendar,
+    dirs,
+    checkpoints,
+  };
+}
+
+export async function GET() {
+  const today = dayIndex();
+  const u = await contentUserId().catch(() => "me");
+  // Task 89 perf: this route used to await eight queries in sequence (~140ms
+  // in dev). None of them depends on another's result, so they go out as one
+  // parallel batch. diagnose() keeps its own internals.
+  // Task 106: the recovered ProgressView (next/progress.tsx) needs the
+  // per-review direction accuracy, strand minutes and weekly checkpoint
+  // scores too - those join the same batch (four more parallel reads).
+  const [stats, states, diag, writes, speaks, totalReviews, totalLapses, skillLevels, learner, gradedExams, strandRows, checkpointRows, dirAllRows, dirOkRows, retrDays] = await loadBatch(u, today);
   const statMap = new Map(stats.map((s) => [s.day, s]));
   const days = Array.from({ length: 35 }, (_, i) => {
     const d = today - 34 + i;
@@ -80,97 +189,10 @@ export async function GET() {
   };
   const volume = { last7: sumVol(today - 6, today), last28: sumVol(today - 27, today) };
 
-  const writeTrend = writes
-    .map((w) => {
-      try {
-        const r = JSON.parse(w.result) as { scores: Record<string, number> };
-        const avg = Math.round(((r.scores.task + r.scores.organization + r.scores.range + r.scores.accuracy) / 4) * 10) / 10;
-        return { at: w.at, avg };
-      } catch {
-        return null;
-      }
-    })
-    .filter((x): x is { at: Date; avg: number } => !!x)
-    .reverse();
-
-  const speakTrend = speaks
-    .map((s) => {
-      try {
-        const r = JSON.parse(s.result) as { scores: Record<string, number> };
-        const avg = Math.round(((r.scores.fluency + r.scores.range + r.scores.accuracy + r.scores.delivery) / 4) * 10) / 10;
-        return { at: s.at, avg };
-      } catch {
-        return null;
-      }
-    })
-    .filter((x): x is { at: Date; avg: number } => !!x)
-    .reverse();
-
-  // P5: the CEFR band map's evidence, computed from real rows only - the
-  // engine decides what is proven, nothing here asks the AI. A band is
-  // PROVEN when a measured skill sits at that level or a recent graded exam
-  // targeted it; otherwise the band is honestly unproven.
-  // (learner + gradedExams arrive in the parallel batch above.)
-  const examByBand: Record<string, { graded: number; passed: number; bestPct: number }> = {};
-  for (const e of gradedExams) {
-    try {
-      const spec = JSON.parse(e.spec) as { level?: string };
-      const result = JSON.parse(e.result ?? "{}") as { pct?: number };
-      const band = String(spec.level ?? "?").toUpperCase();
-      if (!band) continue;
-      examByBand[band] ??= { graded: 0, passed: 0, bestPct: 0 };
-      examByBand[band].graded += 1;
-      if ((result.pct ?? 0) >= 60) examByBand[band].passed += 1;
-      examByBand[band].bestPct = Math.max(examByBand[band].bestPct, result.pct ?? 0);
-    } catch {
-      // malformed spec: skip that exam's band evidence
-    }
-  }
-  const BANDS = ["A1", "A2", "B1", "B2", "C1"] as const;
-  const bands = BANDS.map((band) => {
-    const skills = skillLevels.filter((s) => s.level === band).map((s) => ({ skill: s.skill, score: s.score, samples: s.samples }));
-    const exams = examByBand[band] ?? { graded: 0, passed: 0, bestPct: 0 };
-    return { band, skills, exams, proven: skills.length > 0 || exams.graded > 0 };
-  });
-
-  // Task 106: the recovered ProgressView contract. Everything here is measured
-  // from rows that already arrived in the batch above - accuracy uses the same
-  // grade>=2 convention the grade route writes into DailyStat.correct.
-  const week = days.slice(-7);
-  const prevWeek = days.slice(-14, -7);
-  const retrMap = new Map(retrDays.map((r) => [r.day, r._count._all]));
-  const retrCount = (d: number) => retrMap.get(d) ?? 0;
-  const reviewsThisWeek = week.reduce((a, x) => a + retrCount(x.day), 0);
-  const reviewsPrevWeek = prevWeek.reduce((a, x) => a + retrCount(x.day), 0);
-  // Accuracy keeps its own documented convention: DailyStat.correct over
-  // DailyStat.reviews (numerator and denominator from the SAME source - the
-  // grade route writes both). Mixing that numerator with the ReviewLog count
-  // could push the percentage over 100 on legacy-overcount days.
-  const dsThisWeek = week.reduce((a, x) => a + x.reviews, 0);
-  const dsPrevWeek = prevWeek.reduce((a, x) => a + x.reviews, 0);
-  const accNow = dsThisWeek ? Math.round((week.reduce((a, x) => a + x.correct, 0) / dsThisWeek) * 100) : 0;
-  const accPrev = dsPrevWeek ? Math.round((prevWeek.reduce((a, x) => a + x.correct, 0) / dsPrevWeek) * 100) : 0;
-  const byDay = days.slice(-14).map((x) => ({ day: x.day, count: retrCount(x.day) }));
-  const strands: Record<string, number> = {};
-  for (const r of strandRows) strands[r.strand] = r._sum.minutes ?? 0;
-  const startedCount = states.filter((s) => s.state !== "new").length;
-  const matureCount = states.filter((s) => s.state !== "new" && s.s >= 21).length;
-  const mastery = {
-    new: states.length - startedCount,
-    young: startedCount - matureCount,
-    mature: matureCount,
-    lapses: states.filter((s) => s.lapses > 0).length,
-  };
-  const calendar = days.map((x) => ({ day: x.day, active: x.reviews > 0 }));
-  const dirTotal = new Map(dirAllRows.map((r) => [r.dir, r._count._all]));
-  const dirs: Record<string, number> = {};
-  for (const r of dirOkRows) {
-    const t = dirTotal.get(r.dir) ?? 0;
-    if (t > 0) dirs[r.dir] = Math.round((r._count._all / t) * 100);
-  }
-  const checkpoints = checkpointRows
-    .map((c) => ({ day: c.day, listeningPct: c.listeningPct, readingScore: c.readingScore }))
-    .reverse();
+  const writeTrend = trendOf(writes.map((w) => ({ at: w.at, result: w.result, keys: ["task", "organization", "range", "accuracy"] })));
+  const speakTrend = trendOf(speaks.map((s) => ({ at: s.at, result: s.result, keys: ["fluency", "range", "accuracy", "delivery"] })));
+  const bands = bandEvidence(gradedExams, skillLevels);
+  const weekStats = weeklyStats(days, retrDays, states, strandRows, checkpointRows, dirAllRows, dirOkRows);
 
   return NextResponse.json({
     days,
@@ -187,20 +209,11 @@ export async function GET() {
       reviews: totalReviews,
       lapses: totalLapses,
       cards: DECK.length,
-      started: startedCount,
+      started: states.filter((s) => s.state !== "new").length,
     },
     // Task 106: recovered ProgressView contract (additive - the fields above
     // keep serving the Payloads/outcome views untouched).
-    accuracy: accNow,
-    delta: accNow - accPrev,
-    reviewsThisWeek,
-    reviewsPrevWeek,
-    byDay,
-    strands,
-    mastery,
-    calendar,
-    dirs,
-    checkpoints,
+    ...weekStats,
     totalReviews,
     deckTotal: DECK.length,
   });

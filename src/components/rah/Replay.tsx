@@ -65,55 +65,7 @@ export default function Replay() {
   if (shelf === null) return <Spinner label="Rolling the film..." />;
 
   if (bundle) {
-    const v = bundle.result?.verdicts?.find((x) => x.id === bundle.items[idx]?.id);
-    const item = bundle.items[idx];
-    return (
-      <Card>
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#9de6fb]/[0.14] text-[#9de6fb]">
-            <Film className="h-4 w-4" />
-          </span>
-          <span className="text-sm font-extrabold text-[#f2f5fa]">{bundle.title}</span>
-          <Chip tone="cyan">{bundle.result?.correct ?? "?"}/{bundle.result?.total ?? bundle.items.length}</Chip>
-          <Btn variant="ghost" className="ml-auto !min-h-9 !px-3 !py-1.5 !text-xs" onClick={() => setBundle(null)}>
-            Shelf
-          </Btn>
-        </div>
-        {item ? (
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-[0.1em] text-[#7d889c]">
-              <span>Turn {idx + 1} of {bundle.items.length} · {item.skill} · {item.type}</span>
-              <span className="flex gap-1">
-                <button onClick={() => setIdx((i) => Math.max(0, i - 1))} disabled={idx === 0} className="rounded-lg p-1.5 text-[#8b96a9] hover:bg-white/[0.06] disabled:opacity-30">
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <button onClick={() => setIdx((i) => Math.min(bundle.items.length - 1, i + 1))} disabled={idx === bundle.items.length - 1} className="rounded-lg p-1.5 text-[#8b96a9] hover:bg-white/[0.06] disabled:opacity-30">
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </span>
-            </div>
-            <div className="whitespace-pre-line rounded-2xl bg-white/[0.03] p-3.5 text-[15px] font-semibold leading-relaxed text-[#e7ecf5]">{item.q}</div>
-            {v && (
-              <div className="flex flex-col gap-1.5 text-[13px]">
-                <div className="flex items-center gap-2">
-                  <Chip tone={v.correct ? "emerald" : "rose"}>{v.correct ? "you got it" : "missed"}</Chip>
-                  {v.given && <span className="text-[#a9b4c6]">your answer: &ldquo;{v.given}&rdquo;</span>}
-                </div>
-                {!v.correct && item.a && (
-                  <div className="text-[#a9b4c6]">
-                    key: <span className="font-bold text-[#7fe0ac]">{item.a}</span>
-                  </div>
-                )}
-                {v.rule && <div className="text-xs italic text-[#8b96a9]">{v.rule}</div>}
-              </div>
-            )}
-            {!v && <Note tone="blue">This item has no stored verdict - the exam may predate the memory loop.</Note>}
-          </div>
-        ) : (
-          <div className="text-sm text-[#8b96a9]">No items recorded for this exam.</div>
-        )}
-      </Card>
-    );
+    return <ReplayTurn bundle={bundle} idx={idx} onIdx={setIdx} onClose={() => setBundle(null)} />;
   }
 
   return (
@@ -139,6 +91,66 @@ export default function Replay() {
             </button>
           ))}
         </div>
+      )}
+    </Card>
+  );
+}
+
+// One exam stepped through turn by turn: the item, your answer, the verdict
+// and the coaching note. Stateless - the shelf hands in the bundle, the
+// cursor and the setters.
+function ReplayTurn({ bundle, idx, onIdx, onClose }: {
+  bundle: ReplayBundle;
+  idx: number;
+  onIdx: (updater: (i: number) => number) => void;
+  onClose: () => void;
+}) {
+  const v = bundle.result?.verdicts?.find((x) => x.id === bundle.items[idx]?.id);
+  const item = bundle.items[idx];
+  return (
+    <Card>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#9de6fb]/[0.14] text-[#9de6fb]">
+          <Film className="h-4 w-4" />
+        </span>
+        <span className="text-sm font-extrabold text-[#f2f5fa]">{bundle.title}</span>
+        <Chip tone="cyan">{bundle.result?.correct ?? "?"}/{bundle.result?.total ?? bundle.items.length}</Chip>
+        <Btn variant="ghost" className="ml-auto !min-h-9 !px-3 !py-1.5 !text-xs" onClick={onClose}>
+          Shelf
+        </Btn>
+      </div>
+      {item ? (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-[0.1em] text-[#7d889c]">
+            <span>Turn {idx + 1} of {bundle.items.length} · {item.skill} · {item.type}</span>
+            <span className="flex gap-1">
+              <button onClick={() => onIdx((i) => Math.max(0, i - 1))} disabled={idx === 0} className="rounded-lg p-1.5 text-[#8b96a9] hover:bg-white/[0.06] disabled:opacity-30">
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button onClick={() => onIdx((i) => Math.min(bundle.items.length - 1, i + 1))} disabled={idx === bundle.items.length - 1} className="rounded-lg p-1.5 text-[#8b96a9] hover:bg-white/[0.06] disabled:opacity-30">
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </span>
+          </div>
+          <div className="whitespace-pre-line rounded-2xl bg-white/[0.03] p-3.5 text-[15px] font-semibold leading-relaxed text-[#e7ecf5]">{item.q}</div>
+          {v && (
+            <div className="flex flex-col gap-1.5 text-[13px]">
+              <div className="flex items-center gap-2">
+                <Chip tone={v.correct ? "emerald" : "rose"}>{v.correct ? "you got it" : "missed"}</Chip>
+                {v.given && <span className="text-[#a9b4c6]">your answer: &ldquo;{v.given}&rdquo;</span>}
+              </div>
+              {!v.correct && item.a && (
+                <div className="text-[#a9b4c6]">
+                  key: <span className="font-bold text-[#7fe0ac]">{item.a}</span>
+                </div>
+              )}
+              {v.rule && <div className="text-xs italic text-[#8b96a9]">{v.rule}</div>}
+            </div>
+          )}
+          {!v && <Note tone="blue">This item has no stored verdict - the exam may predate the memory loop.</Note>}
+        </div>
+      ) : (
+        <div className="text-sm text-[#8b96a9]">No items recorded for this exam.</div>
       )}
     </Card>
   );

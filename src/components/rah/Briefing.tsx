@@ -80,51 +80,73 @@ export default function Briefing() {
         <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--rah-primary)]/[0.14] text-[#9dc0ff]">✦</span>
         <span className="text-sm font-extrabold tracking-tight text-[#f2f5fa]">Director&apos;s briefing</span>
         <div className="ml-auto flex items-center gap-1.5">
-          {PERSONAS.map((p) => (
-            <button
-              key={p.key}
-              onClick={() => switchPersona(p.key)}
-              title={p.hint}
-              className={`rounded-full px-2.5 py-1 text-[10px] font-bold transition-colors ${
-                persona === p.key ? "bg-[var(--rah-primary)]/[0.2] text-[#9dc0ff]" : "text-[#6e7a8e] hover:bg-white/[0.05]"
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
+          <PersonaSwitcher persona={persona} onSwitch={switchPersona} />
         </div>
       </div>
-      {brief ? (
-        <div className="flex flex-col gap-3">
-          <div className="text-sm font-bold leading-relaxed text-[#dbe3f0]">{brief.priority}</div>
-          <ol className="flex flex-col gap-1.5">
-            {brief.plan.map((step, i) => (
-              <li key={i} className="flex gap-2 text-[13px] leading-relaxed text-[#a9b4c6]">
-                <span className="font-black text-[var(--rah-primary)]">{i + 1}.</span>
-                {step}
-              </li>
-            ))}
-          </ol>
-          <div className="text-xs italic text-[#8b96a9]">&ldquo;{brief.pep}&rdquo;</div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Btn variant="soft" className="!min-h-9 !px-3 !py-1.5 !text-xs" onClick={speak} disabled={speaking}>
-              <Volume2 className="h-3.5 w-3.5" /> {speaking ? "Speaking..." : "Listen"}
-            </Btn>
-            <Btn variant="ghost" className="!min-h-9 !px-3 !py-1.5 !text-xs" onClick={() => load(true)} disabled={regening}>
-              <RefreshCw className={`h-3.5 w-3.5 ${regening ? "animate-spin" : ""}`} /> Re-brief
-            </Btn>
-            {brief.degraded ? (
-              <Chip tone="amber" title={brief.degradedNotice ?? "Built by the engine - the AI Director is offline."}>
-                AI offline: engine-built plan
-              </Chip>
-            ) : (
-              <Chip tone="slate">cached for today</Chip>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className="text-sm text-[#8b96a9]">The Director is unreachable right now. Tap Re-brief in a minute - your plan comes back.</div>
-      )}
+      <BriefBody brief={brief} speaking={speaking} regening={regening} onSpeak={speak} onRebrief={() => load(true)} />
     </Card>
+  );
+}
+
+// Persona pills render as a pure helper - Briefing keeps state, loading and
+// the speak/switch handlers.
+function PersonaSwitcher({ persona, onSwitch }: { persona: string; onSwitch: (key: string) => void }) {
+  return (
+    <div className="ml-auto flex items-center gap-1.5">
+      {PERSONAS.map((p) => (
+        <button
+          key={p.key}
+          onClick={() => onSwitch(p.key)}
+          title={p.hint}
+          className={`rounded-full px-2.5 py-1 text-[10px] font-bold transition-colors ${
+            persona === p.key ? "bg-[var(--rah-primary)]/[0.2] text-[#9dc0ff]" : "text-[#6e7a8e] hover:bg-white/[0.05]"
+          }`}
+        >
+          {p.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// The brief body: priority, numbered plan, pep talk, and the listen /
+// re-brief controls. All content and handlers arrive as props.
+function BriefBody({ brief, speaking, regening, onSpeak, onRebrief }: {
+  brief: Brief;
+  speaking: boolean;
+  regening: boolean;
+  onSpeak: () => void;
+  onRebrief: () => void;
+}) {
+  return brief ? (
+    <div className="flex flex-col gap-3">
+      <div className="text-sm font-bold leading-relaxed text-[#dbe3f0]">{brief.priority}</div>
+      <ol className="flex flex-col gap-1.5">
+        {brief.plan.map((step, i) => (
+          <li key={i} className="flex gap-2 text-[13px] leading-relaxed text-[#a9b4c6]">
+            <span className="font-black text-[var(--rah-primary)]">{i + 1}.</span>
+            {step}
+          </li>
+        ))}
+      </ol>
+      <div className="text-xs italic text-[#8b96a9]">&ldquo;{brief.pep}&rdquo;</div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Btn variant="soft" className="!min-h-9 !px-3 !py-1.5 !text-xs" onClick={onSpeak} disabled={speaking}>
+          <Volume2 className="h-3.5 w-3.5" /> {speaking ? "Speaking..." : "Listen"}
+        </Btn>
+        <Btn variant="ghost" className="!min-h-9 !px-3 !py-1.5 !text-xs" onClick={onRebrief} disabled={regening}>
+          <RefreshCw className={`h-3.5 w-3.5 ${regening ? "animate-spin" : ""}`} /> Re-brief
+        </Btn>
+        {brief.degraded ? (
+          <Chip tone="amber" title={brief.degradedNotice ?? "Built by the engine - the AI Director is offline."}>
+            AI offline: engine-built plan
+          </Chip>
+        ) : (
+          <Chip tone="slate">cached for today</Chip>
+        )}
+      </div>
+    </div>
+  ) : (
+    <div className="text-sm text-[#8b96a9]">The Director is unreachable right now. Tap Re-brief in a minute - your plan comes back.</div>
   );
 }

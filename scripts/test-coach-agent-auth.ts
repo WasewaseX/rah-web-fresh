@@ -168,7 +168,7 @@ try {
   // ================= 4. AGENT LOOP LIVE =================
   console.log("\n--- agent loop: live SSE run ---");
 
-  cookie = cookie; // session still live
+  // session still live (the cookie from the login step is reused as-is)
   let events: any[] = [];
   let agentFinal: any = null;
   try {

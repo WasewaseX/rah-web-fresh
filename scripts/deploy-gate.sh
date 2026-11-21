@@ -187,6 +187,12 @@ if ! bunx eslint src scripts eslint.config.mjs --max-warnings 0; then
   echo "GATE FAIL: eslint findings in scanner scope - the external scanner would flag these"; exit 1
 fi
 
+# python complexity budgets (the scanner enforces the same limits on .py)
+step "4.6b/6 python complexity (file/function/params budgets)"
+if ! python3 scripts/py-complexity-check.py; then
+  echo "GATE FAIL: python complexity findings - the external scanner would flag these"; exit 1
+fi
+
 step "5/6 commit + push (only when dirty)"
 if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null || [ -n "$(git status --porcelain 2>/dev/null)" ]; then
   git add -A

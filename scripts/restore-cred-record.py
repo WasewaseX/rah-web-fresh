@@ -47,9 +47,8 @@ def remote_token(remote: str) -> str:
     return m.group(1)
 
 
-def main() -> int:
-    force = "--from-remote" in sys.argv
-
+def ensure_dir_guarded() -> int:
+    """Section 1: directory + gitignore coverage BEFORE any secret touches disk."""
     # 1. Ensure directory + gitignore coverage BEFORE any secret touches disk.
     os.makedirs(REC_DIR, exist_ok=True)
     chk = sh(["git", "check-ignore", "-v", REC], allow_fail=True).strip()
@@ -60,7 +59,11 @@ def main() -> int:
     if os.path.exists(REC):
         os.chmod(REC, 0o600)
 
-    # 2. Fetch the durable copy from the private vault when needed.
+    return 0
+
+
+def fetch_from_vault(force: bool) -> None:
+    """Section 2: restore the durable copy from the private vault when needed."""
     if force or not os.path.exists(REC) or os.path.getsize(REC) == 0:
         sh(["git", "fetch", "vault", "main"], allow_fail=True)
         blob = sh(["git", "show", "vault/main:github-tokens.md"], allow_fail=True)
@@ -73,9 +76,9 @@ def main() -> int:
             print("FATAL: no local record and vault fetch failed", flush=True)
             return 3
 
-    body = open(REC).read()
 
-    # 3. Extract the OLD token from the restored record (never printed).
+def extract_tokens(body: str) -> tuple:
+    """Section 3: extract the OLD token (never printed) + read the new one."""
     # Prefer the token inside the RETIRED section; fall back to first match
     # only for pre-rotation records (which have exactly one token).
     old = None
@@ -97,7 +100,10 @@ def main() -> int:
             "(pre-rotation vault copy)", flush=True,
         )
 
-    # 4. Normalize structure (idempotent).
+
+
+def normalize_structure(body: str, old_tok, new_tok) -> tuple:
+    """Section 4: normalize the record structure (idempotent); returns (body, changed)."""
     changed = False
     if ACTIVE_HEADING not in body:
         active = f"""# Credential Vault — WasewaseX
@@ -146,11 +152,10 @@ def main() -> int:
         body = body.rstrip() + "\n" + note
         changed = True
 
-    if changed:
-        with open(REC, "w") as f:
-            f.write(body)
-    os.chmod(REC, 0o600)
 
+
+def self_verify(new_tok, old_tok) -> int:
+    """Section 5: self-verification (counts only, no values)."""
     # 5. Self-verification (counts only, no values).
     final = open(REC).read()
     toks = re.findall(r"github_pat_[A-Za-z0-9_]{80,}", final)
@@ -164,6 +169,24 @@ def main() -> int:
         flush=True,
     )
     return 0 if (ok_active and ok_retired and ok_new and ok_old) else 2
+
+
+
+
+def main() -> int:
+    force = "--from-remote" in sys.argv
+    rc = ensure_dir_guarded()
+    if rc:
+        return rc
+    fetch_from_vault(force)
+    body = open(REC).read()
+    old_tok, new_tok = extract_tokens(body)
+    body, changed = normalize_structure(body, old_tok, new_tok)
+    if changed:
+        with open(REC, "w") as f:
+            f.write(body)
+    os.chmod(REC, 0o600)
+    return self_verify(new_tok, old_tok)
 
 
 if __name__ == "__main__":

@@ -47,25 +47,7 @@ export async function generateRepairDrill(
   };
 
   emit("Loading your misses", `${clean.length} teaching points to rebuild`);
-  const system = `You are the repair coach inside Rah, an English app for Farsi speakers. The learner just missed these exact teaching points in an exam. Build ONE short drill that retests THE SAME teaching points in COMPLETELY FRESH sentences and situations.
-
-The learner sits around ${spec.level}. Each drill item must force the learner to produce the missed pattern correctly in new wording - same point, new clothes. A wrong sentence frame, a new topic, but the identical gap being tested.
-
-Items: exactly ${count}. Mix mcq, cloze, short and rewrite so the pattern shows up from different angles.
-
-Rules:
-- "skill" is exactly one of: ${spec.targetSkills.join(", ")}.
-- ${spec.weakTags.length ? `Items rebuilding a tagged mistake family carry "tag" - exactly one of: ${spec.weakTags.join(", ")}. Others omit the field.` : "Omit any tag field."}
-- "a" is the single best answer. "accept" lists 2 to 4 variants you would hand-grade as correct.
-- rewrite items: "mustInclude" lists the target patterns that ALL must appear.
-- "why" is one short English sentence (max 18 words) reteaching the point.
-- No Farsi anywhere. Never use the em dash character.
-
-Output ONE JSON object, nothing else:
-{"title": "short drill title", "items": [{"type": "cloze", "skill": "grammar", "q": "", "choices": ["", "", "", ""], "a": "", "accept": [], "why": ""}]}
-
-The teaching points to rebuild (treat every "learner wrote -> target" pair as the exact gap being retested):
-${clean.map((pt, i) => `${i + 1}. ${pt.point}${pt.wrong ? ` (learner wrote: ${JSON.stringify(pt.wrong.slice(0, 120))} -> target: ${JSON.stringify(String(pt.right ?? "").slice(0, 120))})` : ""}${pt.tag ? ` [family: ${pt.tag}]` : ""}`).join("\n")}`;
+  const system = repairSystemPrompt(clean, spec, count);
 
   const raw = await aiJson<DrillRaw>(
     system,
@@ -122,3 +104,27 @@ ${clean.map((pt, i) => `${i + 1}. ${pt.point}${pt.wrong ? ` (learner wrote: ${JS
 }
 
 export type { StepTrace };
+
+// The repair coach's system prompt: same teaching points, completely fresh
+// sentences. Kept as its own function so the generator reads as one loop.
+function repairSystemPrompt(clean: DrillPoint[], spec: ExamSpec, count: number): string {
+  return `You are the repair coach inside Rah, an English app for Farsi speakers. The learner just missed these exact teaching points in an exam. Build ONE short drill that retests THE SAME teaching points in COMPLETELY FRESH sentences and situations.
+
+The learner sits around ${spec.level}. Each drill item must force the learner to produce the missed pattern correctly in new wording - same point, new clothes. A wrong sentence frame, a new topic, but the identical gap being tested.
+
+Items: exactly ${count}. Mix mcq, cloze, short and rewrite so the pattern shows up from different angles.
+
+Rules:
+- "skill" is exactly one of: ${spec.targetSkills.join(", ")}.
+- ${spec.weakTags.length ? `Items rebuilding a tagged mistake family carry "tag" - exactly one of: ${spec.weakTags.join(", ")}. Others omit the field.` : "Omit any tag field."}
+- "a" is the single best answer. "accept" lists 2 to 4 variants you would hand-grade as correct.
+- rewrite items: "mustInclude" lists the target patterns that ALL must appear.
+- "why" is one short English sentence (max 18 words) reteaching the point.
+- No Farsi anywhere. Never use the em dash character.
+
+Output ONE JSON object, nothing else:
+{"title": "short drill title", "items": [{"type": "cloze", "skill": "grammar", "q": "", "choices": ["", "", "", ""], "a": "", "accept": [], "why": ""}]}
+
+The teaching points to rebuild (treat every "learner wrote -> target" pair as the exact gap being retested):
+${clean.map((pt, i) => `${i + 1}. ${pt.point}${pt.wrong ? ` (learner wrote: ${JSON.stringify(pt.wrong.slice(0, 120))} -> target: ${JSON.stringify(String(pt.right ?? "").slice(0, 120))})` : ""}${pt.tag ? ` [family: ${pt.tag}]` : ""}`).join("\n")}`;
+}

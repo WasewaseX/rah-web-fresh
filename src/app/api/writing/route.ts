@@ -30,71 +30,37 @@ export const WRITING_PROMPTS = [
   "Is it better to master one skill or collect many shallow ones? Take a side and defend it with examples.",
 ];
 
-export async function GET(req: Request) {
-  const scope = await contentScope(req);
-  // Revision history (audit P2): /api/writing?id=N returns the full chain -
-  // the submission, its parent, and every ancestor, oldest first.
-  const id = Number(new URL(req.url).searchParams.get("id") ?? 0);
-  if (id > 0) {
-    const chain: { id: number; prompt: string; revision: number; result: WritingResult | null; at: Date; text?: string }[] = [];
-    let cur = await db.writingSub.findFirst({ where: { id, ...scope } });
-    let guard = 0;
-    while (cur && guard++ < 25) {
-      chain.push({ id: cur.id, prompt: cur.prompt, revision: cur.revision, result: safeParse(cur.result), at: cur.at, text: cur.text });
-      if (!cur.parentId) break;
-      cur = await db.writingSub.findFirst({ where: { id: cur.parentId, ...scope } });
+// Task 108: the recovered Writing view's repair stage saves the REPAIR (a
+// few short lines) with action:"save". This route used to AI-grade EVERY
+// POST: the repair triggered a full examiner call, burned rate limit, and
+// awarded surprise XP. A save-only leg stores the repair as the draft's
+// revision, honestly counts it in the daily ledger, and awards nothing -
+// the 15 XP already went to the graded draft.
+async function saveLeg(req: Request, prompt: unknown, text: string, revisingId: unknown) {
+  if (!text) return NextResponse.json({ error: "Nothing to save yet." }, { status: 400 });
+  const scopeS = await contentScope(req);
+  let parentIdS: number | null = null;
+  let revisionS = 1;
+  const ridS = Number(revisingId ?? 0);
+  if (ridS > 0) {
+    const parentS = await db.writingSub.findFirst({ where: { id: ridS, ...scopeS } });
+    if (parentS) {
+      parentIdS = parentS.id;
+      revisionS = parentS.revision + 1;
     }
-    if (chain.length === 0) return NextResponse.json({ error: "Submission not found." }, { status: 404 });
-    const ordered = chain.reverse();
-    return NextResponse.json({ chain: ordered, rubric: rubricHistory(ordered), changes: revisionChanges(ordered) });
   }
-  const rows = await db.writingSub.findMany({ where: scope, orderBy: { id: "desc" }, take: 10 });
-  // Task 108: include `text` here too - the recovered Writing view renders the
-  // last drafts' opening line and word count from it (the ?id=N chain always
-  // carried text; the list endpoint silently didn't, so "Your last drafts"
-  // rendered empty forever).
-  return NextResponse.json({
-    prompts: WRITING_PROMPTS,
-    recent: rows.map((r) => ({ id: r.id, prompt: r.prompt, revision: r.revision, parentId: r.parentId, result: safeParse(r.result), at: r.at, text: r.text })),
-  });
+  // result column is a non-nullable String: store "" (safeParse -> null
+  // downstream, so the UI correctly shows the repair as ungraded).
+  const createdS = await db.writingSub.create({ data: { prompt: String(prompt ?? ""), text, result: "", ...scopeS, parentId: parentIdS, revision: revisionS } });
+  await bumpDaily("written");
+  await touchStreak();
+  return NextResponse.json({ ok: true, id: createdS.id });
 }
 
-export async function POST(req: Request) {
-  // Abuse limit (audit P1-6): AI calls cost real money - 30/min per client IP.
-  const rl = aiRateLimit(req);
-  if (!rl.ok) return rl.response!;
-
-  const { prompt, text, revisingId, goal, action } = await req.json();
-  const body = String(text ?? "").trim();
-
-  // Task 108: the recovered Writing view's repair stage saves the REPAIR (a
-  // few short lines) with action:"save". This route used to AI-grade EVERY
-  // POST: the repair triggered a full examiner call, burned rate limit, and
-  // awarded surprise XP. A save-only leg stores the repair as the draft's
-  // revision, honestly counts it in the daily ledger, and awards nothing -
-  // the 15 XP already went to the graded draft.
-  if (action === "save") {
-    if (!body) return NextResponse.json({ error: "Nothing to save yet." }, { status: 400 });
-    const scopeS = await contentScope(req);
-    let parentIdS: number | null = null;
-    let revisionS = 1;
-    const ridS = Number(revisingId ?? 0);
-    if (ridS > 0) {
-      const parentS = await db.writingSub.findFirst({ where: { id: ridS, ...scopeS } });
-      if (parentS) {
-        parentIdS = parentS.id;
-        revisionS = parentS.revision + 1;
-      }
-    }
-    // result column is a non-nullable String: store "" (safeParse -> null
-    // downstream, so the UI correctly shows the repair as ungraded).
-    const createdS = await db.writingSub.create({ data: { prompt: String(prompt ?? ""), text: body, result: "", ...scopeS, parentId: parentIdS, revision: revisionS } });
-    await bumpDaily("written");
-    await touchStreak();
-    return NextResponse.json({ ok: true, id: createdS.id });
-  }
-
-  if (body.length < 60) return NextResponse.json({ error: "Write at least 60 characters so there is something to grade." }, { status: 400 });
+// The grading leg: LanguageTool fast path, AI examiner, backstop merge,
+// persistence, XP and mistake-memory side effects.
+async function gradeLeg(req: Request, prompt: unknown, text: string, revisingId: unknown, goal: unknown) {
+  if (text.length < 60) return NextResponse.json({ error: "Write at least 60 characters so there is something to grade." }, { status: 400 });
   // Grammarly RE (Task 85): register goal is a declared prompt input. An
   // invalid value is dropped silently (undefined = the neutral examiner),
   // never an error - the essay is the point, the goal is a dial.
@@ -119,12 +85,12 @@ export async function POST(req: Request) {
   // free, deterministically, with offset-accurate findings. Its output grounds
   // the LLM pass (confirm/explain, not hunt typos) and backstops it (real
   // errors the model missed still reach the learner even on a bad AI day).
-  const ruleReport = await screenText(body);
+  const ruleReport = await screenText(text);
 
   let result: WritingResult;
   try {
     result = await aiJson<WritingResult>(writingSystem(profile, goalUsed), [
-      { role: "user", content: `Prompt: ${prompt}\n\nEssay:\n${body}\n\n${findingsBlock(ruleReport)}` },
+      { role: "user", content: `Prompt: ${prompt}\n\nEssay:\n${text}\n\n${findingsBlock(ruleReport)}` },
     ], undefined, { validate: validateWriting });
   } catch (e) {
     return NextResponse.json({ error: `The examiner is unreachable: ${(e as Error).message}` }, { status: 502 });
@@ -145,7 +111,7 @@ export async function POST(req: Request) {
 
   // Provenance: the register goal the grader was given travels inside the
   // stored result JSON (zero-migration, same envelope as ruleChecks).
-  const created = await db.writingSub.create({ data: { prompt: String(prompt ?? ""), text: body, result: JSON.stringify({ ...result, ruleChecks, goal: goalUsed ?? null }), ...scope, parentId, revision } });
+  const created = await db.writingSub.create({ data: { prompt: String(prompt ?? ""), text, result: JSON.stringify({ ...result, ruleChecks, goal: goalUsed ?? null }), ...scope, parentId, revision } });
   await bumpDaily("written");
   await awardXp(15, { chainHit: true });
   await progressQuest("write_1", 1);
@@ -162,6 +128,18 @@ export async function POST(req: Request) {
   // off HTTP status/body presence, and the repair stage links the revision
   // chain through the id.
   return NextResponse.json({ ok: true, id: created.id, ...result, ruleChecks, goal: goalUsed ?? null });
+}
+
+export async function POST(req: Request) {
+  // Abuse limit (audit P1-6): AI calls cost real money - 30/min per client IP.
+  const rl = aiRateLimit(req);
+  if (!rl.ok) return rl.response!;
+
+  const { prompt, text, revisingId, goal, action } = await req.json();
+  const body = String(text ?? "").trim();
+
+  if (action === "save") return saveLeg(req, prompt, body, revisingId);
+  return gradeLeg(req, prompt, body, revisingId, goal);
 }
 
 // Rubric history (audit: writing-revision workspace - criterion-level deltas

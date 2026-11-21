@@ -45,6 +45,34 @@ export async function buildBattleCard(d: BattleCardData): Promise<Blob | null> {
 
   const F = (weight: string, size: number) => `${weight} ${size}px system-ui, -apple-system, "Segoe UI", sans-serif`;
 
+  drawTop(ctx, d, F, W, H);
+  drawMid(ctx, d, F, W);
+  drawSide(ctx, d, F, W);
+
+  // Footer
+  ctx.fillStyle = "#5c6678";
+  ctx.font = F("600", 22);
+  ctx.fillText("Retrieval. Spacing. Focus. Measurement.", 72, 1268);
+
+  return new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/png"));
+}
+
+// Background wash, brand header, level ring and the level line.
+function drawTop(ctx: CanvasRenderingContext2D, d: BattleCardData, F: (weight: string, size: number) => string, W: number, H: number) {
+  // Background: the Midnight gradient.
+  const bg = ctx.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, "#101725");
+  bg.addColorStop(0.55, "#0d1420");
+  bg.addColorStop(1, "#0b1018");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+  // glow blob
+  const glow = ctx.createRadialGradient(W - 140, 120, 20, W - 140, 120, 420);
+  glow.addColorStop(0, "rgba(78,140,255,.16)");
+  glow.addColorStop(1, "rgba(78,140,255,0)");
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, W, H);
+
   // Header
   ctx.fillStyle = "#4e8cff";
   ctx.font = F("900", 30);
@@ -84,7 +112,10 @@ export async function buildBattleCard(d: BattleCardData): Promise<Blob | null> {
   ctx.fillStyle = "#8b96a9";
   ctx.font = F("600", 24);
   ctx.fillText(`${d.level.xp.toLocaleString()} XP lifetime${d.level.nextAt ? ` · ${d.level.pct}% to next` : " · MAX"}`, 72, 282);
+}
 
+// The four stat tiles and the six-skill mastery radar.
+function drawMid(ctx: CanvasRenderingContext2D, d: BattleCardData, F: (weight: string, size: number) => string, W: number) {
   // Stat tiles row
   const tiles: { label: string; value: string; color: string }[] = [
     { label: "DAY STREAK", value: String(d.streak), color: "#ffb02e" },
@@ -149,7 +180,10 @@ export async function buildBattleCard(d: BattleCardData): Promise<Blob | null> {
     ctx.fillText(k.toUpperCase(), x, y);
   });
   ctx.textAlign = "left";
+}
 
+// Right-column game records, then the weekly rival race bar.
+function drawSide(ctx: CanvasRenderingContext2D, d: BattleCardData, F: (weight: string, size: number) => string, W: number) {
   // Right column: game records + quests + rival
   const rx = W - 470;
   const lines: [string, string, string][] = [
@@ -204,13 +238,6 @@ export async function buildBattleCard(d: BattleCardData): Promise<Blob | null> {
   ctx.fillStyle = rivalGrad;
   roundRect(ctx, 72 + barW * youPct, ry + 38, Math.max(26, barW * (1 - youPct)), 26, 13);
   ctx.fill();
-
-  // Footer
-  ctx.fillStyle = "#5c6678";
-  ctx.font = F("600", 22);
-  ctx.fillText("Retrieval. Spacing. Focus. Measurement.", 72, 1268);
-
-  return new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/png"));
 }
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {

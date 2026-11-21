@@ -4,8 +4,105 @@ import { getLearner, today, touchStreak } from "@/lib/server";
 
 // One endpoint for all deliberate-practice tracking:
 // listening rounds, speaking attempts, sound quizzes, grammar lessons,
-// reading minutes, checkpoint saves.
+// reading minutes, checkpoint saves. Per-kind phase handlers live below;
+// POST dispatches, then applies the shared minutes/session-log block.
 const VALID = new Set(["review", "listening", "reading", "speaking", "writing", "sound"]);
+
+type Learner = { id: string; level: string };
+
+async function trackListening(learner: Learner, body: any) {
+  await db.listeningLog.create({
+    data: {
+      learnerId: learner.id,
+      passageId: String(body.passageId ?? ""),
+      round: Number(body.round ?? 0),
+      missType: String(body.missType ?? ""),
+      detail: String(body.detail ?? "").slice(0, 500),
+    },
+  });
+}
+
+async function trackSpeaking(learner: Learner, body: any) {
+  const promptId = String(body.promptId ?? "");
+  const prev = await db.speakingAttempt.count({ where: { learnerId: learner.id, promptId } });
+  await db.speakingAttempt.create({
+    data: {
+      learnerId: learner.id,
+      promptId,
+      attemptNo: prev + 1,
+      seconds: Number(body.seconds ?? 0),
+      selfEval: JSON.stringify(body.selfEval ?? {}),
+    },
+  });
+}
+
+async function trackSound(learner: Learner, body: any) {
+  await db.soundLog.create({
+    data: {
+      learnerId: learner.id,
+      pairId: String(body.pairId ?? ""),
+      focus: String(body.focus ?? ""),
+      correct: !!body.correct,
+    },
+  });
+}
+
+async function trackGrammar(learner: Learner, body: any) {
+  await db.grammarDone.upsert({
+    where: { learnerId_lessonId: { learnerId: learner.id, lessonId: String(body.lessonId ?? "") } },
+    create: { learnerId: learner.id, lessonId: String(body.lessonId ?? "") },
+    update: {},
+  });
+}
+
+// Listening library (ROADMAP §3.2): a target word from a passage joins
+// the FSRS queue on the learner's call. Farsi->English direction (the
+// gloss is the prompt, the English chunk is the answer), the passage
+// sentence rides as context, and the note marker both dedupes and
+// carries the honest provenance. Curation, not practice: no XP here -
+// the XP lands when the card is actually reviewed.
+async function trackListenvocab(learner: Learner, body: any): Promise<NextResponse> {
+  const word = String(body.word ?? "").trim().slice(0, 60);
+  const fa = String(body.fa ?? "").trim().slice(0, 200);
+  const passageId = String(body.passageId ?? "").trim().slice(0, 20);
+  const sentence = String(body.sentence ?? "").trim().slice(0, 300);
+  if (!word || !fa) {
+    return NextResponse.json({ ok: false, error: "word and gloss are required" }, { status: 400 });
+  }
+  const marker = `listen-vocab:${passageId}:${word.toLowerCase()}`;
+  const existing = await db.userCard.count({
+    where: { learnerId: learner.id, note: { startsWith: marker } },
+  });
+  if (existing > 0) {
+    return NextResponse.json({ ok: true, created: false, reason: "already in the queue" });
+  }
+  await db.userCard.create({
+    data: {
+      learnerId: learner.id,
+      kind: "fae",
+      prompt: fa,
+      answer: word,
+      en: sentence,
+      fa: fa,
+      note: `${marker} — from the listening passage "${passageId}": the gloss you could not recall at speed.`,
+      level: learner.level,
+    },
+  });
+  return NextResponse.json({ ok: true, created: true });
+}
+
+async function trackCheckpoint(learner: Learner, body: any, day: number) {
+  await db.checkpoint.create({
+    data: {
+      learnerId: learner.id,
+      listeningPct: Math.max(0, Math.min(100, Number(body.listeningPct ?? 0))),
+      readingScore: Math.max(0, Math.min(100, Number(body.readingScore ?? 0))),
+      writingText: String(body.writingText ?? "").slice(0, 6000),
+      speakingNotes: String(body.speakingNotes ?? "").slice(0, 2000),
+      day,
+    },
+  });
+}
 
 export async function POST(req: Request) {
   const body = await req.json();
@@ -15,96 +112,26 @@ export async function POST(req: Request) {
 
   switch (kind) {
     case "listening": {
-      await db.listeningLog.create({
-        data: {
-          learnerId: learner.id,
-          passageId: String(body.passageId ?? ""),
-          round: Number(body.round ?? 0),
-          missType: String(body.missType ?? ""),
-          detail: String(body.detail ?? "").slice(0, 500),
-        },
-      });
+      await trackListening(learner, body);
       break;
     }
     case "speaking": {
-      const promptId = String(body.promptId ?? "");
-      const prev = await db.speakingAttempt.count({ where: { learnerId: learner.id, promptId } });
-      await db.speakingAttempt.create({
-        data: {
-          learnerId: learner.id,
-          promptId,
-          attemptNo: prev + 1,
-          seconds: Number(body.seconds ?? 0),
-          selfEval: JSON.stringify(body.selfEval ?? {}),
-        },
-      });
+      await trackSpeaking(learner, body);
       break;
     }
     case "sound": {
-      await db.soundLog.create({
-        data: {
-          learnerId: learner.id,
-          pairId: String(body.pairId ?? ""),
-          focus: String(body.focus ?? ""),
-          correct: !!body.correct,
-        },
-      });
+      await trackSound(learner, body);
       break;
     }
     case "grammar": {
-      await db.grammarDone.upsert({
-        where: { learnerId_lessonId: { learnerId: learner.id, lessonId: String(body.lessonId ?? "") } },
-        create: { learnerId: learner.id, lessonId: String(body.lessonId ?? "") },
-        update: {},
-      });
+      await trackGrammar(learner, body);
       break;
     }
     case "listenvocab": {
-      // Listening library (ROADMAP §3.2): a target word from a passage joins
-      // the FSRS queue on the learner's call. Farsi->English direction (the
-      // gloss is the prompt, the English chunk is the answer), the passage
-      // sentence rides as context, and the note marker both dedupes and
-      // carries the honest provenance. Curation, not practice: no XP here -
-      // the XP lands when the card is actually reviewed.
-      const word = String(body.word ?? "").trim().slice(0, 60);
-      const fa = String(body.fa ?? "").trim().slice(0, 200);
-      const passageId = String(body.passageId ?? "").trim().slice(0, 20);
-      const sentence = String(body.sentence ?? "").trim().slice(0, 300);
-      if (!word || !fa) {
-        return NextResponse.json({ ok: false, error: "word and gloss are required" }, { status: 400 });
-      }
-      const marker = `listen-vocab:${passageId}:${word.toLowerCase()}`;
-      const existing = await db.userCard.count({
-        where: { learnerId: learner.id, note: { startsWith: marker } },
-      });
-      if (existing > 0) {
-        return NextResponse.json({ ok: true, created: false, reason: "already in the queue" });
-      }
-      await db.userCard.create({
-        data: {
-          learnerId: learner.id,
-          kind: "fae",
-          prompt: fa,
-          answer: word,
-          en: sentence,
-          fa: fa,
-          note: `${marker} — from the listening passage "${passageId}": the gloss you could not recall at speed.`,
-          level: learner.level,
-        },
-      });
-      return NextResponse.json({ ok: true, created: true });
+      return await trackListenvocab(learner, body);
     }
     case "checkpoint": {
-      await db.checkpoint.create({
-        data: {
-          learnerId: learner.id,
-          listeningPct: Math.max(0, Math.min(100, Number(body.listeningPct ?? 0))),
-          readingScore: Math.max(0, Math.min(100, Number(body.readingScore ?? 0))),
-          writingText: String(body.writingText ?? "").slice(0, 6000),
-          speakingNotes: String(body.speakingNotes ?? "").slice(0, 2000),
-          day,
-        },
-      });
+      await trackCheckpoint(learner, body, day);
       break;
     }
     case "reading": {

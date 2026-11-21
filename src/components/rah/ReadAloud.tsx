@@ -125,17 +125,7 @@ export default function ReadAloud({ onChange }: { onChange: () => void }) {
     };
   }, []);
 
-  const say = useCallback(() => {
-    try {
-      const u = new SpeechSynthesisUtterance(targets[idx] ?? "");
-      u.lang = "en-US";
-      u.rate = 0.95;
-      window.speechSynthesis.cancel();
-      window.speechSynthesis.speak(u);
-    } catch {
-      /* no tts; the sentence is on screen */
-    }
-  }, [targets, idx]);
+  const say = useCallback(() => speakText(targets[idx] ?? ""), [targets, idx]);
 
   const stop = useCallback(() => {
     try {
@@ -149,27 +139,15 @@ export default function ReadAloud({ onChange }: { onChange: () => void }) {
   const start = useCallback(async () => {
     setError(null);
     setRes(null);
+    chunksRef.current = [];
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const rec = new MediaRecorder(stream);
-      chunksRef.current = [];
-      rec.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
+      const { stream, rec } = await openRecorder((d) => chunksRef.current.push(d));
       rec.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop());
         setBusy(true);
         try {
           const blob = new Blob(chunksRef.current, { type: rec.mimeType || "audio/webm" });
-          const audio = await clipToWav16kMono(blob);
-          const r = await fetch("/api/speak/assess", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ target: targets[idx], audio }),
-          });
-          const j = await r.json();
-          if (!r.ok) throw new Error(j.error ?? "Assessment failed.");
-          setRes(j);
+          setRes(await assessClip(blob, targets[idx]));
           onChange();
         } catch (e) {
           setError((e as Error).message);
@@ -201,41 +179,111 @@ export default function ReadAloud({ onChange }: { onChange: () => void }) {
         the score is measured from real audio, not guessed.
       </p>
 
-      {target && (
-        <div className="mt-4 rounded-2xl border border-[#2a3242] bg-[#131722] p-4">
-          <p className="text-base font-bold leading-relaxed tracking-tight text-[#e7ecf5]">{target}</p>
-          <button
-            onClick={say}
-            className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-[var(--rah-primary)] hover:text-[var(--rah-accent)]"
-          >
-            <Volume2 className="h-3.5 w-3.5" /> hear it
-          </button>
-        </div>
-      )}
+      <TargetPanel target={target} onSay={say} />
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        {!recording ? (
-          <Btn onClick={start} variant="primary" disabled={busy || !target}>
-            <Mic className="h-4 w-4" /> {res || error ? "Record again" : "Record"}
-          </Btn>
-        ) : (
-          <Btn onClick={stop} variant="danger">
-            <Square className="h-4 w-4" /> Stop
-          </Btn>
-        )}
-        <Btn
-          onClick={() => {
-            setIdx((i) => (i + 1) % Math.max(1, targets.length));
-            setRes(null);
-            setError(null);
-          }}
-          variant="ghost"
-        >
-          <RefreshCw className="h-4 w-4" /> Next sentence
+      <RecordControls
+        recording={recording}
+        busy={busy}
+        target={target}
+        hasAttempt={Boolean(res || error)}
+        onStart={start}
+        onStop={stop}
+        onNext={() => {
+          setIdx((i) => (i + 1) % Math.max(1, targets.length));
+          setRes(null);
+          setError(null);
+        }}
+      />
+
+      <StatusNotes busy={busy} error={error} degraded={res?.degraded ?? null} />
+
+      {res && <ScoreReport res={res} builtIn={builtIn} />}
+    </Card>
+  );
+}
+
+// ---------- module-level helpers (no hooks) ----------
+
+function speakText(text: string) {
+  try {
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "en-US";
+    u.rate = 0.95;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(u);
+  } catch {
+    /* no tts; the sentence is on screen */
+  }
+}
+
+async function openRecorder(onData: (b: Blob) => void): Promise<{ stream: MediaStream; rec: MediaRecorder }> {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const rec = new MediaRecorder(stream);
+  rec.ondataavailable = (e) => {
+    if (e.data.size > 0) onData(e.data);
+  };
+  return { stream, rec };
+}
+
+async function assessClip(blob: Blob, target: string): Promise<AssessResponse> {
+  const audio = await clipToWav16kMono(blob);
+  const r = await fetch("/api/speak/assess", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ target, audio }),
+  });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error ?? "Assessment failed.");
+  return j as AssessResponse;
+}
+
+type BuiltInReport = Extract<AssessResponse["report"], { hits: number }>;
+
+function TargetPanel({ target, onSay }: { target: string; onSay: () => void }) {
+  return (
+    <div className="mt-4 rounded-2xl border border-[#2a3242] bg-[#131722] p-4">
+      <p className="text-base font-bold leading-relaxed tracking-tight text-[#e7ecf5]">{target}</p>
+      <button
+        onClick={onSay}
+        className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-[var(--rah-primary)] hover:text-[var(--rah-accent)]"
+      >
+        <Volume2 className="h-3.5 w-3.5" /> hear it
+      </button>
+    </div>
+  );
+}
+
+function RecordControls({ recording, busy, target, hasAttempt, onStart, onStop, onNext }: {
+  recording: boolean;
+  busy: boolean;
+  target: string;
+  hasAttempt: boolean;
+  onStart: () => void;
+  onStop: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <div className="mt-4 flex flex-wrap items-center gap-2">
+      {!recording ? (
+        <Btn onClick={onStart} variant="primary" disabled={busy || !target}>
+          <Mic className="h-4 w-4" /> {hasAttempt ? "Record again" : "Record"}
         </Btn>
-        {recording && <Chip tone="rose">recording…</Chip>}
-      </div>
+      ) : (
+        <Btn onClick={onStop} variant="danger">
+          <Square className="h-4 w-4" /> Stop
+        </Btn>
+      )}
+      <Btn onClick={onNext} variant="ghost">
+        <RefreshCw className="h-4 w-4" /> Next sentence
+      </Btn>
+      {recording && <Chip tone="rose">recording…</Chip>}
+    </div>
+  );
+}
 
+function StatusNotes({ busy, error, degraded }: { busy: boolean; error: string | null; degraded: string | null }) {
+  return (
+    <>
       {busy && (
         <div className="mt-4">
           <Spinner label="Scoring your audio…" />
@@ -246,65 +294,67 @@ export default function ReadAloud({ onChange }: { onChange: () => void }) {
           <Note tone="rose">{error}</Note>
         </div>
       )}
-      {res?.degraded && (
+      {degraded && (
         <div className="mt-4">
-          <Note tone="amber">{res.degraded}</Note>
+          <Note tone="amber">{degraded}</Note>
         </div>
       )}
+    </>
+  );
+}
 
-      {res && (
-        <div className="rah-rise mt-5">
-          <div className="flex flex-wrap items-baseline gap-3">
-            <div className="font-mono text-[44px] font-black tabular-nums leading-none text-[#f2f5fa]">
-              {res.report.accuracy}
-            </div>
-            <div className="text-xs font-bold uppercase tracking-widest text-[#7d889c]">word accuracy</div>
-            <Chip tone="cyan">{res.tier}</Chip>
-          </div>
+function ScoreReport({ res, builtIn }: { res: AssessResponse; builtIn: BuiltInReport | null }) {
+  return (
+    <div className="rah-rise mt-5">
+      <div className="flex flex-wrap items-baseline gap-3">
+        <div className="font-mono text-[44px] font-black tabular-nums leading-none text-[#f2f5fa]">
+          {res.report.accuracy}
+        </div>
+        <div className="text-xs font-bold uppercase tracking-widest text-[#7d889c]">word accuracy</div>
+        <Chip tone="cyan">{res.tier}</Chip>
+      </div>
 
-          <p className="mt-3 text-xs leading-relaxed text-[#8b96a9]">
-            Heard: <span className="font-semibold text-[#dbe3f0]">{res.transcript}</span>
-          </p>
+      <p className="mt-3 text-xs leading-relaxed text-[#8b96a9]">
+        Heard: <span className="font-semibold text-[#dbe3f0]">{res.transcript}</span>
+      </p>
 
-          <div className="mt-4 flex flex-wrap gap-1.5">
-            {builtIn
-              ? builtIn.words.map((w, i) => (
-                  <span
-                    key={i}
-                    title={w.status === "hit" ? "matched" : `heard: ${w.heard ?? "(nothing)"}`}
-                    className={`rounded-lg border px-2 py-1 text-xs font-bold ${WORD_STYLE[w.status] ?? WORD_STYLE.miss}`}
-                  >
-                    {w.target}
-                  </span>
-                ))
-              : res.report.words.map((w, i) => (
-                  <span
-                    key={i}
-                    title={`${w.errorType} - accuracy ${w.accuracyScore}`}
-                    className={`rounded-lg border px-2 py-1 text-xs font-bold ${
-                      w.errorType === "None" ? WORD_STYLE.hit : w.errorType === "Insertion" ? WORD_STYLE.near : WORD_STYLE.miss
-                    }`}
-                  >
-                    {w.word}
-                  </span>
-                ))}
-          </div>
+      <div className="mt-4 flex flex-wrap gap-1.5">
+        {builtIn
+          ? builtIn.words.map((w, i) => (
+              <span
+                key={i}
+                title={w.status === "hit" ? "matched" : `heard: ${w.heard ?? "(nothing)"}`}
+                className={`rounded-lg border px-2 py-1 text-xs font-bold ${WORD_STYLE[w.status] ?? WORD_STYLE.miss}`}
+              >
+                {w.target}
+              </span>
+            ))
+          : res.report.words.map((w, i) => (
+              <span
+                key={i}
+                title={`${w.errorType} - accuracy ${w.accuracyScore}`}
+                className={`rounded-lg border px-2 py-1 text-xs font-bold ${
+                  w.errorType === "None" ? WORD_STYLE.hit : w.errorType === "Insertion" ? WORD_STYLE.near : WORD_STYLE.miss
+                }`}
+              >
+                {w.word}
+              </span>
+            ))}
+      </div>
 
-          {builtIn && (builtIn.near > 0 || builtIn.misses > 0 || builtIn.extra.length > 0) && (
-            <p className="mt-3 text-xs leading-relaxed text-[#7d889c]">
-              {builtIn.near > 0 && <>Amber words were heard as something close (half credit). </>}
-              {builtIn.misses > 0 && <>Red words were not recognized. </>}
-              {builtIn.extra.length > 0 && <>Extra words heard: {builtIn.extra.join(", ")}. </>}
-            </p>
-          )}
+      {builtIn && (builtIn.near > 0 || builtIn.misses > 0 || builtIn.extra.length > 0) && (
+        <p className="mt-3 text-xs leading-relaxed text-[#7d889c]">
+          {builtIn.near > 0 && <>Amber words were heard as something close (half credit). </>}
+          {builtIn.misses > 0 && <>Red words were not recognized. </>}
+          {builtIn.extra.length > 0 && <>Extra words heard: {builtIn.extra.join(", ")}. </>}
+        </p>
+      )}
 
-          {builtIn && (
-            <div className="mt-3">
-              <Note tone="blue">{builtIn.note}</Note>
-            </div>
-          )}
+      {builtIn && (
+        <div className="mt-3">
+          <Note tone="blue">{builtIn.note}</Note>
         </div>
       )}
-    </Card>
+    </div>
   );
 }

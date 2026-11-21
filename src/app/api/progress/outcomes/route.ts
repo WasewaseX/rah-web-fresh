@@ -20,12 +20,8 @@ const median = (xs: number[]): number => {
   return Math.round(m * 10) / 10;
 };
 
-export async function GET() {
-  const today = dayIndex();
-  const window = 30;
-  const u = await contentUserId().catch(() => "me");
-
-  // 1) First-attempt retention: share of retrievals graded Good/Easy per day.
+// 1) First-attempt retention: share of retrievals graded Good/Easy per day.
+async function retentionRows(u: string, today: number, window: number) {
   const logs = await db.reviewLog.findMany({
     where: { userId: u, day: { gte: today - window } },
     select: { day: true, grade: true },
@@ -37,16 +33,18 @@ export async function GET() {
     if (l.grade >= 3) e.good += 1;
     byDay.set(l.day, e);
   }
-  const retention = [...byDay.entries()]
+  return [...byDay.entries()]
     .sort((a, b) => a[0] - b[0])
     .map(([day, v]) => ({
       day,
       reviews: v.total,
       goodRate: Math.round((v.good / v.total) * 1000) / 10, // percent, 1dp
     }));
+}
 
-  // 2) Stability proxy: median scheduled interval of retrievals per day -
-  // rising intervals mean FSRS trusts the memory more (stability growth).
+// 2) Stability proxy: median scheduled interval of retrievals per day -
+// rising intervals mean FSRS trusts the memory more (stability growth).
+async function stabilityRows(u: string, today: number, window: number) {
   const ivlLogs = await db.reviewLog.findMany({
     where: { userId: u, day: { gte: today - window } },
     select: { day: true, ivl: true },
@@ -60,26 +58,30 @@ export async function GET() {
     }
     arr.push(l.ivl);
   }
-  const stability = [...ivlByDay.entries()]
+  return [...ivlByDay.entries()]
     .sort((a, b) => a[0] - b[0])
     .map(([day, ivls]) => ({ day, medianIvl: median(ivls) }));
+}
 
-  // 3) Mature memory: how much of the started deck has crossed s >= 21d.
+// 3) Mature memory: how much of the started deck has crossed s >= 21d.
+async function memoryCard(u: string) {
   const states = await db.cardState.findMany({ where: { userId: u } });
   const started = states.filter((s) => s.state !== "new");
   const mature = started.filter((s) => s.s >= 21);
-  const memory = {
+  return {
     started: started.length,
     mature: mature.length,
     matureShare: started.length ? Math.round((mature.length / started.length) * 1000) / 10 : 0,
     medianStability: median(started.map((s) => s.s)),
     lapsingCards: started.filter((s) => s.lapses > 0).length,
   };
+}
 
-  // 4) Mistake-family extinction: how many persistent error families the
-  // healing loop has retired (2 clean exam hits) vs still active.
+// 4) Mistake-family extinction: how many persistent error families the
+// healing loop has retired (2 clean exam hits) vs still active.
+async function familiesCard(u: string) {
   const fams = await db.mistakeFamily.findMany({ where: { userId: u }, select: { kind: true, resolvedAt: true, count: true } });
-  const families = {
+  return {
     total: fams.length,
     active: fams.filter((f) => !f.resolvedAt).length,
     resolved: fams.filter((f) => f.resolvedAt).length,
@@ -91,6 +93,17 @@ export async function GET() {
       return acc;
     }, {}),
   };
+}
+
+export async function GET() {
+  const today = dayIndex();
+  const window = 30;
+  const u = await contentUserId().catch(() => "me");
+
+  const retention = await retentionRows(u, today, window);
+  const stability = await stabilityRows(u, today, window);
+  const memory = await memoryCard(u);
+  const families = await familiesCard(u);
 
   // 5) Recent-window summary the UI can quote verbatim.
   const recent = retention.slice(-7);

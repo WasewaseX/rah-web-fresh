@@ -130,6 +130,20 @@
   ZERO, tsc clean, batteries 53/53 + 81/81 + 29/29 + 59/59, gate 14/14, scan
   CLEAN, gate GREEN, pushed 142dfcdd65a3.
 
+- cycle 6 (2026-11-21): scanner round 7 (398 findings) zeroed at full scope.
+  Parity extended: both eslint plugins installed + declared in package.json
+  (manifest check satisfied), full non-deprecated jsx-a11y rule set enabled,
+  3 unicorn rules, max-lines-per-function scoped to scripts/ + root configs
+  (evidence: src never length-flagged across rounds 5-7). Scanner scope now
+  covers scripts/ + root configs. 57 src findings fixed (4 dead vendored ui
+  files deleted, canvas tabIndex, reading gloss buttons, audio captions track,
+  label htmlFor pairs, new Array -> Array.from, protective slice, spread
+  fallbacks); scripts/: 15 unused, 6 documented catches, 5 require -> ESM,
+  7 over-80-line functions split into phase helpers (batteries unchanged:
+  53/53 + 81/81 + 29/29 + 59/59 + duolingo PASS); tutor.tsx conditional
+  setState-in-effect x4 (greeting seeded, loads deferred one tick). Full-scope
+  eslint ZERO, tsc clean, gate 14/14, scan CLEAN, gate GREEN, pushed 15f969ab92e0.
+
 ## Pending queue (update as tasks ship)
 - Task 149: read_state carries checklist readiness (feed the guide-checklist ratings
   Setting into guideStateLine so the coach sees readiness verdicts too)

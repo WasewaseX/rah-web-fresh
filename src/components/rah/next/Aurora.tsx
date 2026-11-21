@@ -61,114 +61,132 @@ function readAccent(): { a: [number, number, number]; b: [number, number, number
   return { a, b, c: [0.19, 0.62, 0.72] }; // fixed teal third light, per the design system
 }
 
-export default function Aurora() {
-  const ref = useRef<HTMLCanvasElement>(null);
+type GLBundle = {
+  gl: WebGLRenderingContext;
+  uRes: WebGLUniformLocation | null;
+  uTime: WebGLUniformLocation | null;
+  uA: WebGLUniformLocation | null;
+  uB: WebGLUniformLocation | null;
+  uC: WebGLUniformLocation | null;
+};
 
-  useEffect(() => {
-    const canvas = ref.current;
+function initAuroraGL(canvas: HTMLCanvasElement): GLBundle | null {
+  const gl = canvas.getContext("webgl", { antialias: false, alpha: false, depth: false, stencil: false });
+  if (!gl) return null; // CSS gradient stays
+
+  const compile = (type: number, src: string) => {
+    const sh = gl.createShader(type)!;
+    gl.shaderSource(sh, src);
+    gl.compileShader(sh);
+    return sh;
+  };
+  const prog = gl.createProgram()!;
+  gl.attachShader(prog, compile(gl.VERTEX_SHADER, VERT));
+  gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FRAG));
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return null;
+  gl.useProgram(prog);
+
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(prog, "p");
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+  const uRes = gl.getUniformLocation(prog, "uRes");
+  const uTime = gl.getUniformLocation(prog, "uTime");
+  const uA = gl.getUniformLocation(prog, "uA");
+  const uB = gl.getUniformLocation(prog, "uB");
+  const uC = gl.getUniformLocation(prog, "uC");
+  return { gl, uRes, uTime, uA, uB, uC };
+}
+
+function mountAurora(refCurrent: HTMLCanvasElement | null): (() => void) | undefined {
+    const canvas = refCurrent;
     if (!canvas) return;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const gl = canvas.getContext("webgl", { antialias: false, alpha: false, depth: false, stencil: false });
-    if (!gl) return; // CSS gradient stays
+    const bundle = initAuroraGL(canvas);
+    if (!bundle) return;
+    const { gl, uRes, uTime, uA, uB, uC } = bundle;
+  let colors = readAccent();
+  if (!colors) {
+    colors = { a: [0.31, 0.55, 1.0], b: [0.18, 0.38, 0.77], c: [0.19, 0.62, 0.72] };
+  }
+  let target = colors;
+  const applyTheme = () => {
+    const next = readAccent();
+    if (next) target = next;
+  };
+  window.addEventListener("rah-theme", applyTheme);
 
-    const compile = (type: number, src: string) => {
-      const sh = gl.createShader(type)!;
-      gl.shaderSource(sh, src);
-      gl.compileShader(sh);
-      return sh;
-    };
-    const prog = gl.createProgram()!;
-    gl.attachShader(prog, compile(gl.VERTEX_SHADER, VERT));
-    gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FRAG));
-    gl.linkProgram(prog);
-    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return;
-    gl.useProgram(prog);
+  const resize = () => {
+    // half resolution: the field is soft, the GPU bill stays tiny
+    const w = Math.max(1, Math.floor(window.innerWidth / 2));
+    const h = Math.max(1, Math.floor(window.innerHeight / 2));
+    canvas.width = w;
+    canvas.height = h;
+    gl.viewport(0, 0, w, h);
+    gl.uniform2f(uRes, w, h);
+  };
+  resize();
+  window.addEventListener("resize", resize);
 
-    const buf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-    const loc = gl.getAttribLocation(prog, "p");
-    gl.enableVertexAttribArray(loc);
-    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  gl.uniform3fv(uA, colors.a);
+  gl.uniform3fv(uB, colors.b);
+  gl.uniform3fv(uC, colors.c);
 
-    const uRes = gl.getUniformLocation(prog, "uRes");
-    const uTime = gl.getUniformLocation(prog, "uTime");
-    const uA = gl.getUniformLocation(prog, "uA");
-    const uB = gl.getUniformLocation(prog, "uB");
-    const uC = gl.getUniformLocation(prog, "uC");
-
-    let colors = readAccent();
-    if (!colors) {
-      colors = { a: [0.31, 0.55, 1.0], b: [0.18, 0.38, 0.77], c: [0.19, 0.62, 0.72] };
+  let raf = 0;
+  let running = true;
+  let last = performance.now();
+  const frame = (now: number) => {
+    if (!running) return;
+    const dt = Math.min(0.1, (now - last) / 1000);
+    last = now;
+    // ease uniforms toward the theme target so a restyle feels like dusk, not a switch
+    for (let i = 0; i < 3; i++) {
+      colors.a[i] += (target.a[i] - colors.a[i]) * Math.min(1, dt * 1.4);
+      colors.b[i] += (target.b[i] - colors.b[i]) * Math.min(1, dt * 1.4);
     }
-    let target = colors;
-    const applyTheme = () => {
-      const next = readAccent();
-      if (next) target = next;
-    };
-    window.addEventListener("rah-theme", applyTheme);
-
-    const resize = () => {
-      // half resolution: the field is soft, the GPU bill stays tiny
-      const w = Math.max(1, Math.floor(window.innerWidth / 2));
-      const h = Math.max(1, Math.floor(window.innerHeight / 2));
-      canvas.width = w;
-      canvas.height = h;
-      gl.viewport(0, 0, w, h);
-      gl.uniform2f(uRes, w, h);
-    };
-    resize();
-    window.addEventListener("resize", resize);
-
     gl.uniform3fv(uA, colors.a);
     gl.uniform3fv(uB, colors.b);
     gl.uniform3fv(uC, colors.c);
+    gl.uniform1f(uTime, now / 1000);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    raf = requestAnimationFrame(frame);
+  };
 
-    let raf = 0;
-    let running = true;
-    let last = performance.now();
-    const frame = (now: number) => {
-      if (!running) return;
-      const dt = Math.min(0.1, (now - last) / 1000);
-      last = now;
-      // ease uniforms toward the theme target so a restyle feels like dusk, not a switch
-      for (let i = 0; i < 3; i++) {
-        colors.a[i] += (target.a[i] - colors.a[i]) * Math.min(1, dt * 1.4);
-        colors.b[i] += (target.b[i] - colors.b[i]) * Math.min(1, dt * 1.4);
+  if (reduced) {
+    // one still frame, no animation loop
+    gl.uniform1f(uTime, 40);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  } else {
+    raf = requestAnimationFrame(frame);
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        cancelAnimationFrame(raf);
+        running = false;
+      } else if (!running) {
+        running = true;
+        last = performance.now();
+        raf = requestAnimationFrame(frame);
       }
-      gl.uniform3fv(uA, colors.a);
-      gl.uniform3fv(uB, colors.b);
-      gl.uniform3fv(uC, colors.c);
-      gl.uniform1f(uTime, now / 1000);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
-      raf = requestAnimationFrame(frame);
-    };
+    });
+  }
 
-    if (reduced) {
-      // one still frame, no animation loop
-      gl.uniform1f(uTime, 40);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
-    } else {
-      raf = requestAnimationFrame(frame);
-      document.addEventListener("visibilitychange", () => {
-        if (document.hidden) {
-          cancelAnimationFrame(raf);
-          running = false;
-        } else if (!running) {
-          running = true;
-          last = performance.now();
-          raf = requestAnimationFrame(frame);
-        }
-      });
-    }
+  return () => {
+    running = false;
+    cancelAnimationFrame(raf);
+    window.removeEventListener("resize", resize);
+    window.removeEventListener("rah-theme", applyTheme);
+  };
+}
 
-    return () => {
-      running = false;
-      cancelAnimationFrame(raf);
-      window.removeEventListener("resize", resize);
-      window.removeEventListener("rah-theme", applyTheme);
-    };
-  }, []);
+
+export default function Aurora() {
+  const ref = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => mountAurora(ref.current), []);
 
   return (
     <canvas

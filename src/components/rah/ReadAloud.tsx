@@ -109,32 +109,13 @@ export default function ReadAloud({ onChange }: { onChange: () => void }) {
   const chunksRef = useRef<Blob[]>([]);
 
   useEffect(() => {
-    fetch("/api/speak/assess", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((j) => {
-        setTargets(Array.isArray(j.targets) ? j.targets : []);
-        setAzure(Boolean(j.azure));
-      })
-      .catch(() => setTargets([]));
-    return () => {
-      try {
-        recRef.current?.stream.getTracks().forEach((t) => t.stop());
-      } catch {
-        /* already gone */
-      }
-    };
+    loadTargets(setTargets, setAzure);
+    return () => stopMic(recRef);
   }, []);
 
   const say = useCallback(() => speakText(targets[idx] ?? ""), [targets, idx]);
 
-  const stop = useCallback(() => {
-    try {
-      recRef.current?.stop();
-    } catch {
-      /* already stopped */
-    }
-    setRecording(false);
-  }, []);
+  const stop = useCallback(() => closeRecorder(recRef, setRecording), []);
 
   const start = useCallback(async () => {
     setError(null);
@@ -142,18 +123,8 @@ export default function ReadAloud({ onChange }: { onChange: () => void }) {
     chunksRef.current = [];
     try {
       const { stream, rec } = await openRecorder((d) => chunksRef.current.push(d));
-      rec.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop());
-        setBusy(true);
-        try {
-          const blob = new Blob(chunksRef.current, { type: rec.mimeType || "audio/webm" });
-          setRes(await assessClip(blob, targets[idx]));
-          onChange();
-        } catch (e) {
-          setError((e as Error).message);
-        } finally {
-          setBusy(false);
-        }
+      rec.onstop = () => {
+        void finishClip({ rec, stream, chunks: chunksRef.current, target: targets[idx], setBusy, setRes, setError, onChange });
       };
       recRef.current = rec;
       rec.start();
@@ -203,6 +174,58 @@ export default function ReadAloud({ onChange }: { onChange: () => void }) {
 }
 
 // ---------- module-level helpers (no hooks) ----------
+
+function loadTargets(setTargets: (t: string[]) => void, setAzure: (v: boolean) => void) {
+  fetch("/api/speak/assess", { cache: "no-store" })
+    .then((r) => r.json())
+    .then((j) => {
+      setTargets(Array.isArray(j.targets) ? j.targets : []);
+      setAzure(Boolean(j.azure));
+    })
+    .catch(() => setTargets([]));
+}
+
+function stopMic(recRef: { current: MediaRecorder | null }) {
+  try {
+    recRef.current?.stream.getTracks().forEach((t) => t.stop());
+  } catch {
+    /* already gone */
+  }
+}
+
+function closeRecorder(recRef: { current: MediaRecorder | null }, setRecording: (v: boolean) => void) {
+  try {
+    recRef.current?.stop();
+  } catch {
+    /* already stopped */
+  }
+  setRecording(false);
+}
+
+type FinishOpts = {
+  rec: MediaRecorder;
+  stream: MediaStream;
+  chunks: Blob[];
+  target: string;
+  setBusy: (v: boolean) => void;
+  setRes: (r: AssessResponse | null) => void;
+  setError: (e: string | null) => void;
+  onChange: () => void;
+};
+
+async function finishClip(o: FinishOpts) {
+  o.stream.getTracks().forEach((t) => t.stop());
+  o.setBusy(true);
+  try {
+    const blob = new Blob(o.chunks, { type: o.rec.mimeType || "audio/webm" });
+    o.setRes(await assessClip(blob, o.target));
+    o.onChange();
+  } catch (e) {
+    o.setError((e as Error).message);
+  } finally {
+    o.setBusy(false);
+  }
+}
 
 function speakText(text: string) {
   try {

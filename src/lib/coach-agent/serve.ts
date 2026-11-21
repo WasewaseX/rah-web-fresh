@@ -16,6 +16,89 @@ import { aiRateLimit } from "@/lib/rate-limit";
 import { runAgent, type AgentEvent } from "./loop";
 import { loadCoachHistory } from "./history";
 
+// The learner's current screen (review question etc.) - sanity-capped so a
+// hostile or bloated client payload cannot blow up the prompt.
+function safeActivity(activity: unknown): Record<string, unknown> | null {
+  if (!activity || typeof activity !== "object" || Array.isArray(activity)) return null;
+  const a = activity as Record<string, unknown>;
+  try {
+    if (JSON.stringify(a).length > 4000) return null;
+  } catch {
+    return null;
+  }
+  return a;
+}
+
+type CoachStreamCtx = {
+  controller: ReadableStreamDefaultController<Uint8Array>;
+  encoder: TextEncoder;
+  text: string;
+  flat: Awaited<ReturnType<typeof loadCoachHistory>>;
+  profile: Awaited<ReturnType<typeof buildProfile>>;
+  view: unknown;
+  activity: Record<string, unknown> | null;
+  req: Request;
+  probe: boolean;
+};
+
+// Run one agent turn inside the SSE stream and persist it. Task 111 (evidence
+// hygiene): automated batteries MUST NOT pay coach rewards or write chat
+// history - a boot-regression run used to move the learner ledger +8 xp /
+// +1 streak silently (found 2026-11-01: xp 491->499 overnight, traced to this
+// route's award block). Probes declare themselves with the x-rah-probe header
+// and get a full dry-run: real reply, zero writes, zero rewards.
+async function coachStream(c: CoachStreamCtx) {
+  const send = (e: AgentEvent) => {
+    try {
+      c.controller.enqueue(c.encoder.encode(`data: ${JSON.stringify(e)}\n\n`));
+    } catch {
+      // client gone; the loop still finishes and persists
+    }
+  };
+
+  let turn: Awaited<ReturnType<typeof runAgent>>;
+  try {
+    // req.signal aborts when the learner hits Stop (client aborts the
+    // fetch). The loop closes between steps and the stopped turn still
+    // persists below, so history never loses what actually ran.
+    turn = await runAgent(c.text, c.flat, { profile: c.profile, emit: send, currentView: String(c.view ?? ""), activity: c.activity, signal: c.req.signal, probe: c.probe });
+  } catch (e) {
+    send({ type: "error", label: "Agent crashed", detail: (e as Error).message });
+    turn = {
+      reply: `The agent hit an unexpected wall (${(e as Error).message}). One more try usually clears it.`,
+      corrections: [],
+      commands: [],
+      steps: [],
+      toolsUsed: [],
+    };
+  }
+
+  // Persist the turn (user text + final agent answer) so the sidebar has memory.
+  // Task 92-ter: STAMP the userId - this surface was the isolation-sweep
+  // straggler (schema default 'me' while every other write resolved the
+  // session user), which split the learner's history across two ids until
+  // scripts/merge-legacy-user-rows.py re-unified it.
+  if (!c.probe) {
+    const chatUid = await contentUserId(c.req);
+    await db.chatMsg.create({ data: { role: "user", content: c.text, userId: chatUid } });
+    await db.chatMsg.create({
+      data: {
+        role: "coach",
+        content: JSON.stringify({ skill: "agent", reply: turn.reply, corrections: turn.corrections, commands: turn.commands, toolsUsed: turn.toolsUsed }),
+        userId: chatUid,
+      },
+    });
+
+    // Same surface rewards as the old chat tab: talking to the coach counts.
+    await bumpDaily("reviews");
+    await awardXp(8, { chainHit: true });
+    await touchStreak().catch(() => undefined);
+  }
+
+  send({ type: "done", stepsUsed: turn.steps.length });
+  c.controller.close();
+}
+
 export async function coachAgentPost(req: Request, opts: { deprecated?: boolean } = {}): Promise<Response> {
   // Abuse limit (audit P1-6): AI calls cost real money - 30/min per client IP.
   const rl = aiRateLimit(req);
@@ -28,18 +111,7 @@ export async function coachAgentPost(req: Request, opts: { deprecated?: boolean 
   const text = String(message ?? "").trim();
   if (!text) return NextResponse.json({ error: "message required" }, { status: 400 });
 
-  // The learner's current screen (review question etc.) - sanity-capped so a
-  // hostile or bloated client payload cannot blow up the prompt.
-  let activitySafe: Record<string, unknown> | null = null;
-  if (activity && typeof activity === "object" && !Array.isArray(activity)) {
-    activitySafe = activity as Record<string, unknown>;
-    try {
-      if (JSON.stringify(activitySafe).length > 4000) activitySafe = null;
-    } catch {
-      activitySafe = null;
-    }
-  }
-
+  const activitySafe = safeActivity(activity);
   const profile = await buildProfile();
 
   // History is loaded BEFORE the turn and the turn is persisted AFTER it - the
@@ -48,64 +120,10 @@ export async function coachAgentPost(req: Request, opts: { deprecated?: boolean 
   const flat = await loadCoachHistory(10);
 
   const encoder = new TextEncoder();
-  // Task 111 (evidence hygiene): automated batteries MUST NOT pay coach
-  // rewards or write chat history - a boot-regression run used to move the
-  // learner ledger +8 xp / +1 streak silently (found 2026-11-01: xp 491->499
-  // overnight, traced to this route's award block). Probes declare themselves
-  // with the x-rah-probe header and get a full dry-run: real reply, zero
-  // writes, zero rewards. Real learners are unaffected.
   const probe = req.headers.get("x-rah-probe") === "1";
   const stream = new ReadableStream({
     async start(controller) {
-      const send = (e: AgentEvent) => {
-        try {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(e)}\n\n`));
-        } catch {
-          // client gone; the loop still finishes and persists
-        }
-      };
-
-      let turn: Awaited<ReturnType<typeof runAgent>>;
-      try {
-        // req.signal aborts when the learner hits Stop (client aborts the
-        // fetch). The loop closes between steps and the stopped turn still
-        // persists below, so history never loses what actually ran.
-        turn = await runAgent(text, flat, { profile, emit: send, currentView: String(view ?? ""), activity: activitySafe, signal: req.signal, probe });
-      } catch (e) {
-        send({ type: "error", label: "Agent crashed", detail: (e as Error).message });
-        turn = {
-          reply: `The agent hit an unexpected wall (${(e as Error).message}). One more try usually clears it.`,
-          corrections: [],
-          commands: [],
-          steps: [],
-          toolsUsed: [],
-        };
-      }
-
-      // Persist the turn (user text + final agent answer) so the sidebar has memory.
-      // Task 92-ter: STAMP the userId - this surface was the isolation-sweep
-      // straggler (schema default 'me' while every other write resolved the
-      // session user), which split the learner's history across two ids until
-      // scripts/merge-legacy-user-rows.py re-unified it.
-      if (!probe) {
-        const chatUid = await contentUserId(req);
-        await db.chatMsg.create({ data: { role: "user", content: text, userId: chatUid } });
-        await db.chatMsg.create({
-          data: {
-            role: "coach",
-            content: JSON.stringify({ skill: "agent", reply: turn.reply, corrections: turn.corrections, commands: turn.commands, toolsUsed: turn.toolsUsed }),
-            userId: chatUid,
-          },
-        });
-
-        // Same surface rewards as the old chat tab: talking to the coach counts.
-        await bumpDaily("reviews");
-        await awardXp(8, { chainHit: true });
-        await touchStreak().catch(() => undefined);
-      }
-
-      send({ type: "done", stepsUsed: turn.steps.length });
-      controller.close();
+      await coachStream({ controller, encoder, text, flat, profile, view, activity: activitySafe, req, probe });
     },
   });
 

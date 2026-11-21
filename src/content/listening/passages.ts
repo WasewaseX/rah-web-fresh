@@ -1,0 +1,385 @@
+// Listening decoding lab content. Each passage feeds the 5-round cycle:
+// blind listen, diagnose misses, transcript reveal, re-listen, reproduce.
+// Written as natural speech so reductions and linking actually appear.
+
+export interface ListenPassage {
+  id: string;
+  title: string;
+  level: string;
+  seconds: number;
+  transcript: string;
+  // Words worth catching, glossed in Farsi.
+  vocab: { w: string; fa: string }[];
+  // Reduction / linking phenomena the learner should notice.
+  features: { say: string; sounds: string; note: string }[];
+  // Comprehension check (library v2): three authored questions per passage,
+  // answered from the AUDIO not the transcript, deterministic grading. Each
+  // carries the exact transcript line that settles it (the "why").
+  questions: { q: string; choices: string[]; correct: number; why: string }[];
+}
+
+// Sentence-level replay for the listening library: a deterministic split on
+// sentence punctuation, so every segment maps to one TTS utterance.
+export function splitSentences(transcript: string): string[] {
+  const parts = transcript
+    .replace(/([.!?])\s+/g, "$1\u0001")
+    .split("\u0001")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  // Merge tiny NON-TERMINAL fragments (a split artifact like "Mr" or "e.g")
+  // into the previous sentence; real short sentences keep their punctuation
+  // and stand alone.
+  const out: string[] = [];
+  for (const p of parts) {
+    if (out.length > 0 && p.split(/\s+/).length < 3 && !/[.!?]$/.test(p)) out[out.length - 1] += ` ${p}`;
+    else out.push(p);
+  }
+  return out;
+}
+
+export const MISS_TYPES = [
+  { id: "vocab", label: "Vocabulary", note: "I did not know or could not recall the word" },
+  { id: "sound", label: "Pronunciation", note: "The word exists for me but the sounds fooled me" },
+  { id: "link", label: "Connected speech", note: "Linking, reduction or elision broke the words apart" },
+  { id: "grammar", label: "Grammar", note: "I lost the structure of the sentence" },
+  { id: "speed", label: "Speed", note: "It went by faster than I could process" },
+  { id: "focus", label: "Attention", note: "I understood it but my mind drifted" },
+] as const;
+
+export const PASSAGES: ListenPassage[] = [
+  {
+    id: "l1",
+    title: "The commute",
+    level: "B2",
+    seconds: 45,
+    transcript:
+      "Honestly, I used to dread the commute. Forty minutes on a packed bus, every single morning. But last month I started downloading long-form interviews, and now the trip feels short. What changed is not the traffic. It is what my brain does while I listen. At first I caught maybe half of every sentence. The rest blurred together. I kept going, and somewhere around week two the blur started to split into words. That is the part most learners quit right before.",
+    vocab: [
+      { w: "dread", fa: "از ترسیدنِ چیزی، دلخراش بودن" },
+      { w: "long-form", fa: "طولانی و کامل (محتوا)" },
+      { w: "blur", fa: "محو شدن" },
+    ],
+    features: [
+      { say: "used to", sounds: "yoos-tuh", note: "the d disappears before t" },
+      { say: "What changed is", sounds: "wuhd-changed-is", note: "t links into the next word" },
+    ],
+    questions: [
+      {
+        q: "What actually changed the speaker's commute?",
+        choices: ["The traffic got lighter", "He started listening to long-form interviews", "He moved closer to work"],
+        correct: 1,
+        why: "\"last month I started downloading long-form interviews, and now the trip feels short\"",
+      },
+      {
+        q: "What happened around week two?",
+        choices: ["The blur started to split into words", "He nearly quit the bus", "The interviews got easier to find"],
+        correct: 0,
+        why: "\"somewhere around week two the blur started to split into words\"",
+      },
+      {
+        q: "What does he say most learners do?",
+        choices: ["They practice too much", "They avoid public transport", "They quit right before the breakthrough"],
+        correct: 2,
+        why: "\"That is the part most learners quit right before.\"",
+      },
+    ],
+  },
+  {
+    id: "l2",
+    title: "A small repair",
+    level: "B2",
+    seconds: 45,
+    transcript:
+      "The tap in the kitchen had been dripping for weeks. A tiny sound, but it follows you. You hear it when you read, when you sleep, when you talk on the phone. So on Friday I turned the water off, took the whole thing apart, and found a washer worn down to nothing. The part cost about a dollar. An hour later the flat was silent. I am not saying plumbing is a life skill everyone needs, but that one hour bought me months of quiet.",
+    vocab: [
+      { w: "dripping", fa: "چکه کردن" },
+      { w: "worn down", fa: "ساییده شده" },
+      { w: "washer", fa: "واشر" },
+    ],
+    features: [
+      { say: "it follows you", sounds: "it-folluhzh-you", note: "s links into you" },
+      { say: "took the whole thing apart", sounds: "took-thuh-hole-thing-uh-part", note: "thing links into apart" },
+    ],
+    questions: [
+      {
+        q: "What was broken?",
+        choices: ["A dripping kitchen tap", "A leaking roof", "A humming fridge"],
+        correct: 0,
+        why: "\"The tap in the kitchen had been dripping for weeks.\"",
+      },
+      {
+        q: "What was wrong inside?",
+        choices: ["A cracked pipe", "A washer worn down to nothing", "A loose valve"],
+        correct: 1,
+        why: "\"found a washer worn down to nothing\"",
+      },
+      {
+        q: "How much did the part cost?",
+        choices: ["About a dollar", "About ten dollars", "Nothing - he already had it"],
+        correct: 0,
+        why: "\"The part cost about a dollar.\"",
+      },
+    ],
+  },
+  {
+    id: "l3",
+    title: "Night shifts",
+    level: "B2+",
+    seconds: 50,
+    transcript:
+      "My mother worked night shifts at a hospital for eleven years. She came home at dawn, slept till noon, and still showed up to every school meeting with the same calm face. For a long time I thought she simply did not get tired. Now I understand it differently. She was tired all the time. She just decided, quietly and repeatedly, that certain things would not be skipped. There is a word for that kind of strength, and it is not talent.",
+    vocab: [
+      { w: "night shifts", fa: "شیفت شب" },
+      { w: "at dawn", fa: "سپیده دم" },
+      { w: "skipped", fa: "از قلم انداخته، رد شده" },
+    ],
+    features: [
+      { say: "slept till noon", sounds: "slept-till-noon", note: "clean linking, no reduction here" },
+      { say: "There is a word", sounds: "therez-uh-word", note: "there is contracts to there's" },
+    ],
+    questions: [
+      {
+        q: "Where did the mother work night shifts?",
+        choices: ["A school", "A hospital", "A factory"],
+        correct: 1,
+        why: "\"My mother worked night shifts at a hospital for eleven years.\"",
+      },
+      {
+        q: "What did the speaker long believe about her?",
+        choices: ["That she simply did not get tired", "That she preferred nights", "That she never rested"],
+        correct: 0,
+        why: "\"For a long time I thought she simply did not get tired.\"",
+      },
+      {
+        q: "Which word does the speaker reject for her strength?",
+        choices: ["Discipline", "Patience", "Talent"],
+        correct: 2,
+        why: "\"There is a word for that kind of strength, and it is not talent.\"",
+      },
+    ],
+  },
+  {
+    id: "l4",
+    title: "Why we misremember",
+    level: "B2+",
+    seconds: 55,
+    transcript:
+      "Here is a slightly uncomfortable finding from memory research. Every time you recall an event, you do not replay a recording. You rebuild it. And the rebuilding is influenced by what has happened since. Two people who lived through the same argument will remember two different arguments a year later, and neither of them is lying. Memory is less like a photograph and more like a story your brain keeps editing. Which raises a fair question: how much of your own past do you actually remember, and how much have you rewritten without noticing?",
+    vocab: [
+      { w: "recall", fa: "به یاد آوردن" },
+      { w: "rebuild", fa: "بازسازی کردن" },
+      { w: "rewritten", fa: "بازنویسی شده" },
+    ],
+    features: [
+      { say: "less like a photograph", sounds: "less-like-uh-photuhgraph", note: "a reduces to uh" },
+      { say: "raises a fair question", sounds: "ray-ziz-uh-fair", note: "raises links into a" },
+    ],
+    questions: [
+      {
+        q: "According to the research, what does every recall do?",
+        choices: ["Replays a recording", "Rebuilds the memory", "Erases the details"],
+        correct: 1,
+        why: "\"Every time you recall an event, you do not replay a recording. You rebuild it.\"",
+      },
+      {
+        q: "Two people who lived through the same argument will...?",
+        choices: ["Remember two different arguments a year later", "Agree on every detail", "Forget it entirely"],
+        correct: 0,
+        why: "\"will remember two different arguments a year later, and neither of them is lying\"",
+      },
+      {
+        q: "Memory is compared to...?",
+        choices: ["A photograph", "A video file", "A story your brain keeps editing"],
+        correct: 2,
+        why: "\"less like a photograph and more like a story your brain keeps editing\"",
+      },
+    ],
+  },
+  {
+    id: "l5",
+    title: "The last video store",
+    level: "C1",
+    seconds: 55,
+    transcript:
+      "There is a video rental shop two streets from my flat that has somehow outlived the entire streaming era. The owner keeps a handwritten ledger. He says people come in not because the selection is better, it is not, but because choosing a film with someone who has watched two thousand of them beats scrolling alone. I think he has accidentally put his finger on something bigger: abundance did not make choosing easier, it made it lonelier. The shelf with forty titles had a kind of curation we now pay subscriptions to imitate.",
+    vocab: [
+      { w: "outlived", fa: "از چیزی عمر بیشتری کشیدن" },
+      { w: "ledger", fa: "دفتر ثبت حساب" },
+      { w: "curation", fa: "گزینش و گردآوری" },
+      { w: "put his finger on", fa: "دقیقاً به اصل مطلب پی بردن" },
+    ],
+    features: [
+      { say: "has outlived", sounds: "haz-outlived", note: "s of has links into out" },
+      { say: "kind of", sounds: "kinda", note: "casual reduction, common in speech" },
+    ],
+    questions: [
+      {
+        q: "Why do people still come to the shop, according to the owner?",
+        choices: ["The selection is better", "Choosing a film with someone experienced beats scrolling alone", "The prices are lower"],
+        correct: 1,
+        why: "\"because choosing a film with someone who has watched two thousand of them beats scrolling alone\"",
+      },
+      {
+        q: "What does the owner keep?",
+        choices: ["A handwritten ledger", "A digital catalog", "A scrapbook of reviews"],
+        correct: 0,
+        why: "\"The owner keeps a handwritten ledger.\"",
+      },
+      {
+        q: "What is the speaker's bigger point?",
+        choices: ["Streaming is superior", "Abundance made choosing lonelier", "Rental shops should return everywhere"],
+        correct: 1,
+        why: "\"abundance did not make choosing easier, it made it lonelier\"",
+      },
+    ],
+  },
+  {
+    id: "l6",
+    title: "Sound and memory",
+    level: "C1",
+    seconds: 60,
+    transcript:
+      "Ask someone where they were when they heard a piece of life-changing news and they will rarely mention what they saw. They will mention the room, the radio, the voice. Sound is wired into memory differently from sight. It arrives without our consent and leaves the same way. Advertisers figured this out decades ago, which is why a three second jingle can outlive your entire school curriculum. The uncomfortable version of this fact is that what surrounds your ears on repeat becomes part of how you think. Choose your audio the way you would choose your friends.",
+    vocab: [
+      { w: "consent", fa: "رضایت" },
+      { w: "jingle", fa: "آهنگ کوتاه تبلیغاتی" },
+      { w: "curriculum", fa: "برنامه درسی" },
+    ],
+    features: [
+      { say: "wired into", sounds: "wired-in-tuh", note: "d links into into" },
+      { say: "figured this out", sounds: "fig-yer-this-out", note: "t of out often drops at sentence end" },
+    ],
+    questions: [
+      {
+        q: "When people hear life-changing news, what do they mention?",
+        choices: ["What they saw", "The room, the radio, the voice", "The exact date"],
+        correct: 1,
+        why: "\"They will mention the room, the radio, the voice.\"",
+      },
+      {
+        q: "Why are advertisers mentioned?",
+        choices: ["A three-second jingle can outlive your school curriculum", "They invented radio news", "Their ads are easiest to forget"],
+        correct: 0,
+        why: "\"which is why a three second jingle can outlive your entire school curriculum\"",
+      },
+      {
+        q: "What is the closing advice?",
+        choices: ["Avoid all advertising", "Choose your audio the way you would choose your friends", "Listen to more news"],
+        correct: 1,
+        why: "\"Choose your audio the way you would choose your friends.\"",
+      },
+    ],
+  },
+  {
+    id: "l7",
+    title: "A quiet argument for boredom",
+    level: "B2+",
+    seconds: 50,
+    transcript:
+      "I spent last Sunday with nothing scheduled, which for me is close to a medical event. No podcast, no list, no plan. The first hour was genuinely unpleasant. My brain kept reaching for a screen that was not there. By the third hour, though, something shifted. Ideas started arriving uninvited: a solution to a problem at work, an apology I owed someone, a place I had not thought about in years. I am not romantic about boredom, but I now suspect it is the processing time we refuse to give ourselves.",
+    vocab: [
+      { w: "scheduled", fa: "زمان‌بندی شده" },
+      { w: "uninvited", fa: "بدون دعوت، ناگهانی" },
+      { w: "apology", fa: "عذرخواهی" },
+    ],
+    features: [
+      { say: "close to a", sounds: "closs-tuh-uh", note: "s links into t across words" },
+      { say: "something shifted", sounds: "some-thing-shifted", note: "final th is quiet in fast speech" },
+    ],
+    questions: [
+      {
+        q: "How did the first hour feel?",
+        choices: ["Genuinely unpleasant", "Immediately relaxing", "Surprisingly productive"],
+        correct: 0,
+        why: "\"The first hour was genuinely unpleasant.\"",
+      },
+      {
+        q: "What arrived by the third hour?",
+        choices: ["Sleep", "Ideas arriving uninvited", "A phone call"],
+        correct: 1,
+        why: "\"Ideas started arriving uninvited: a solution to a problem at work, an apology I owed someone\"",
+      },
+      {
+        q: "What does the speaker now suspect boredom is?",
+        choices: ["A modern illness", "A waste of a day", "The processing time we refuse to give ourselves"],
+        correct: 2,
+        why: "\"I now suspect it is the processing time we refuse to give ourselves.\"",
+      },
+    ],
+  },
+  {
+    id: "l8",
+    title: "The second language of food",
+    level: "C1",
+    seconds: 60,
+    transcript:
+      "Every immigrant kitchen I have ever eaten in runs on translation. Not the language on the packet, the deeper one: measures that live in the hand rather than the cup, a pinch that means the cook's pinches, not the dictionary's. My grandmother had no recipe written down in her life. She cooked by comparison, by smell, by asking what the weather was doing. When she died we tried to reconstruct her dishes from memory and produced, without exception, food that tasted like an apology. Some knowledge does not survive being written down.",
+    vocab: [
+      { w: "runs on", fa: "کارش را با چیزی پیش می‌برد" },
+      { w: "pinch", fa: "آرد یا نمکی که بین دو انگشت جا می‌شود" },
+      { w: "reconstruct", fa: "بازسازی کردن" },
+    ],
+    features: [
+      { say: "rather than", sounds: "ra-ther-than", note: "compare this th with the t many learners hear" },
+      { say: "survive being", sounds: "survive-bee-ing", note: "v links into b" },
+    ],
+    questions: [
+      {
+        q: "What lives in the hand rather than the cup?",
+        choices: ["Measures", "Spices", "Recipes"],
+        correct: 0,
+        why: "\"measures that live in the hand rather than the cup\"",
+      },
+      {
+        q: "How did the grandmother cook?",
+        choices: ["From written recipes", "By comparison, smell, and asking what the weather was doing", "With exact measuring cups"],
+        correct: 1,
+        why: "\"She cooked by comparison, by smell, by asking what the weather was doing.\"",
+      },
+      {
+        q: "What happened when the family reconstructed her dishes?",
+        choices: ["They tasted better than hers", "They tasted exactly like hers", "They tasted like an apology"],
+        correct: 2,
+        why: "\"produced, without exception, food that tasted like an apology\"",
+      },
+    ],
+  },
+  {
+    id: "l9",
+    title: "What the map got wrong",
+    level: "C1",
+    seconds: 60,
+    transcript:
+      "For two centuries the London Underground map has been praised as a triumph of design. What gets forgotten is how angrily it was received at first. Commuters complained that geography had been abandoned, that the distances lied, that a drawing which bent rivers and stretched suburbs was somehow dishonest. It is a useful reminder for anyone who simplifies anything for a living: clarity and accuracy are not the same virtue, and audiences rarely forgive the gap between them on day one. The map won in the end. But it won by being useful, not by being right.",
+    vocab: [
+      { w: "triumph", fa: "پیروزی بزرگ" },
+      { w: "commuters", fa: "رفت‌وآمدکننده‌های روزانه" },
+      { w: "abandoned", fa: "رها شده" },
+      { w: "virtue", fa: "فضیلت، ارزش" },
+    ],
+    features: [
+      { say: "praised as", sounds: "prays-daz", note: "d links into as" },
+      { say: "It is a useful", sounds: "itsu-zuh-useful", note: "triple linking across four words" },
+    ],
+    questions: [
+      {
+        q: "How was the map received at first?",
+        choices: ["With praise", "Angrily", "With total indifference"],
+        correct: 1,
+        why: "\"What gets forgotten is how angrily it was received at first.\"",
+      },
+      {
+        q: "What did commuters complain about?",
+        choices: ["Geography abandoned and distances that lied", "The price of tickets", "The bright colors"],
+        correct: 0,
+        why: "\"Commuters complained that geography had been abandoned, that the distances lied\"",
+      },
+      {
+        q: "Why did the map win in the end?",
+        choices: ["By being accurate", "By being useful, not right", "Because commuters adapted"],
+        correct: 1,
+        why: "\"But it won by being useful, not by being right.\"",
+      },
+    ],
+  },
+];

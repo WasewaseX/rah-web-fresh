@@ -74,15 +74,17 @@ type ProbeResult = {
   boxTop: { tag: string; cls: string; over: number; txt: string }[];
 };
 
-async function main() {
+
+// Access code -> session cookie + the CDP page target (verbatim from main).
+async function authAndTarget(): Promise<{ cookie: string; page: { webSocketDebuggerUrl: string } }> {
   // Access code -> session cookie (server-side fetch; the browser never sees it).
   const { readFileSync } = await import("fs");
   const env = readFileSync(new URL("../.env", import.meta.url), "utf8");
   const code = (env.match(/^RAH_ACCESS_CODE=(.*)$/m)?.[1] ?? "").replace(/"/g, "");
   const vres = await fetch(`${BASE}/api/auth/verify`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email: "geministudent@atomicmail.io", code }),
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ email: "geministudent@atomicmail.io", code }),
   });
   const cookie = (vres.headers.get("set-cookie") ?? "").split(";")[0];
   if (!cookie.startsWith("rah_session=")) throw new Error("auth failed - no session cookie");
@@ -90,6 +92,11 @@ async function main() {
   const targets: { webSocketDebuggerUrl: string; type: string }[] = await (await fetch(`http://127.0.0.1:${CDP_PORT}/json`)).json();
   const page = targets.find((t) => t.type === "page");
   if (!page) throw new Error("no page target on CDP");
+  return { cookie, page };
+}
+
+async function main() {
+  const { cookie, page } = await authAndTarget();
 
   const ws = new WebSocket(page.webSocketDebuggerUrl);
   await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });

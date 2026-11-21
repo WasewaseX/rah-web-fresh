@@ -65,6 +65,49 @@ async function preparePage(ctx) {
   return page;
 }
 
+
+// Content-settle wait: the tab's nav button is ACTIVE, AND (a) no new network
+// entry for 800ms (the view's data fetches all landed) AND (b) page text
+// stable for 600ms (render settled). Bounded 45s; on timeout, dump
+// diagnostics instead of failing blind. (Verbatim from measureLazyTab.)
+async function waitForSettle(page, tab) {
+  // content-settle wait: the tab's nav button is ACTIVE, AND (a) no new
+    // network entry for 800ms (the view's data fetches all landed) AND (b) page
+    // text stable for 600ms (render settled). Bounded 45s; on timeout, dump
+    // diagnostics instead of failing blind.
+    try {
+      await page.waitForFunction(
+        (tab) => {
+          const t = String(tab).toLowerCase();
+          const active = [...document.querySelectorAll("nav button")].some(
+            (b) => (b.textContent || "").trim().toLowerCase().startsWith(t) && b.className.includes("9dc0ff"),
+          );
+          if (!active) return false;
+          const w = window;
+          const now = performance.now();
+          const resCount = performance.getEntriesByType("resource").length;
+          const len = (document.body.innerText || "").length;
+          const resQuiet = w.__rahResAt === undefined || now - w.__rahResAt >= 800 || resCount === w.__rahResCount;
+          if (resCount !== w.__rahResCount) {
+            w.__rahResCount = resCount;
+            w.__rahResAt = now;
+          }
+          const textQuiet = w.__rahTextAt === undefined || now - w.__rahTextAt >= 600 || Math.abs(len - (w.__rahTextLen ?? len)) < 24;
+          if (w.__rahTextLen === undefined || Math.abs(len - w.__rahTextLen) >= 24) {
+            w.__rahTextLen = len;
+            w.__rahTextAt = now;
+          }
+          return resQuiet && textQuiet;
+        },
+        tab,
+        { timeout: 45000, polling: 50 },
+      );
+    } catch {
+      return false;
+    }
+    return true;
+}
+
 async function measureLazyTab(page, browser) {
   // 2. lazy-tab transition (first open = chunk fetch + data + render, throttled)
   //    Real learner-perceived cost: click -> the tab is ACTIVE and the view's
@@ -93,41 +136,6 @@ async function measureLazyTab(page, browser) {
     await browser.close();
     process.exit(1);
   }
-  // content-settle wait: the tab's nav button is ACTIVE, AND (a) no new
-  // network entry for 800ms (the view's data fetches all landed) AND (b) page
-  // text stable for 600ms (render settled). Bounded 45s; on timeout, dump
-  // diagnostics instead of failing blind.
-  let settled = true;
-  try {
-    await page.waitForFunction(
-      (tab) => {
-        const t = String(tab).toLowerCase();
-        const active = [...document.querySelectorAll("nav button")].some(
-          (b) => (b.textContent || "").trim().toLowerCase().startsWith(t) && b.className.includes("9dc0ff"),
-        );
-        if (!active) return false;
-        const w = window;
-        const now = performance.now();
-        const resCount = performance.getEntriesByType("resource").length;
-        const len = (document.body.innerText || "").length;
-        const resQuiet = w.__rahResAt === undefined || now - w.__rahResAt >= 800 || resCount === w.__rahResCount;
-        if (resCount !== w.__rahResCount) {
-          w.__rahResCount = resCount;
-          w.__rahResAt = now;
-        }
-        const textQuiet = w.__rahTextAt === undefined || now - w.__rahTextAt >= 600 || Math.abs(len - (w.__rahTextLen ?? len)) < 24;
-        if (w.__rahTextLen === undefined || Math.abs(len - w.__rahTextLen) >= 24) {
-          w.__rahTextLen = len;
-          w.__rahTextAt = now;
-        }
-        return resQuiet && textQuiet;
-      },
-      TAB,
-      { timeout: 45000, polling: 50 },
-    );
-  } catch {
-    settled = false;
-  }
   const diag = await page.evaluate(() => ({
     activeBtns: [...document.querySelectorAll("nav button")]
       .filter((b) => b.className.includes("9dc0ff"))
@@ -138,7 +146,7 @@ async function measureLazyTab(page, browser) {
       .slice(-6)
       .map((r) => r.name.split("/").pop().slice(0, 40)),
   }));
-  if (!settled) {
+  if (!(await waitForSettle(page, TAB))) {
     console.error("interactivity-probe: view content did not settle in 45s. DIAG:", JSON.stringify(diag));
     await browser.close();
     process.exit(1);

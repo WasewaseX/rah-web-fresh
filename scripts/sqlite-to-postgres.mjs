@@ -21,6 +21,21 @@ const PG = { host: "127.0.0.1", port: 5433, user: "postgres", database: "rah_cut
 
 const sqlite = new DatabaseSync(`file:${LIVE_DB}?mode=ro`, { readOnly: true });
 
+
+// PG column metadata: table -> [{name, type}] (verbatim from main).
+async function pgColumns(pg) {
+  // PG column metadata
+  const meta = await pg.query(
+  `SELECT table_name, column_name, data_type FROM information_schema.columns WHERE table_schema='public'`
+  );
+  const pgCols = new Map(); // table -> [{name, type}]
+  for (const r of meta.rows) {
+  if (!pgCols.has(r.table_name)) pgCols.set(r.table_name, []);
+  pgCols.get(r.table_name).push({ name: r.column_name, type: r.data_type });
+  }
+  return pgCols;
+}
+
 async function main() {
   execSync('node runsql.mjs "DROP DATABASE IF EXISTS rah_cutover"', { cwd: "/home/z/my-project/scripts/out/pgsandbox" });
   execSync('node runsql.mjs "CREATE DATABASE rah_cutover"', { cwd: "/home/z/my-project/scripts/out/pgsandbox" });
@@ -29,15 +44,7 @@ async function main() {
   await pg.connect();
   await pg.query(fs.readFileSync("/home/z/my-project/scripts/out/pgsandbox/pg-schema.sql", "utf8"));
 
-  // PG column metadata
-  const meta = await pg.query(
-    `SELECT table_name, column_name, data_type FROM information_schema.columns WHERE table_schema='public'`
-  );
-  const pgCols = new Map(); // table -> [{name, type}]
-  for (const r of meta.rows) {
-    if (!pgCols.has(r.table_name)) pgCols.set(r.table_name, []);
-    pgCols.get(r.table_name).push({ name: r.column_name, type: r.data_type });
-  }
+  const pgCols = await pgColumns(pg);
 
   const sqliteTables = sqlite
     .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_prisma_migrations'`)

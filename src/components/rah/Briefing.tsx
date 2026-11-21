@@ -83,7 +83,7 @@ export default function Briefing() {
           <PersonaSwitcher persona={persona} onSwitch={switchPersona} />
         </div>
       </div>
-      <BriefBody brief={brief} speaking={speaking} regening={regening} onSpeak={speak} onRebrief={() => load(true)} />
+      <BriefBody brief={brief!} speaking={speaking} regening={regening} onSpeak={speak} onRebrief={() => load(true)} />
     </Card>
   );
 }

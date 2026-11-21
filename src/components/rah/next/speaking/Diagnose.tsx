@@ -23,6 +23,7 @@ export function DiagnosePhase(props: {
   setAudioB64: (v: null) => void;
   setHeard: (v: string) => void;
   setAiErr: (v: string) => void;
+  setAttempts: (v: Attempt[]) => void;
   runCoach: (b64: string | null, typed: string) => Promise<void>;
   saveAttempt: (logMinutes: boolean) => Promise<void>;
   setPhase: (v: "record" | "again") => void;

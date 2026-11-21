@@ -78,7 +78,7 @@ export default function SpeedRound({ onChange }: { onChange: () => void }) {
     setItems(j.items ?? []);
     setBest(j.best ?? 0);
     setBestCombo(j.bestCombo ?? 0);
-    resetRun(setIdx, setCombo, tallyRef, setTally, setResult, setInput, setFlash, setLeft);
+    resetRun({ setIdx, setCombo, tallyRef, setTally, setResult, setInput, setFlash, setLeft });
     startedAt.current = Date.now();
     setPhase("running");
     timerRef.current = startSpeedTimer(startedAt, setLeft, stopTimer, () => void finish(tallyRef.current));
@@ -141,24 +141,26 @@ function applySpeedResult(
   }
 }
 
-function resetRun(
-  setIdx: (n: number) => void,
-  setCombo: (n: number) => void,
-  tallyRef: { current: SpeedTally },
-  setTally: (t: SpeedTally) => void,
-  setResult: (r: Result | null) => void,
-  setInput: (s: string) => void,
-  setFlash: (f: "ok" | "miss" | null) => void,
-  setLeft: (n: number) => void,
-) {
-  setIdx(0);
-  setCombo(0);
-  tallyRef.current = { correct: 0, total: 0, maxCombo: 0, score: 0 };
-  setTally(tallyRef.current);
-  setResult(null);
-  setInput("");
-  setFlash(null);
-  setLeft(ROUND_MS);
+type RunReset = {
+  setIdx: (n: number) => void;
+  setCombo: (n: number) => void;
+  tallyRef: { current: SpeedTally };
+  setTally: (t: SpeedTally) => void;
+  setResult: (r: Result | null) => void;
+  setInput: (s: string) => void;
+  setFlash: (f: "ok" | "miss" | null) => void;
+  setLeft: (n: number) => void;
+};
+
+function resetRun(o: RunReset) {
+  o.setIdx(0);
+  o.setCombo(0);
+  o.tallyRef.current = { correct: 0, total: 0, maxCombo: 0, score: 0 };
+  o.setTally(o.tallyRef.current);
+  o.setResult(null);
+  o.setInput("");
+  o.setFlash(null);
+  o.setLeft(ROUND_MS);
 }
 
 function startSpeedTimer(

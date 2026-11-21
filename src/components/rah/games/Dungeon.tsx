@@ -77,7 +77,6 @@ export default function Dungeon({ onChange }: { onChange: () => void }) {
   if (!run) return <Spinner label="Lighting the torches..." />;
   const all = run.floors.flatMap((f) => f.items);
   const item = current >= 0 ? all[current] : null;
-  const floorOf = (i: number) => run.floors[Math.floor(i / 4)];
 
   return (
     <div className="flex flex-col gap-4">

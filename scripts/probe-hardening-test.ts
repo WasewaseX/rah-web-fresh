@@ -27,14 +27,14 @@ async function consentCount(): Promise<number> {
   return db.setting.count({ where: { key: { startsWith: "re:consent:" } } });
 }
 
-async function main() {
-  const rec = toolByName("re_case_record")!;
-  const up = toolByName("re_sample_upload")!;
-  const theme = toolByName("set_theme")!;
-  const flags = toolByName("triage_flags")!;
 
+// Section 1: case save/delete suppressed under probe (verbatim from main).
+async function caseRecordProbe(
+  rec: { run: (arg: Record<string, unknown>) => Promise<{ ok: boolean; summary: string; detail?: unknown }> },
+  caseCount: () => Promise<number>,
+  c0: number,
+) {
   // ---------- re_case_record: save / delete suppressed under probe ----------
-  const c0 = await caseCount();
   const saveP = await rec.run({ action: "save", case_id: "probe-hardening-tmp", title: "probe", data: "x", _probe: true });
   check("case save probe: ok dry-run", saveP.ok === true && /dry-run/i.test(saveP.summary), saveP.summary);
   check("case save probe: nothing written", (await caseCount()) === c0, `count ${c0}->${await caseCount()}`);
@@ -46,6 +46,16 @@ async function main() {
   // list/get stay READABLE under probe (batteries may inspect)
   const listP = await rec.run({ action: "list", _probe: true });
   check("case list probe: still readable", listP.ok === true, listP.summary);
+}
+
+async function main() {
+  const rec = toolByName("re_case_record")!;
+  const up = toolByName("re_sample_upload")!;
+  const theme = toolByName("set_theme")!;
+  const flags = toolByName("triage_flags")!;
+
+  const c0 = await caseCount();
+  await caseRecordProbe(rec, caseCount, c0);
 
   // ---------- re_case_record: real path still writes and cleans up ----------
   const saveR = await rec.run({ action: "save", case_id: "probe-hardening-tmp", title: "real", data: { hello: 1 } });

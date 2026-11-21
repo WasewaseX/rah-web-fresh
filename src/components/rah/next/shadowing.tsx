@@ -49,6 +49,213 @@ interface ShadowResponse {
   threshold: number;
 }
 
+type Setter<T> = (v: T | ((prev: T) => T)) => void;
+
+function loadShadowData(o: {
+  setTargets: (t: ShadowTarget[]) => void;
+  setThreshold: (n: number) => void;
+  setRecurring: (r: Recurring[]) => void;
+  recRef: { current: MediaRecorder | null };
+}) {
+  fetch("/api/speak/shadow", { cache: "no-store" })
+    .then((r) => r.json())
+    .then((j) => {
+      o.setTargets(Array.isArray(j.targets) ? j.targets : []);
+      o.setThreshold(Number(j.threshold ?? 3));
+      o.setRecurring(Array.isArray(j.recurring) ? j.recurring : []);
+    })
+    .catch(() => o.setTargets([]));
+  return () => {
+    try {
+      o.recRef.current?.stream.getTracks().forEach((t) => t.stop());
+    } catch {
+      /* already gone */
+    }
+  };
+}
+
+async function finishShadow(o: {
+  rec: MediaRecorder;
+  stream: MediaStream;
+  chunks: Blob[];
+  target: ShadowTarget;
+  setBusy: (v: boolean) => void;
+  setRes: (r: ShadowResponse | null) => void;
+  setRecurring: (r: Recurring[]) => void;
+  setError: (e: string) => void;
+  onDone: () => void;
+}) {
+  o.stream.getTracks().forEach((t) => t.stop());
+  o.setBusy(true);
+  try {
+    const blob = new Blob(o.chunks, { type: o.rec.mimeType || "audio/webm" });
+    const audio = await clipToWav16kMono(blob);
+    const r = await fetch("/api/speak/shadow", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ target: o.target.text, targetId: o.target.id, audio }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error ?? "Shadowing check failed.");
+    o.setRes(j as ShadowResponse);
+    if (Array.isArray(j.recurring)) o.setRecurring(j.recurring);
+    o.onDone();
+  } catch (e) {
+    o.setError((e as Error).message);
+  } finally {
+    o.setBusy(false);
+  }
+}
+
+async function startShadowRecording(o: {
+  target: ShadowTarget;
+  chunksRef: { current: Blob[] };
+  recRef: { current: MediaRecorder | null };
+  setRecording: (v: boolean) => void;
+  setBusy: (v: boolean) => void;
+  setRes: (r: ShadowResponse | null) => void;
+  setRecurring: (r: Recurring[]) => void;
+  setError: (e: string) => void;
+  onDone: () => void;
+}) {
+  o.setError("");
+  o.setRes(null);
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const rec = new MediaRecorder(stream);
+    o.chunksRef.current = [];
+    rec.ondataavailable = (e) => {
+      if (e.data.size > 0) o.chunksRef.current.push(e.data);
+    };
+    rec.onstop = () =>
+      void finishShadow({ rec, stream, chunks: o.chunksRef.current, target: o.target, setBusy: o.setBusy, setRes: o.setRes, setRecurring: o.setRecurring, setError: o.setError, onDone: o.onDone });
+    o.recRef.current = rec;
+    rec.start();
+    o.setRecording(true);
+  } catch {
+    o.setError("Microphone unavailable - allow mic access and try again.");
+  }
+}
+
+function ShadowHeader({ target, idx, count, threshold }: { target: ShadowTarget; idx: number; count: number; threshold: number }) {
+  return (
+    <div className="flex items-center justify-between gap-2 mb-4">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="chip chip-accent">{target.focusLabel}</span>
+        <span className="chip">shadow {idx + 1}/{count}</span>
+      </div>
+      <div className="text-[12.5px] font-semibold" style={{ color: "var(--muted)" }}>
+        a word missed {threshold}× becomes a review card
+      </div>
+    </div>
+  );
+}
+
+function ShadowControls({ recording, busy, hasAttempt, rate, setRate, onHear, onStop, onStart, onNext }: {
+  recording: boolean;
+  busy: boolean;
+  hasAttempt: boolean;
+  rate: number;
+  setRate: Setter<number>;
+  onHear: (slow?: boolean) => void;
+  onStop: () => void;
+  onStart: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <>
+      <div className="flex gap-2 mt-4 flex-wrap items-center">
+        <button className="btn-ghost text-[13px]" onClick={() => onHear(false)}>
+          Hear it {rate === 0.85 ? "(slow)" : "(natural)"}
+        </button>
+        <button className="btn-ghost text-[13px]" onClick={() => setRate((r) => (r === 0.85 ? 1 : 0.85))}>
+          Speed: {rate === 0.85 ? "0.85x" : "1.0x"}
+        </button>
+      </div>
+      <div className="flex gap-2 mt-5 flex-wrap items-center">
+        {!recording ? (
+          <button className="btn-primary" onClick={onStart} disabled={busy}>
+            {hasAttempt ? "Record again" : "Record your imitation"}
+          </button>
+        ) : (
+          <button className="btn-primary" style={{ background: "var(--danger)" }} onClick={onStop}>
+            Stop
+          </button>
+        )}
+        <button className="btn-ghost text-[13px]" onClick={onNext}>
+          Next sentence
+        </button>
+        {recording ? <span className="chip" style={{ color: "var(--danger)" }}>recording…</span> : null}
+      </div>
+    </>
+  );
+}
+
+function ShadowReportView({ res, report }: { res: ShadowResponse; report: ShadowReport }) {
+  return (
+    <div className="mt-6">
+      <div className="flex flex-wrap items-baseline gap-3">
+        <div className="display text-[38px] font-bold leading-none">{report.accuracy}</div>
+        <div className="text-[12.5px] font-semibold" style={{ color: "var(--muted)" }}>word accuracy</div>
+        <span className="chip">measured: word-level (ASR alignment)</span>
+      </div>
+      <p className="mt-3 text-[13px]" style={{ color: "var(--muted)" }}>
+        Heard: <i>{res.transcript}</i>
+      </p>
+      <div className="mt-4 flex flex-wrap gap-1.5">
+        {report.words.map((w, i) => (
+          <span
+            key={i}
+            title={w.status === "hit" ? "matched" : `heard: ${w.heard ?? "(nothing)"}`}
+            className={`rounded-lg border px-2 py-1 text-xs font-bold ${WORD_STYLE[w.status] ?? WORD_STYLE.miss}`}
+          >
+            {w.target}
+          </span>
+        ))}
+      </div>
+      <p className="mt-3 text-[12.5px]" style={{ color: "var(--muted)" }}>
+        {report.near > 0 ? "Amber words were heard as something close (half credit). " : ""}
+        {report.misses > 0 ? "Red words were not recognized. " : ""}
+        {report.extra.length > 0 ? `Extra words heard: ${report.extra.join(", ")}.` : ""}
+      </p>
+      {res.minted.length > 0 ? (
+        <div className="mt-4">
+          <Note tone="accent">
+            Recurring: “{res.minted.join("”, “")}” just crossed the {res.threshold}-miss line and is now in your review
+            queue with the sentence that exposed it.
+          </Note>
+        </div>
+      ) : null}
+      <div className="mt-3">
+        <Note>{report.note}</Note>
+      </div>
+    </div>
+  );
+}
+
+function RecurringList({ recurring, threshold }: { recurring: Recurring[]; threshold: number }) {
+  return (
+    <div className="card-rah p-6 max-w-2xl mx-auto mt-4">
+      <div className="font-bold text-[14.5px] mb-1">Your recurring shadow misses</div>
+      <p className="text-[12.5px] mb-3" style={{ color: "var(--muted)" }}>
+        Every word the recognizer could not match, across all attempts. At {threshold} misses the word becomes a review card.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {recurring.map((r) => (
+          <span
+            key={r.word}
+            className={`rounded-lg border px-2.5 py-1.5 text-[12.5px] font-bold ${WORD_STYLE[r.count >= threshold ? "miss" : "near"]}`}
+            title={r.lastHeard ? `last heard as "${r.lastHeard}"` : "not recognized"}
+          >
+            {r.word} ×{r.count}
+            {r.cardExists ? " · card ✓" : ""}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function Shadowing({ onDone }: { onDone: () => void }) {
   const [targets, setTargets] = useState<ShadowTarget[]>([]);
   const [idx, setIdx] = useState(0);
@@ -62,23 +269,7 @@ export default function Shadowing({ onDone }: { onDone: () => void }) {
   const recRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
-  useEffect(() => {
-    fetch("/api/speak/shadow", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((j) => {
-        setTargets(Array.isArray(j.targets) ? j.targets : []);
-        setThreshold(Number(j.threshold ?? 3));
-        setRecurring(Array.isArray(j.recurring) ? j.recurring : []);
-      })
-      .catch(() => setTargets([]));
-    return () => {
-      try {
-        recRef.current?.stream.getTracks().forEach((t) => t.stop());
-      } catch {
-        /* already gone */
-      }
-    };
-  }, []);
+  useEffect(() => loadShadowData({ setTargets, setThreshold, setRecurring, recRef }), []);
 
   const target = targets[idx];
 
@@ -96,45 +287,9 @@ export default function Shadowing({ onDone }: { onDone: () => void }) {
     setRecording(false);
   };
 
-  const start = async () => {
+  const start = () => {
     if (!target) return;
-    setError("");
-    setRes(null);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const rec = new MediaRecorder(stream);
-      chunksRef.current = [];
-      rec.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-      rec.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop());
-        setBusy(true);
-        try {
-          const blob = new Blob(chunksRef.current, { type: rec.mimeType || "audio/webm" });
-          const audio = await clipToWav16kMono(blob);
-          const r = await fetch("/api/speak/shadow", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ target: target.text, targetId: target.id, audio }),
-          });
-          const j = await r.json();
-          if (!r.ok) throw new Error(j.error ?? "Shadowing check failed.");
-          setRes(j as ShadowResponse);
-          if (Array.isArray(j.recurring)) setRecurring(j.recurring);
-          onDone();
-        } catch (e) {
-          setError((e as Error).message);
-        } finally {
-          setBusy(false);
-        }
-      };
-      recRef.current = rec;
-      rec.start();
-      setRecording(true);
-    } catch {
-      setError("Microphone unavailable - allow mic access and try again.");
-    }
+    void startShadowRecording({ target, chunksRef, recRef, setRecording, setBusy, setRes, setRecurring, setError, onDone });
   };
 
   const next = () => {
@@ -154,85 +309,13 @@ export default function Shadowing({ onDone }: { onDone: () => void }) {
       />
       {target ? (
         <div className="card-rah p-6 max-w-2xl mx-auto">
-          <div className="flex items-center justify-between gap-2 mb-4">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="chip chip-accent">{target.focusLabel}</span>
-              <span className="chip">shadow {idx + 1}/{targets.length}</span>
-            </div>
-            <div className="text-[12.5px] font-semibold" style={{ color: "var(--muted)" }}>
-              a word missed {threshold}× becomes a review card
-            </div>
-          </div>
-
+          <ShadowHeader target={target} idx={idx} count={targets.length} threshold={threshold} />
           <p className="text-[16.5px] leading-relaxed font-semibold">{target.text}</p>
-
-          <div className="flex gap-2 mt-4 flex-wrap items-center">
-            <button className="btn-ghost text-[13px]" onClick={() => hear(false)}>
-              Hear it {rate === 0.85 ? "(slow)" : "(natural)"}
-            </button>
-            <button className="btn-ghost text-[13px]" onClick={() => setRate((r) => (r === 0.85 ? 1 : 0.85))}>
-              Speed: {rate === 0.85 ? "0.85x" : "1.0x"}
-            </button>
-          </div>
-
-          <div className="flex gap-2 mt-5 flex-wrap items-center">
-            {!recording ? (
-              <button className="btn-primary" onClick={start} disabled={busy}>
-                {res || error ? "Record again" : "Record your imitation"}
-              </button>
-            ) : (
-              <button className="btn-primary" style={{ background: "var(--danger)" }} onClick={stop}>
-                Stop
-              </button>
-            )}
-            <button className="btn-ghost text-[13px]" onClick={next}>
-              Next sentence
-            </button>
-            {recording ? <span className="chip" style={{ color: "var(--danger)" }}>recording…</span> : null}
-          </div>
-
+          <ShadowControls recording={recording} busy={busy} hasAttempt={Boolean(res || error)} rate={rate} setRate={setRate}
+            onHear={hear} onStop={stop} onStart={start} onNext={next} />
           {busy ? <div className="mt-4 text-[13px]" style={{ color: "var(--muted)" }}>Scoring your audio…</div> : null}
           {error ? <div className="mt-4"><Note tone="error">{error}</Note></div> : null}
-
-          {report ? (
-            <div className="mt-6">
-              <div className="flex flex-wrap items-baseline gap-3">
-                <div className="display text-[38px] font-bold leading-none">{report.accuracy}</div>
-                <div className="text-[12.5px] font-semibold" style={{ color: "var(--muted)" }}>word accuracy</div>
-                <span className="chip">measured: word-level (ASR alignment)</span>
-              </div>
-              <p className="mt-3 text-[13px]" style={{ color: "var(--muted)" }}>
-                Heard: <i>{res?.transcript}</i>
-              </p>
-              <div className="mt-4 flex flex-wrap gap-1.5">
-                {report.words.map((w, i) => (
-                  <span
-                    key={i}
-                    title={w.status === "hit" ? "matched" : `heard: ${w.heard ?? "(nothing)"}`}
-                    className={`rounded-lg border px-2 py-1 text-xs font-bold ${WORD_STYLE[w.status] ?? WORD_STYLE.miss}`}
-                  >
-                    {w.target}
-                  </span>
-                ))}
-              </div>
-              <p className="mt-3 text-[12.5px]" style={{ color: "var(--muted)" }}>
-                {report.near > 0 ? "Amber words were heard as something close (half credit). " : ""}
-                {report.misses > 0 ? "Red words were not recognized. " : ""}
-                {report.extra.length > 0 ? `Extra words heard: ${report.extra.join(", ")}.` : ""}
-              </p>
-              {res && res.minted.length > 0 ? (
-                <div className="mt-4">
-                  <Note tone="accent">
-                    Recurring: “{res.minted.join("”, “")}” just crossed the {res.threshold}-miss line and is now in your review
-                    queue with the sentence that exposed it.
-                  </Note>
-                </div>
-              ) : null}
-              <div className="mt-3">
-                <Note>{report.note}</Note>
-              </div>
-            </div>
-          ) : null}
+          {report && res ? <ShadowReportView res={res} report={report} /> : null}
         </div>
       ) : (
         <div className="card-rah p-6 max-w-2xl mx-auto text-[13.5px]" style={{ color: "var(--muted)" }}>
@@ -240,26 +323,7 @@ export default function Shadowing({ onDone }: { onDone: () => void }) {
         </div>
       )}
 
-      {recurring.length > 0 ? (
-        <div className="card-rah p-6 max-w-2xl mx-auto mt-4">
-          <div className="font-bold text-[14.5px] mb-1">Your recurring shadow misses</div>
-          <p className="text-[12.5px] mb-3" style={{ color: "var(--muted)" }}>
-            Every word the recognizer could not match, across all attempts. At {threshold} misses the word becomes a review card.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {recurring.map((r) => (
-              <span
-                key={r.word}
-                className={`rounded-lg border px-2.5 py-1.5 text-[12.5px] font-bold ${WORD_STYLE[r.count >= threshold ? "miss" : "near"]}`}
-                title={r.lastHeard ? `last heard as "${r.lastHeard}"` : "not recognized"}
-              >
-                {r.word} ×{r.count}
-                {r.cardExists ? " · card ✓" : ""}
-              </span>
-            ))}
-          </div>
-        </div>
-      ) : null}
+      {recurring.length > 0 ? <RecurringList recurring={recurring} threshold={threshold} /> : null}
     </div>
   );
 }

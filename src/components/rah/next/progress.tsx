@@ -66,6 +66,205 @@ const DIR_LABELS: Record<string, string> = {
   sent: "Use in your own sentence",
 };
 
+function ErrorState({ err }: { err: string }) {
+  const auth = err.toLowerCase().includes("sign in");
+  return (
+    <div className="max-w-xl mx-auto text-center pt-16">
+      <div className="display text-[26px] font-bold mb-2">Progress is resting.</div>
+      <p className="text-[14px] mb-6 leading-relaxed" style={{ color: "var(--muted)" }}>
+        {auth
+          ? "Your session expired, so your history stays private. Sign in again from the Home screen and this page fills in."
+          : err + " Give it a moment and reopen this page - nothing is lost."}
+      </p>
+    </div>
+  );
+}
+
+function FortnightCard({ byDay, maxDay, reviews14, bestDay }: {
+  byDay: { day: number; count: number }[];
+  maxDay: number;
+  reviews14: number;
+  bestDay: number;
+}) {
+  return (
+    <div className="card-rah p-6">
+      <div className="font-bold text-[14.5px] mb-4">Retrievals, last 14 days</div>
+      {/* Task 112: the bars used to be percentage-height divs inside
+         auto-height flex columns, so every percentage resolved against an
+         indefinite box and collapsed to its minHeight - a best-day-15
+         fortnight rendered as 2px dashes. Bars are now direct children of
+         a definite-height row; the weekday labels moved to their own row. */}
+      <div className="flex items-end gap-1.5 h-32">
+        {byDay.map((x) => (
+          <div
+            key={x.day}
+            className="flex-1 rounded-t-md transition-all"
+            style={{ height: `${(x.count / maxDay) * 100}%`, minHeight: x.count ? 4 : 2, background: x.count ? "var(--accent)" : "var(--rah-dot)" }}
+            title={`${x.count} retrievals`}
+          />
+        ))}
+      </div>
+      <div className="mt-1.5 flex gap-1.5">
+        {byDay.map((x) => (
+          <span key={x.day} className="flex-1 text-center text-[11px]" style={{ color: "var(--muted)" }}>
+            {x.day % 7 === 0 ? new Date(x.day * 86400000).toLocaleDateString("en", { weekday: "short" }).slice(0, 2) : ""}
+          </span>
+        ))}
+      </div>
+      {reviews14 === 0 ? (
+        <p className="text-[12px] mt-3" style={{ color: "var(--muted)" }}>A quiet fortnight. Every bar is a day; take a review session and the first bar lights up.</p>
+      ) : (
+        <p className="text-[12px] mt-3" style={{ color: "var(--muted)" }}>{reviews14} retrievals across the fortnight{bestDay >= 4 ? `, best day ${bestDay}` : ""}.</p>
+      )}
+    </div>
+  );
+}
+
+function StrandsCard({ strands, totalStrandMin }: { strands: Record<string, number>; totalStrandMin: number }) {
+  return (
+    <div className="card-rah p-6">
+      <div className="font-bold text-[14.5px] mb-4">Four strands balance, last 7 days</div>
+      {/* Task 109: the old condition keyed on totalReviews (all-time), so a
+         learner with history but no logged minutes in the WINDOW rendered
+         a card with a title and nothing under it. Key on the strands map
+         itself - an empty map means nothing to show in this window. */}
+      {!Object.keys(strands).length ? (
+        <p className="max-w-[42rem] text-[13px]" style={{ color: "var(--muted)" }}>No strand time logged this week. Review, listening, reading, speaking and writing each land here as minutes.</p>
+      ) : (
+        <>
+          {/* Task 117: one hue stepped by LIGHTNESS, largest strand
+             brightest - the old per-strand hue rainbow retired with the
+             tile fills. Legend swatches make the mapping explicit (the
+             old chart colored by insertion order while the legend sorted
+             by minutes, so no viewer could match them). */}
+          {(() => {
+            const rows = Object.entries(strands).sort((a, b) => b[1] - a[1]);
+            const RAMP = ["#4e8cff", "#2f62c4", "#2650a3", "#1d3f82", "#16315f", "#475569"];
+            const tone = (i: number) => RAMP[Math.min(i, RAMP.length - 1)];
+            return (
+              <>
+                <div className="flex h-4 rounded-full overflow-hidden mb-4">
+                  {rows.map(([k, v], i) => (
+                    <div key={k} style={{ width: `${(v / totalStrandMin) * 100}%`, background: tone(i) }} />
+                  ))}
+                </div>
+                {rows.map(([k, v], i) => (
+                  <div key={k} className="flex items-center justify-between py-1 text-[13px]">
+                    <span className="flex items-center gap-2 font-semibold">
+                      <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-[3px]" style={{ background: tone(i) }} />
+                      {STRAND_LABELS[k] ?? k}
+                    </span>
+                    <span style={{ color: "var(--muted)" }}>{v} min</span>
+                  </div>
+                ))}
+              </>
+            );
+          })()}
+        </>
+      )}
+    </div>
+  );
+}
+
+function MasteryCard({ mastery, deck, maturePct }: {
+  mastery: ProgressData["mastery"];
+  deck: number;
+  maturePct: number;
+}) {
+  return (
+    <div className="card-rah p-6">
+      <div className="font-bold text-[14.5px] mb-4">Memory state of the deck</div>
+      {[
+        { label: "new, not started yet", v: mastery.new, color: "var(--rah-deck-new)" },
+        { label: "young, still fragile", v: mastery.young, color: "var(--gold)" },
+        { label: "mature, 21+ day intervals", v: mastery.mature, color: "var(--accent)" },
+      ].map((row) => (
+        <div key={row.label} className="mb-3">
+          <div className="flex justify-between text-[13px] mb-1">
+            <span className="font-semibold">{row.label}</span>
+            <span style={{ color: "var(--muted)" }}>{row.v} cards</span>
+          </div>
+          <Bar pct={(row.v / deck) * 100} color={row.color} />
+        </div>
+      ))}
+      <div className="text-[12px] mt-3" style={{ color: "var(--muted)" }}>
+        {maturePct}% of started cards are mature. {mastery.lapses} cards have lapsed at least once, they get tighter intervals automatically.
+      </div>
+    </div>
+  );
+}
+
+function DirsCard({ dirs }: { dirs: Record<string, number> }) {
+  return (
+    <div className="card-rah p-6">
+      <div className="font-bold text-[14.5px] mb-4">Accuracy by retrieval direction</div>
+      {Object.keys(dirs).length === 0 ? (
+        <p className="max-w-[42rem] text-[13px]" style={{ color: "var(--muted)" }}>Take a review session and your weakest direction shows up here.</p>
+      ) : (
+        Object.entries(DIR_LABELS).map(([k, label]) =>
+          dirs[k] !== undefined ? (
+            <div key={k} className="mb-3">
+              <div className="flex justify-between text-[13px] mb-1">
+                <span className="font-semibold">{label}</span>
+                <span style={{ color: "var(--muted)" }}>{dirs[k]}%</span>
+              </div>
+              <Bar pct={dirs[k]} color={dirs[k] >= 70 ? "var(--accent)" : "var(--gold)"} />
+            </div>
+          ) : null
+        )
+      )}
+      <div className="text-[12px] mt-2" style={{ color: "var(--muted)" }}>
+        Producing from Farsi is harder than recognizing English, so a lower fae score is normal. It is also the direction that makes speech possible.
+      </div>
+    </div>
+  );
+}
+
+function CalendarCard({ calendar, bestStreak }: { calendar: ProgressData["calendar"]; bestStreak: number }) {
+  return (
+    <div className="card-rah p-6 mb-5">
+      <div className="font-bold text-[14.5px] mb-4">Active days, last five weeks</div>
+      <div className="flex gap-1.5 flex-wrap">
+        {calendar.map((c) => (
+          <div
+            key={c.day}
+            className="w-5 h-5 rounded"
+            style={{ background: c.active ? "var(--accent)" : "var(--rah-dot)" }}
+            title={new Date(c.day * 86400000).toLocaleDateString()}
+          />
+        ))}
+      </div>
+      <div className="text-[12px] mt-3" style={{ color: "var(--muted)" }}>
+        Consistency beats intensity: distributed practice outperforms cramming at every skill level measured. Best streak so far: {bestStreak} days.
+      </div>
+    </div>
+  );
+}
+
+function CheckpointsCard({ checkpoints }: { checkpoints: ProgressData["checkpoints"] }) {
+  return (
+    <div className="card-rah p-6">
+      <div className="font-bold text-[14.5px] mb-4">Checkpoint scores over time</div>
+      <div className="flex items-end gap-6 h-32">
+        {checkpoints.map((c, i) => (
+          <div key={i} className="flex-1 flex items-end gap-2">
+            <div className="flex-1 flex flex-col justify-end">
+              <div className="rounded-t-md" style={{ height: `${c.listeningPct}%`, background: "var(--accent)", minHeight: 4 }} title={`listening ${c.listeningPct}%`} />
+            </div>
+            <div className="flex-1 flex flex-col justify-end">
+              <div className="rounded-t-md" style={{ height: `${c.readingScore}%`, background: "var(--gold)", minHeight: 4 }} title={`reading ${c.readingScore}%`} />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="flex gap-6 mt-2">
+        <span className="text-[12px] flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: "var(--accent)" }} /> listening</span>
+        <span className="text-[12px] flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: "var(--gold)" }} /> reading</span>
+      </div>
+    </div>
+  );
+}
+
 export default function ProgressView({ boot }: { boot: Boot }) {
   const [d, setD] = useState<ProgressData | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -81,20 +280,7 @@ export default function ProgressView({ boot }: { boot: Boot }) {
       .catch(() => setErr("Could not reach the server."));
   }, []);
 
-  if (err) {
-    const auth = err.toLowerCase().includes("sign in");
-    return (
-      <div className="max-w-xl mx-auto text-center pt-16">
-        <div className="display text-[26px] font-bold mb-2">Progress is resting.</div>
-        <p className="text-[14px] mb-6 leading-relaxed" style={{ color: "var(--muted)" }}>
-          {auth
-            ? "Your session expired, so your history stays private. Sign in again from the Home screen and this page fills in."
-            : err + " Give it a moment and reopen this page - nothing is lost."}
-        </p>
-      </div>
-    );
-  }
-
+  if (err) return <ErrorState err={err} />;
   if (!d) return <div className="py-20 text-center text-[14px]" style={{ color: "var(--muted)" }}>crunching your history...</div>;
 
   const deck = d.deckTotal ?? 218;
@@ -130,162 +316,18 @@ export default function ProgressView({ boot }: { boot: Boot }) {
       </div>
 
       <div className="grid md:grid-cols-2 gap-4 mb-5">
-        <div className="card-rah p-6">
-          <div className="font-bold text-[14.5px] mb-4">Retrievals, last 14 days</div>
-          {/* Task 112: the bars used to be percentage-height divs inside
-             auto-height flex columns, so every percentage resolved against an
-             indefinite box and collapsed to its minHeight - a best-day-15
-             fortnight rendered as 2px dashes. Bars are now direct children of
-             a definite-height row; the weekday labels moved to their own row. */}
-          <div className="flex items-end gap-1.5 h-32">
-            {d.byDay.map((x) => (
-              <div
-                key={x.day}
-                className="flex-1 rounded-t-md transition-all"
-                style={{ height: `${(x.count / maxDay) * 100}%`, minHeight: x.count ? 4 : 2, background: x.count ? "var(--accent)" : "var(--rah-dot)" }}
-                title={`${x.count} retrievals`}
-              />
-            ))}
-          </div>
-          <div className="mt-1.5 flex gap-1.5">
-            {d.byDay.map((x) => (
-              <span key={x.day} className="flex-1 text-center text-[11px]" style={{ color: "var(--muted)" }}>
-                {x.day % 7 === 0 ? new Date(x.day * 86400000).toLocaleDateString("en", { weekday: "short" }).slice(0, 2) : ""}
-              </span>
-            ))}
-          </div>
-          {reviews14 === 0 ? (
-            <p className="text-[12px] mt-3" style={{ color: "var(--muted)" }}>A quiet fortnight. Every bar is a day; take a review session and the first bar lights up.</p>
-          ) : (
-            <p className="text-[12px] mt-3" style={{ color: "var(--muted)" }}>{reviews14} retrievals across the fortnight{bestDay >= 4 ? `, best day ${bestDay}` : ""}.</p>
-          )}
-        </div>
-
-        <div className="card-rah p-6">
-          <div className="font-bold text-[14.5px] mb-4">Four strands balance, last 7 days</div>
-          {/* Task 109: the old condition keyed on totalReviews (all-time), so a
-             learner with history but no logged minutes in the WINDOW rendered
-             a card with a title and nothing under it. Key on the strands map
-             itself - an empty map means nothing to show in this window. */}
-          {!Object.keys(d.strands).length ? (
-            <p className="max-w-[42rem] text-[13px]" style={{ color: "var(--muted)" }}>No strand time logged this week. Review, listening, reading, speaking and writing each land here as minutes.</p>
-          ) : (
-            <>
-              {/* Task 117: one hue stepped by LIGHTNESS, largest strand
-                 brightest - the old per-strand hue rainbow retired with the
-                 tile fills. Legend swatches make the mapping explicit (the
-                 old chart colored by insertion order while the legend sorted
-                 by minutes, so no viewer could match them). */}
-              {(() => {
-                const rows = Object.entries(d.strands).sort((a, b) => b[1] - a[1]);
-                const RAMP = ["#4e8cff", "#2f62c4", "#2650a3", "#1d3f82", "#16315f", "#475569"];
-                const tone = (i: number) => RAMP[Math.min(i, RAMP.length - 1)];
-                return (
-                  <>
-                    <div className="flex h-4 rounded-full overflow-hidden mb-4">
-                      {rows.map(([k, v], i) => (
-                        <div key={k} style={{ width: `${(v / totalStrandMin) * 100}%`, background: tone(i) }} />
-                      ))}
-                    </div>
-                    {rows.map(([k, v], i) => (
-                      <div key={k} className="flex items-center justify-between py-1 text-[13px]">
-                        <span className="flex items-center gap-2 font-semibold">
-                          <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-[3px]" style={{ background: tone(i) }} />
-                          {STRAND_LABELS[k] ?? k}
-                        </span>
-                        <span style={{ color: "var(--muted)" }}>{v} min</span>
-                      </div>
-                    ))}
-                  </>
-                );
-              })()}
-            </>
-          )}
-        </div>
+        <FortnightCard byDay={d.byDay} maxDay={maxDay} reviews14={reviews14} bestDay={bestDay} />
+        <StrandsCard strands={d.strands} totalStrandMin={totalStrandMin} />
       </div>
 
       <div className="grid md:grid-cols-2 gap-4 mb-5">
-        <div className="card-rah p-6">
-          <div className="font-bold text-[14.5px] mb-4">Memory state of the deck</div>
-          {[
-            { label: "new, not started yet", v: d.mastery.new, color: "var(--rah-deck-new)" },
-            { label: "young, still fragile", v: d.mastery.young, color: "var(--gold)" },
-            { label: "mature, 21+ day intervals", v: d.mastery.mature, color: "var(--accent)" },
-          ].map((row) => (
-            <div key={row.label} className="mb-3">
-              <div className="flex justify-between text-[13px] mb-1">
-                <span className="font-semibold">{row.label}</span>
-                <span style={{ color: "var(--muted)" }}>{row.v} cards</span>
-              </div>
-              <Bar pct={(row.v / deck) * 100} color={row.color} />
-            </div>
-          ))}
-          <div className="text-[12px] mt-3" style={{ color: "var(--muted)" }}>
-            {maturePct}% of started cards are mature. {d.mastery.lapses} cards have lapsed at least once, they get tighter intervals automatically.
-          </div>
-        </div>
-
-        <div className="card-rah p-6">
-          <div className="font-bold text-[14.5px] mb-4">Accuracy by retrieval direction</div>
-          {Object.keys(d.dirs).length === 0 ? (
-            <p className="max-w-[42rem] text-[13px]" style={{ color: "var(--muted)" }}>Take a review session and your weakest direction shows up here.</p>
-          ) : (
-            Object.entries(DIR_LABELS).map(([k, label]) =>
-              d.dirs[k] !== undefined ? (
-                <div key={k} className="mb-3">
-                  <div className="flex justify-between text-[13px] mb-1">
-                    <span className="font-semibold">{label}</span>
-                    <span style={{ color: "var(--muted)" }}>{d.dirs[k]}%</span>
-                  </div>
-                  <Bar pct={d.dirs[k]} color={d.dirs[k] >= 70 ? "var(--accent)" : "var(--gold)"} />
-                </div>
-              ) : null
-            )
-          )}
-          <div className="text-[12px] mt-2" style={{ color: "var(--muted)" }}>
-            Producing from Farsi is harder than recognizing English, so a lower fae score is normal. It is also the direction that makes speech possible.
-          </div>
-        </div>
+        <MasteryCard mastery={d.mastery} deck={deck} maturePct={maturePct} />
+        <DirsCard dirs={d.dirs} />
       </div>
 
-      <div className="card-rah p-6 mb-5">
-        <div className="font-bold text-[14.5px] mb-4">Active days, last five weeks</div>
-        <div className="flex gap-1.5 flex-wrap">
-          {d.calendar.map((c) => (
-            <div
-              key={c.day}
-              className="w-5 h-5 rounded"
-              style={{ background: c.active ? "var(--accent)" : "var(--rah-dot)" }}
-              title={new Date(c.day * 86400000).toLocaleDateString()}
-            />
-          ))}
-        </div>
-        <div className="text-[12px] mt-3" style={{ color: "var(--muted)" }}>
-          Consistency beats intensity: distributed practice outperforms cramming at every skill level measured. Best streak so far: {boot.learner.bestStreak} days.
-        </div>
-      </div>
+      <CalendarCard calendar={d.calendar} bestStreak={boot.learner.bestStreak} />
 
-      {d.checkpoints.length ? (
-        <div className="card-rah p-6">
-          <div className="font-bold text-[14.5px] mb-4">Checkpoint scores over time</div>
-          <div className="flex items-end gap-6 h-32">
-            {d.checkpoints.map((c, i) => (
-              <div key={i} className="flex-1 flex items-end gap-2">
-                <div className="flex-1 flex flex-col justify-end">
-                  <div className="rounded-t-md" style={{ height: `${c.listeningPct}%`, background: "var(--accent)", minHeight: 4 }} title={`listening ${c.listeningPct}%`} />
-                </div>
-                <div className="flex-1 flex flex-col justify-end">
-                  <div className="rounded-t-md" style={{ height: `${c.readingScore}%`, background: "var(--gold)", minHeight: 4 }} title={`reading ${c.readingScore}%`} />
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="flex gap-6 mt-2">
-            <span className="text-[12px] flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: "var(--accent)" }} /> listening</span>
-            <span className="text-[12px] flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: "var(--gold)" }} /> reading</span>
-          </div>
-        </div>
-      ) : null}
+      {d.checkpoints.length ? <CheckpointsCard checkpoints={d.checkpoints} /> : null}
 
       {/* Task 141 repair: the "next" rewrite of this view dropped the
          B1-C1 guide map entirely - GuidePanel stayed mounted only in the

@@ -84,13 +84,16 @@ function bandEvidence(gradedExams: { spec: string; result: string | null }[], sk
 // grade>=2 convention the grade route writes into DailyStat.correct.
 function weeklyStats(
   days: { day: number; reviews: number; correct: number; xp: number }[],
-  retrDays: { day: number; _count: { _all: number } }[],
-  states: { state: string; s: number; lapses: number }[],
-  strandRows: { strand: string; _sum: { minutes: number | null } }[],
-  checkpointRows: { day: number; listeningPct: number; readingScore: number }[],
-  dirAllRows: { dir: string; _count: { _all: number } }[],
-  dirOkRows: { dir: string; _count: { _all: number } }[],
+  d: {
+    retrDays: { day: number; _count: { _all: number } }[];
+    states: { state: string; s: number; lapses: number }[];
+    strandRows: { strand: string; _sum: { minutes: number | null } }[];
+    checkpointRows: { day: number; listeningPct: number; readingScore: number }[];
+    dirAllRows: { dir: string; _count: { _all: number } }[];
+    dirOkRows: { dir: string; _count: { _all: number } }[];
+  },
 ) {
+  const { retrDays, states, strandRows, checkpointRows, dirAllRows, dirOkRows } = d;
   const week = days.slice(-7);
   const prevWeek = days.slice(-14, -7);
   const retrMap = new Map(retrDays.map((r) => [r.day, r._count._all]));
@@ -192,7 +195,7 @@ export async function GET() {
   const writeTrend = trendOf(writes.map((w) => ({ at: w.at, result: w.result, keys: ["task", "organization", "range", "accuracy"] })));
   const speakTrend = trendOf(speaks.map((s) => ({ at: s.at, result: s.result, keys: ["fluency", "range", "accuracy", "delivery"] })));
   const bands = bandEvidence(gradedExams, skillLevels);
-  const weekStats = weeklyStats(days, retrDays, states, strandRows, checkpointRows, dirAllRows, dirOkRows);
+  const weekStats = weeklyStats(days, { retrDays, states, strandRows, checkpointRows, dirAllRows, dirOkRows });
 
   return NextResponse.json({
     days,

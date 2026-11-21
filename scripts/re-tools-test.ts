@@ -16,6 +16,39 @@ function check(name: string, cond: boolean, extra = "") {
   }
 }
 
+
+// Sections 7-7c: case roundtrip, probe hygiene, v2 dispatch (verbatim from main).
+async function caseAndProbeSections(
+  rec: NonNullable<ReturnType<typeof toolByName>>,
+  up: NonNullable<ReturnType<typeof toolByName>>,
+  lookup: NonNullable<ReturnType<typeof toolByName>>,
+) {
+  // 7. Case record roundtrip (save -> get -> list -> delete).
+  await rec.run({ action: "save", case_id: "smoke-roundtrip", title: "battery case", data: { n: 1 } });
+  const g = await rec.run({ action: "get", case_id: "smoke-roundtrip" });
+  check("case get", g.ok === true && /battery case/.test(String(g.detail)), g.summary);
+  const l = await rec.run({ action: "list" });
+  check("case list", l.ok === true && /smoke-roundtrip/.test(String(l.detail)), l.summary);
+  const del = await rec.run({ action: "delete", case_id: "smoke-roundtrip" });
+  check("case delete", del.ok === true, del.summary);
+
+  // 7b. Probe hygiene: DB-writing tools must suppress writes when _probe.
+  const pr = await rec.run({ action: "save", case_id: "probe-should-not-exist", title: "x", data: {}, _probe: true });
+  check("probe save suppressed", pr.ok === true && /suppressed|probe/i.test(pr.summary), pr.summary);
+  const prList = await rec.run({ action: "list" });
+  check("probe case absent from db", !/probe-should-not-exist/.test(String(prList.detail)));
+  const prUp = await up.run({ target: "virustotal", confirm: true, note: "probe", _probe: true });
+  check("probe consent suppressed", prUp.ok === true && /probe dry-run|nothing logged/i.test(prUp.summary), prUp.summary);
+
+  // 7c. v2 dispatch: IOC lookup on a domain and an IP (ThreatFox + URLhaus path).
+  const rDom = await lookup.run({ ioc: "example.com" });
+  check("domain lookup ok", rDom.ok === true && /ThreatFox/.test(rDom.summary), rDom.summary);
+  const rIp = await lookup.run({ ioc: "9.9.9.9" });
+  check("ip lookup ok", rIp.ok === true && /ThreatFox/.test(rIp.summary), rIp.summary);
+  const rJunk = await lookup.run({ ioc: "this is not an ioc at all" });
+  check("junk lookup refused", rJunk.ok === false, rJunk.summary);
+}
+
 async function main() {
   const norm = toolByName("re_ioc_normalize")!;
   const lookup = toolByName("re_intel_lookup")!;
@@ -69,30 +102,7 @@ async function main() {
   const r6 = await up.run({ target: "triage", confirm: true, note: "re-tools battery smoke" });
   check("consent logged + workflow returned", r6.ok === true && /tria\.ge/.test(String(r6.detail)), r6.summary);
 
-  // 7. Case record roundtrip (save -> get -> list -> delete).
-  await rec.run({ action: "save", case_id: "smoke-roundtrip", title: "battery case", data: { n: 1 } });
-  const g = await rec.run({ action: "get", case_id: "smoke-roundtrip" });
-  check("case get", g.ok === true && /battery case/.test(String(g.detail)), g.summary);
-  const l = await rec.run({ action: "list" });
-  check("case list", l.ok === true && /smoke-roundtrip/.test(String(l.detail)), l.summary);
-  const del = await rec.run({ action: "delete", case_id: "smoke-roundtrip" });
-  check("case delete", del.ok === true, del.summary);
-
-  // 7b. Probe hygiene: DB-writing tools must suppress writes when _probe.
-  const pr = await rec.run({ action: "save", case_id: "probe-should-not-exist", title: "x", data: {}, _probe: true });
-  check("probe save suppressed", pr.ok === true && /suppressed|probe/i.test(pr.summary), pr.summary);
-  const prList = await rec.run({ action: "list" });
-  check("probe case absent from db", !/probe-should-not-exist/.test(String(prList.detail)));
-  const prUp = await up.run({ target: "virustotal", confirm: true, note: "probe", _probe: true });
-  check("probe consent suppressed", prUp.ok === true && /probe dry-run|nothing logged/i.test(prUp.summary), prUp.summary);
-
-  // 7c. v2 dispatch: IOC lookup on a domain and an IP (ThreatFox + URLhaus path).
-  const rDom = await lookup.run({ ioc: "example.com" });
-  check("domain lookup ok", rDom.ok === true && /ThreatFox/.test(rDom.summary), rDom.summary);
-  const rIp = await lookup.run({ ioc: "9.9.9.9" });
-  check("ip lookup ok", rIp.ok === true && /ThreatFox/.test(rIp.summary), rIp.summary);
-  const rJunk = await lookup.run({ ioc: "this is not an ioc at all" });
-  check("junk lookup refused", rJunk.ok === false, rJunk.summary);
+  await caseAndProbeSections(rec, up, lookup);
 
   // 8. Every runbook phase renders with the isolation checklist where it matters.
   for (const phase of ["triage", "static", "dynamic", "dynamic_linux", "forensics", "report"]) {

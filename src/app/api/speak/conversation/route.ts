@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { aiJson, profileBlock } from "@/lib/ai";
+import { aiJson, profileBlock, ProfileJson } from "@/lib/ai";
 import { DEGRADED_CONVERSATION_LINE, degradedTurnPayload } from "@/lib/degraded";
 import { buildProfile, bumpDaily, touchStreak } from "@/lib/server";
 import { awardXp, progressQuest } from "@/lib/arcade";
@@ -119,7 +119,7 @@ function readTurns(body: any): { turns: { you: string; coach: string }[]; bad?: 
 // flag the turn so the UI can banner it.
 async function coachTurn(
   system: string,
-  profile: Record<string, unknown>,
+  profile: ProfileJson,
   historyText: string,
   last: { you: string },
   done: boolean,

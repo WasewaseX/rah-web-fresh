@@ -60,125 +60,142 @@ void main(){
   gl_FragColor = vec4(col * mix(1.0, edge, 0.6), 1.0);
 }`;
 
-export default function Backdrop() {
-  const ref = useRef<HTMLDivElement>(null);
+type GLBundle = {
+  gl: WebGLRenderingContext;
+  uRes: WebGLUniformLocation | null;
+  uTime: WebGLUniformLocation | null;
+  uHue: WebGLUniformLocation | null;
+  uMode: WebGLUniformLocation | null;
+};
 
-  useEffect(() => {
-    const host = ref.current;
+function initBackdropGL(host: HTMLDivElement, canvas: HTMLCanvasElement): GLBundle | null {
+  const gl = canvas.getContext("webgl", { antialias: false, alpha: false, depth: false, stencil: false, powerPreference: "low-power" });
+  if (!gl) {
+    host.remove();
+    return null;
+  }
+
+  const compile = (type: number, src: string) => {
+    const s = gl.createShader(type)!;
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+      console.warn("backdrop shader:", gl.getShaderInfoLog(s));
+      return null;
+    }
+    return s;
+  };
+  const vs = compile(gl.VERTEX_SHADER, VERT);
+  const fs = compile(gl.FRAGMENT_SHADER, FRAG);
+  if (!vs || !fs) {
+    host.remove();
+    return null;
+  }
+  const prog = gl.createProgram()!;
+  gl.attachShader(prog, vs);
+  gl.attachShader(prog, fs);
+  gl.linkProgram(prog);
+  gl.useProgram(prog);
+
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(prog, "p");
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+  const uRes = gl.getUniformLocation(prog, "u_res");
+  const uTime = gl.getUniformLocation(prog, "u_time");
+  const uHue = gl.getUniformLocation(prog, "u_hue");
+  const uMode = gl.getUniformLocation(prog, "u_mode");
+  return { gl, uRes, uTime, uHue, uMode };
+}
+
+function mountBackdrop(refCurrent: HTMLDivElement | null): (() => void) | undefined {
+    const host = refCurrent;
     if (!host) return;
     const canvas = document.createElement("canvas");
     host.appendChild(canvas);
-    const gl = canvas.getContext("webgl", { antialias: false, alpha: false, depth: false, stencil: false, powerPreference: "low-power" });
-    if (!gl) {
-      host.remove();
-      return;
-    }
+    const bundle = initBackdropGL(host, canvas);
+    if (!bundle) return;
+    const { gl, uRes, uTime, uHue, uMode } = bundle;
+  const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+  const resize = () => {
+    canvas.width = Math.floor(window.innerWidth * dpr);
+    canvas.height = Math.floor(window.innerHeight * dpr);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.uniform2f(uRes, canvas.width, canvas.height);
+  };
+  resize();
+  window.addEventListener("resize", resize);
 
-    const compile = (type: number, src: string) => {
-      const s = gl.createShader(type)!;
-      gl.shaderSource(s, src);
-      gl.compileShader(s);
-      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-        console.warn("backdrop shader:", gl.getShaderInfoLog(s));
-        return null;
-      }
-      return s;
-    };
-    const vs = compile(gl.VERTEX_SHADER, VERT);
-    const fs = compile(gl.FRAGMENT_SHADER, FRAG);
-    if (!vs || !fs) {
-      host.remove();
-      return;
-    }
-    const prog = gl.createProgram()!;
-    gl.attachShader(prog, vs);
-    gl.attachShader(prog, fs);
-    gl.linkProgram(prog);
-    gl.useProgram(prog);
+  // Style + hue are read from the appearance's data attributes / CSS var,
+  // refreshed a few times a second so plugin switches apply live.
+  let hue = 222;
+  let mode = 0;
+  let styleTick = 0;
+  const syncStyle = () => {
+    const r = document.documentElement;
+    const b = r.dataset.backdrop ?? "aurora";
+    mode = b === "nebula" ? 1 : b === "waves" ? 2 : b === "off" ? -1 : 0;
+    const h = parseFloat(r.style.getPropertyValue("--hue"));
+    if (Number.isFinite(h)) hue = h;
+  };
+  syncStyle();
+  gl.uniform1f(uHue, hue);
+  gl.uniform1f(uMode, mode);
 
-    const buf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-    const loc = gl.getAttribLocation(prog, "p");
-    gl.enableVertexAttribArray(loc);
-    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-
-    const uRes = gl.getUniformLocation(prog, "u_res");
-    const uTime = gl.getUniformLocation(prog, "u_time");
-    const uHue = gl.getUniformLocation(prog, "u_hue");
-    const uMode = gl.getUniformLocation(prog, "u_mode");
-
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-    const resize = () => {
-      canvas.width = Math.floor(window.innerWidth * dpr);
-      canvas.height = Math.floor(window.innerHeight * dpr);
-      gl.viewport(0, 0, canvas.width, canvas.height);
-      gl.uniform2f(uRes, canvas.width, canvas.height);
-    };
-    resize();
-    window.addEventListener("resize", resize);
-
-    // Style + hue are read from the appearance's data attributes / CSS var,
-    // refreshed a few times a second so plugin switches apply live.
-    let hue = 222;
-    let mode = 0;
-    let styleTick = 0;
-    const syncStyle = () => {
-      const r = document.documentElement;
-      const b = r.dataset.backdrop ?? "aurora";
-      mode = b === "nebula" ? 1 : b === "waves" ? 2 : b === "off" ? -1 : 0;
-      const h = parseFloat(r.style.getPropertyValue("--hue"));
-      if (Number.isFinite(h)) hue = h;
-    };
-    syncStyle();
-    gl.uniform1f(uHue, hue);
-    gl.uniform1f(uMode, mode);
-
-    let raf = 0;
-    let running = true;
-    let last = 0;
-    const frame = (t: number) => {
-      if (!running) return;
-      if (++styleTick % 30 === 0) syncStyle();
-      if (mode < 0 || document.documentElement.dataset.motion === "off") {
-        // plugin-disabled: draw one dark frame, then idle cheaply
-        gl.clearColor(0.059, 0.071, 0.102, 1);
-        gl.clear(gl.COLOR_BUFFER_BIT);
-        last = t;
-        raf = requestAnimationFrame(frame);
-        return;
-      }
-      if (t - last > 8) {
-        gl.uniform1f(uTime, t / 1000);
-        gl.uniform1f(uHue, hue);
-        gl.uniform1f(uMode, mode);
-        gl.drawArrays(gl.TRIANGLES, 0, 3);
-        last = t;
-      }
+  let raf = 0;
+  let running = true;
+  let last = 0;
+  const frame = (t: number) => {
+    if (!running) return;
+    if (++styleTick % 30 === 0) syncStyle();
+    if (mode < 0 || document.documentElement.dataset.motion === "off") {
+      // plugin-disabled: draw one dark frame, then idle cheaply
+      gl.clearColor(0.059, 0.071, 0.102, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      last = t;
       raf = requestAnimationFrame(frame);
-    };
+      return;
+    }
+    if (t - last > 8) {
+      gl.uniform1f(uTime, t / 1000);
+      gl.uniform1f(uHue, hue);
+      gl.uniform1f(uMode, mode);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      last = t;
+    }
     raf = requestAnimationFrame(frame);
+  };
+  raf = requestAnimationFrame(frame);
 
-    const onVis = () => {
-      if (document.hidden) {
-        running = false;
-        cancelAnimationFrame(raf);
-      } else if (!running) {
-        running = true;
-        raf = requestAnimationFrame(frame);
-      }
-    };
-    document.addEventListener("visibilitychange", onVis);
-
-    return () => {
+  const onVis = () => {
+    if (document.hidden) {
       running = false;
       cancelAnimationFrame(raf);
-      window.removeEventListener("resize", resize);
-      document.removeEventListener("visibilitychange", onVis);
-      gl.getExtension("WEBGL_lose_context")?.loseContext();
-      canvas.remove();
-    };
-  }, []);
+    } else if (!running) {
+      running = true;
+      raf = requestAnimationFrame(frame);
+    }
+  };
+  document.addEventListener("visibilitychange", onVis);
+
+  return () => {
+    running = false;
+    cancelAnimationFrame(raf);
+    window.removeEventListener("resize", resize);
+    document.removeEventListener("visibilitychange", onVis);
+    gl.getExtension("WEBGL_lose_context")?.loseContext();
+    canvas.remove();
+  };
+}
+
+
+export default function Backdrop() {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => mountBackdrop(ref.current), []);
 
   return <div ref={ref} className="rah-backdrop" aria-hidden="true" />;
 }

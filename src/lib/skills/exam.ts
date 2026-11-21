@@ -158,13 +158,14 @@ interface OpenGrade {
   fa?: string;
 }
 
-export async function gradeExam(exam: Exam, answers: Record<string, string>, ctx: ExamCtx): Promise<ExamResult> {
-  const questions = exam.questions;
-
-  ctx.emit({ label: "Checking your answers", state: "run" });
+// Local deterministic pass: skipped/mcq/cloze verdicts; anything fuzzy or
+// open (rewrite / translate) is queued for the deep grader.
+function gradeLocally(questions: Exam["questions"], answers: Record<string, string>): {
+  graded: Map<string, GradedQuestion>;
+  openIds: string[];
+} {
   const graded = new Map<string, GradedQuestion>();
   const openIds: string[] = [];
-
   for (const q of questions) {
     const given = (answers[q.id] ?? "").trim();
     if (!given) {
@@ -200,42 +201,52 @@ export async function gradeExam(exam: Exam, answers: Record<string, string>, ctx
     });
     openIds.push(q.id);
   }
-  ctx.emit({ label: "Checking your answers", state: "done", detail: `${questions.length - openIds.length} settled locally` });
+  return { graded, openIds };
+}
 
-  if (openIds.length > 0) {
-    ctx.emit({ label: "Reading your answers closely", state: "run" });
-    const payload = openIds
-      .map((id) => {
-        const q = questions.find((x) => x.id === id)!;
-        return {
-          id, type: q.type, prompt: q.prompt, target: q.accept,
-          point: q.point, learner_wrote: (answers[id] ?? "").trim(),
-        };
-      });
-    try {
-      const res = await aiJson<{ grades: OpenGrade[] }>(
-        openGradeSystem(exam.targetLevel),
-        [{ role: "user", content: JSON.stringify(payload) }],
-        undefined,
-        { deep: true },
-      );
-      for (const g of res.grades ?? []) {
-        const cur = graded.get(g.id);
-        if (!cur) continue;
-        const v = g.verdict === "correct" || g.verdict === "close" ? g.verdict : "wrong";
-        // the deep grader may only keep or upgrade a locally-wrong verdict, and
-        // must explain itself whenever it changes anything
-        cur.verdict = v;
-        cur.note = clean(String(g.note ?? cur.note)).slice(0, 240);
-        cur.fa = clean(String(g.fa ?? "")).slice(0, 200);
-      }
-    } catch {
-      // local verdicts stand
+// The deep grader may only keep or upgrade a locally-wrong verdict, and
+// must explain itself whenever it changes anything.
+async function deepGradeOpen(
+  exam: Exam,
+  questions: Exam["questions"],
+  answers: Record<string, string>,
+  graded: Map<string, GradedQuestion>,
+  openIds: string[],
+  ctx: ExamCtx,
+) {
+  ctx.emit({ label: "Reading your answers closely", state: "run" });
+  const payload = openIds
+    .map((id) => {
+      const q = questions.find((x) => x.id === id)!;
+      return {
+        id, type: q.type, prompt: q.prompt, target: q.accept,
+        point: q.point, learner_wrote: (answers[id] ?? "").trim(),
+      };
+    });
+  try {
+    const res = await aiJson<{ grades: OpenGrade[] }>(
+      openGradeSystem(exam.targetLevel),
+      [{ role: "user", content: JSON.stringify(payload) }],
+      undefined,
+      { deep: true },
+    );
+    for (const g of res.grades ?? []) {
+      const cur = graded.get(g.id);
+      if (!cur) continue;
+      const v = g.verdict === "correct" || g.verdict === "close" ? g.verdict : "wrong";
+      cur.verdict = v;
+      cur.note = clean(String(g.note ?? cur.note)).slice(0, 240);
+      cur.fa = clean(String(g.fa ?? "")).slice(0, 200);
     }
-    ctx.emit({ label: "Reading your answers closely", state: "done", detail: `${openIds.length} open answers weighed` });
+  } catch {
+    // local verdicts stand
   }
+  ctx.emit({ label: "Reading your answers closely", state: "done", detail: `${openIds.length} open answers weighed` });
+}
 
-  ctx.emit({ label: "Adding it up", state: "run" });
+type Tally = ReturnType<typeof tallyResults>;
+
+function tallyResults(questions: Exam["questions"], graded: Map<string, GradedQuestion>) {
   const list = questions.map((q) => graded.get(q.id)!);
   const score = list.filter((g) => g.verdict === "correct").length;
   const closeCount = list.filter((g) => g.verdict === "close").length;
@@ -254,12 +265,13 @@ export async function gradeExam(exam: Exam, answers: Record<string, string>, ctx
 
   const misses = list.filter((g) => g.verdict === "wrong" || g.verdict === "close");
   const missedSkills = [...new Set(misses.map((g) => questions.find((q) => q.id === g.id)!.skill))];
+  return { list, score, closeCount, total, percent, perSkill, misses, missedSkills };
+}
 
-  // Verdict and next move come from a grader that saw the actual answers, so
-  // the summary talks about what happened, not about a template.
-  let verdict = "";
-  let next = "";
-  let signal = "";
+// Verdict and next move come from a grader that saw the actual answers, so
+// the summary talks about what happened, not about a template.
+async function closingSummary(exam: Exam, t: Tally, questions: Exam["questions"]): Promise<{ verdict: string; next: string; signal: string }> {
+  const { score, closeCount, total, percent, perSkill, misses, missedSkills } = t;
   try {
     const summary = await aiJson<{ verdict: string; next: string; signal: string }>(
       `${openGradeSystem(exam.targetLevel)}
@@ -284,22 +296,40 @@ Reply with ONE JSON object: {"verdict":"2-3 sentences","next":"one sentence","si
       undefined,
       { deep: true },
     );
-    verdict = clean(summary.verdict ?? "");
-    next = clean(summary.next ?? "");
-    signal = clean(summary.signal ?? "");
+    return {
+      verdict: clean(summary.verdict ?? ""),
+      next: clean(summary.next ?? ""),
+      signal: clean(summary.signal ?? ""),
+    };
   } catch {
     const strong = perSkill.filter((s) => s.correct === s.total).map((s) => s.skill);
-    verdict = `${score} of ${total} settled${closeCount ? `, ${closeCount} more landed with a slip` : ""}. ${
-      strong.length ? `Steady on ${strong.join(" and ")}.` : ""
-    }`;
-    next = missedSkills.length ? `The wobble is in ${missedSkills.join(" and ")}: drill that next.` : "Keep the streak going.";
-    signal = `${percent}% on ${exam.targetLevel} material`;
+    return {
+      verdict: `${score} of ${total} settled${closeCount ? `, ${closeCount} more landed with a slip` : ""}. ${
+        strong.length ? `Steady on ${strong.join(" and ")}.` : ""
+      }`,
+      next: missedSkills.length ? `The wobble is in ${missedSkills.join(" and ")}: drill that next.` : "Keep the streak going.",
+      signal: `${percent}% on ${exam.targetLevel} material`,
+    };
   }
-  ctx.emit({ label: "Adding it up", state: "done", detail: `${score}/${total}${closeCount ? ` (+${closeCount} close)` : ""}` });
+}
+
+export async function gradeExam(exam: Exam, answers: Record<string, string>, ctx: ExamCtx): Promise<ExamResult> {
+  const questions = exam.questions;
+
+  ctx.emit({ label: "Checking your answers", state: "run" });
+  const { graded, openIds } = gradeLocally(questions, answers);
+  ctx.emit({ label: "Checking your answers", state: "done", detail: `${questions.length - openIds.length} settled locally` });
+
+  if (openIds.length > 0) await deepGradeOpen(exam, questions, answers, graded, openIds, ctx);
+
+  ctx.emit({ label: "Adding it up", state: "run" });
+  const t = tallyResults(questions, graded);
+  const { verdict, next, signal } = await closingSummary(exam, t, questions);
+  ctx.emit({ label: "Adding it up", state: "done", detail: `${t.score}/${t.total}${t.closeCount ? ` (+${t.closeCount} close)` : ""}` });
 
   return {
-    examId: exam.id, title: exam.title, score, total, percent, closeCount,
-    perSkill, signal, verdict, next,
-    questions: list,
+    examId: exam.id, title: exam.title, score: t.score, total: t.total, percent: t.percent, closeCount: t.closeCount,
+    perSkill: t.perSkill, signal, verdict, next,
+    questions: t.list,
   };
 }

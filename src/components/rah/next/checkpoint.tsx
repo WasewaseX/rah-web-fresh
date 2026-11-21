@@ -6,6 +6,228 @@ import { SectionTitle, Note, Countdown } from "./bits";
 import { CHECKPOINT_TEXTS } from "@/lib/content";
 import { speak } from "./speech";
 
+type CheckText = (typeof CHECKPOINT_TEXTS)[number];
+type CheckQuestion = CheckText["questions"][number];
+type SpeakingNotes = { pauses: string; errors: string; gaps: string; abstract: string };
+type RunPrev = { day: number; listeningPct: number; readingScore: number };
+
+function QuestionList({ questions, answers, onPick }: {
+  questions: CheckQuestion[];
+  answers: Record<number, number>;
+  onPick: (i: number, ci: number) => void;
+}) {
+  return (
+    <>
+      {questions.map((q, i) => (
+        <div key={i} className="mb-5">
+          <div className="text-[14.5px] font-semibold mb-2">{i + 1}. {q.q}</div>
+          <div className="grid sm:grid-cols-2 gap-2">
+            {q.choices.map((c, ci) => (
+              <button
+                key={ci}
+                onClick={() => onPick(i, ci)}
+                className="rounded-xl border px-4 py-2.5 text-left text-[13.5px]"
+                style={answers[i] === ci ? { background: "var(--ink)", color: "#fff", borderColor: "transparent" } : { borderColor: "var(--line)" }}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
+function CheckpointIntro({ prev, onStart }: { prev: RunPrev[]; onStart: () => void }) {
+  return (
+    <div className="max-w-2xl mx-auto">
+      <SectionTitle
+        title="Checkpoint: measure the real thing"
+        sub="Lessons measure effort. This measures skill. Four stations, about 40 minutes, every two to four weeks."
+      />
+      <div className="grid sm:grid-cols-2 gap-4 mb-5">
+        {[
+          ["Listening", "One unseen passage, played once, four questions. Your score is a percentage, not a feeling."],
+          ["Reading", "One unseen C1 text, four questions. No dictionary."],
+          ["Speaking", "Five minutes on an unfamiliar topic. Count pauses, errors, gaps, abstract control."],
+          ["Writing", "300 to 500 words, no assistance. Rah keeps every sample so you can compare with last month."],
+        ].map(([t, d]) => (
+          <div key={t} className="card-rah p-5">
+            <div className="font-bold text-[15px] mb-1">{t}</div>
+            <p className="text-[13px] leading-relaxed" style={{ color: "var(--muted)" }}>{d}</p>
+          </div>
+        ))}
+      </div>
+      {prev.length ? (
+        <div className="card-rah p-5 mb-5">
+          <div className="font-bold text-[14px] mb-2">History</div>
+          <div className="flex gap-3 flex-wrap">
+            {prev.map((p, i) => (
+              <span key={i} className="chip chip-accent">
+                run {i + 1}: listen {p.listeningPct}% · read {p.readingScore}%
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      <button className="btn-primary text-[15px] px-8 py-3" onClick={onStart}>
+        Start checkpoint
+      </button>
+    </div>
+  );
+}
+
+function CheckpointDone({ result, prev }: { result: { listeningPct: number; readingScore: number }; prev: RunPrev[] }) {
+  const lastPrev = prev.length ? prev[prev.length - 1] : null;
+  return (
+    <div className="max-w-2xl mx-auto text-center pt-8">
+      <div className="display text-[32px] font-bold mb-2">Checkpoint recorded</div>
+      <p className="text-[14px] mb-8" style={{ color: "var(--muted)" }}>
+        The daily plan re-weights toward your weakest station. Compare with the previous run in four weeks, not four days.
+      </p>
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="card-rah p-6">
+          <div className="display text-[30px] font-bold">{result.listeningPct}%</div>
+          <div className="text-[12.5px]" style={{ color: "var(--muted)" }}>listening comprehension</div>
+          {lastPrev ? <div className="text-[12px] mt-1 font-bold" style={{ color: result.listeningPct >= lastPrev.listeningPct ? "var(--accent-deep)" : "var(--danger)" }}>prev: {lastPrev.listeningPct}%</div> : null}
+        </div>
+        <div className="card-rah p-6">
+          <div className="display text-[30px] font-bold">{result.readingScore}%</div>
+          <div className="text-[12.5px]" style={{ color: "var(--muted)" }}>reading, unseen C1 text</div>
+          {lastPrev ? <div className="text-[12px] mt-1 font-bold" style={{ color: result.readingScore >= lastPrev.readingScore ? "var(--accent-deep)" : "var(--danger)" }}>prev: {lastPrev.readingScore}%</div> : null}
+        </div>
+      </div>
+      <Note tone="accent">
+        The writing sample is stored with your history. In your next checkpoint, open it first: spotting your own old
+        errors in new text is the fastest sign of real progress.
+      </Note>
+    </div>
+  );
+}
+
+function StationDots({ station }: { station: number }) {
+  const stations = ["Listening", "Reading", "Speaking", "Writing"];
+  return (
+    <div className="flex items-center gap-2 mb-5">
+      {stations.map((s, i) => (
+        <span
+          key={s}
+          className="text-[12.5px] font-bold rounded-full px-3.5 py-1.5"
+          style={station === i ? { background: "var(--rah-callout-hover)", color: "var(--ink)", border: "1px solid rgba(255, 255, 255, 0.18)" } : station > i ? { background: "var(--rah-field)", color: "var(--text-soft)", border: "1px solid var(--line)" } : { background: "var(--rah-field)", color: "var(--muted)", border: "1px solid var(--line)" }}
+        >
+          {i + 1}. {s}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function ListeningStation({ lText, played, onPlay, lAnswers, setLAnswers, onNext }: {
+  lText: CheckText;
+  played: boolean;
+  onPlay: () => void;
+  lAnswers: Record<number, number>;
+  setLAnswers: (f: (a: Record<number, number>) => Record<number, number>) => void;
+  onNext: () => void;
+}) {
+  return (
+    <div className="card-rah p-8">
+      <div className="display text-[20px] font-bold mb-1">Station 1: listening</div>
+      <p className="text-[13.5px] mb-5" style={{ color: "var(--muted)" }}>Played once, like real life. No transcript.</p>
+      <button className="btn-primary mb-6" disabled={played} onClick={onPlay}>
+        {played ? "played (one pass only)" : "Play the passage"}
+      </button>
+      <QuestionList questions={lText.questions} answers={lAnswers} onPick={(i, ci) => setLAnswers((a) => ({ ...a, [i]: ci }))} />
+      <button className="btn-primary" disabled={Object.keys(lAnswers).length < 4} onClick={onNext}>
+        Station 2: reading
+      </button>
+    </div>
+  );
+}
+
+function ReadingStation({ rText, rAnswers, setRAnswers, onNext }: {
+  rText: CheckText;
+  rAnswers: Record<number, number>;
+  setRAnswers: (f: (a: Record<number, number>) => Record<number, number>) => void;
+  onNext: () => void;
+}) {
+  return (
+    <div className="card-rah p-8">
+      <div className="display text-[20px] font-bold mb-1">Station 2: reading</div>
+      <p className="text-[13.5px] mb-5" style={{ color: "var(--muted)" }}>Unseen C1 text. Read once, no dictionary, then answer.</p>
+      <p className="text-[16px] leading-[1.85] rounded-2xl p-5 mb-5" style={{ background: "var(--rah-callout)" }}>{rText.text}</p>
+      <QuestionList questions={rText.questions} answers={rAnswers} onPick={(i, ci) => setRAnswers((a) => ({ ...a, [i]: ci }))} />
+      <button className="btn-primary" disabled={Object.keys(rAnswers).length < 4} onClick={onNext}>
+        Station 3: speaking
+      </button>
+    </div>
+  );
+}
+
+function SpeakingStation({ speaking, setSpeaking, onDone }: {
+  speaking: SpeakingNotes;
+  setSpeaking: (f: (x: SpeakingNotes) => SpeakingNotes) => void;
+  onDone: () => void;
+}) {
+  return (
+    <div className="card-rah p-8">
+      <div className="display text-[20px] font-bold mb-1">Station 3: speaking</div>
+      <p className="text-[13.5px] mb-5" style={{ color: "var(--muted)" }}>
+        Talk for five minutes on: <b>Should social media companies be treated like publishers and held legally responsible for what spreads there?</b> Record yourself if you can, then count honestly.
+      </p>
+      <Countdown seconds={300} onDone={() => undefined} paused={false} />
+      {([
+        ["pauses", "Long pauses over 3 seconds (count)"],
+        ["errors", "Obvious grammar errors you heard yourself make (count)"],
+        ["gaps", "Moments where the word you needed did not come (count)"],
+        ["abstract", "Could you explain an abstract idea, 1 to 10?"],
+      ] as const).map(([k, label]) => (
+        <div key={k} className="mb-3">
+          <label className="text-[12.5px] font-bold block mb-1">{label}</label>
+          <input
+            value={speaking[k]}
+            aria-label={label}
+            onChange={(e) => setSpeaking((x) => ({ ...x, [k]: e.target.value }))}
+            className="w-full rounded-xl border px-4 py-2.5 text-[14px]"
+            style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
+          />
+        </div>
+      ))}
+      <button className="btn-primary" onClick={onDone}>Station 4: writing</button>
+    </div>
+  );
+}
+
+function WritingStation({ writing, setWriting, onSave }: {
+  writing: string;
+  setWriting: (v: string) => void;
+  onSave: () => void;
+}) {
+  const words = writing.split(/\s+/).filter(Boolean).length;
+  return (
+    <div className="card-rah p-8">
+      <div className="display text-[20px] font-bold mb-1">Station 4: writing</div>
+      <p className="text-[13.5px] mb-5" style={{ color: "var(--muted)" }}>
+        300 to 500 words, no assistance: <b>Is it ethical to use algorithmic systems to rank citizens by their behavior? Defend a position.</b>
+      </p>
+      <textarea
+        value={writing}
+        aria-label="Writing sample"
+        onChange={(e) => setWriting(e.target.value)}
+        className="w-full rounded-2xl border p-5 min-h-[280px] text-[15px] leading-[1.8]"
+        style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
+      />
+      <div className="flex items-center justify-between mt-3">
+        <span className="text-[13px]" style={{ color: "var(--muted)" }}>{words} words</span>
+        <button className="btn-primary" disabled={words < 80} onClick={onSave}>
+          Finish checkpoint
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // Measure, do not study. Run this every two to four weeks: listening
 // comprehension percent, reading score, a writing sample, speaking counts.
 export default function CheckpointView({ onDone }: { boot: Boot; onDone: () => void }) {
@@ -13,10 +235,10 @@ export default function CheckpointView({ onDone }: { boot: Boot; onDone: () => v
   const [station, setStation] = useState(0); // 0 listening, 1 reading, 2 speaking, 3 writing
   const [lAnswers, setLAnswers] = useState<Record<number, number>>({});
   const [rAnswers, setRAnswers] = useState<Record<number, number>>({});
-  const [speaking, setSpeaking] = useState({ pauses: "", errors: "", gaps: "", abstract: "" });
+  const [speaking, setSpeaking] = useState<SpeakingNotes>({ pauses: "", errors: "", gaps: "", abstract: "" });
   const [writing, setWriting] = useState("");
   const [result, setResult] = useState<null | { listeningPct: number; readingScore: number }>(null);
-  const [prev, setPrev] = useState<{ day: number; listeningPct: number; readingScore: number }[]>([]);
+  const [prev, setPrev] = useState<RunPrev[]>([]);
   const [played, setPlayed] = useState(false);
   const savedRef = useRef(false);
 
@@ -32,6 +254,12 @@ export default function CheckpointView({ onDone }: { boot: Boot; onDone: () => v
 
   const listeningPct = Math.round((lText.questions.filter((q, i) => lAnswers[i] === q.a).length / lText.questions.length) * 100);
   const readingScore = Math.round((rText.questions.filter((q, i) => rAnswers[i] === q.a).length / rText.questions.length) * 100);
+
+  const playListening = async () => {
+    setPlayed(true);
+    const ok = await speak(lText.text, 1);
+    if (!ok) setPlayed(false);
+  };
 
   const save = async () => {
     if (savedRef.current) return;
@@ -53,204 +281,19 @@ export default function CheckpointView({ onDone }: { boot: Boot; onDone: () => v
     setStage("done");
   };
 
-  if (stage === "intro") {
-    return (
-      <div className="max-w-2xl mx-auto">
-        <SectionTitle
-          title="Checkpoint: measure the real thing"
-          sub="Lessons measure effort. This measures skill. Four stations, about 40 minutes, every two to four weeks."
-        />
-        <div className="grid sm:grid-cols-2 gap-4 mb-5">
-          {[
-            ["Listening", "One unseen passage, played once, four questions. Your score is a percentage, not a feeling."],
-            ["Reading", "One unseen C1 text, four questions. No dictionary."],
-            ["Speaking", "Five minutes on an unfamiliar topic. Count pauses, errors, gaps, abstract control."],
-            ["Writing", "300 to 500 words, no assistance. Rah keeps every sample so you can compare with last month."],
-          ].map(([t, d]) => (
-            <div key={t} className="card-rah p-5">
-              <div className="font-bold text-[15px] mb-1">{t}</div>
-              <p className="text-[13px] leading-relaxed" style={{ color: "var(--muted)" }}>{d}</p>
-            </div>
-          ))}
-        </div>
-        {prev.length ? (
-          <div className="card-rah p-5 mb-5">
-            <div className="font-bold text-[14px] mb-2">History</div>
-            <div className="flex gap-3 flex-wrap">
-              {prev.map((p, i) => (
-                <span key={i} className="chip chip-accent">
-                  run {i + 1}: listen {p.listeningPct}% · read {p.readingScore}%
-                </span>
-              ))}
-            </div>
-          </div>
-        ) : null}
-        <button className="btn-primary text-[15px] px-8 py-3" onClick={() => setStage("run")}>
-          Start checkpoint
-        </button>
-      </div>
-    );
-  }
-
-  if (stage === "done" && result) {
-    const lastPrev = prev.length ? prev[prev.length - 1] : null;
-    return (
-      <div className="max-w-2xl mx-auto text-center pt-8">
-        <div className="display text-[32px] font-bold mb-2">Checkpoint recorded</div>
-        <p className="text-[14px] mb-8" style={{ color: "var(--muted)" }}>
-          The daily plan re-weights toward your weakest station. Compare with the previous run in four weeks, not four days.
-        </p>
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="card-rah p-6">
-            <div className="display text-[30px] font-bold">{result.listeningPct}%</div>
-            <div className="text-[12.5px]" style={{ color: "var(--muted)" }}>listening comprehension</div>
-            {lastPrev ? <div className="text-[12px] mt-1 font-bold" style={{ color: result.listeningPct >= lastPrev.listeningPct ? "var(--accent-deep)" : "var(--danger)" }}>prev: {lastPrev.listeningPct}%</div> : null}
-          </div>
-          <div className="card-rah p-6">
-            <div className="display text-[30px] font-bold">{result.readingScore}%</div>
-            <div className="text-[12.5px]" style={{ color: "var(--muted)" }}>reading, unseen C1 text</div>
-            {lastPrev ? <div className="text-[12px] mt-1 font-bold" style={{ color: result.readingScore >= lastPrev.readingScore ? "var(--accent-deep)" : "var(--danger)" }}>prev: {lastPrev.readingScore}%</div> : null}
-          </div>
-        </div>
-        <Note tone="accent">
-          The writing sample is stored with your history. In your next checkpoint, open it first: spotting your own old
-          errors in new text is the fastest sign of real progress.
-        </Note>
-      </div>
-    );
-  }
-
-  const stations = ["Listening", "Reading", "Speaking", "Writing"];
+  if (stage === "intro") return <CheckpointIntro prev={prev} onStart={() => setStage("run")} />;
+  if (stage === "done" && result) return <CheckpointDone result={result} prev={prev} />;
 
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="flex items-center gap-2 mb-5">
-        {stations.map((s, i) => (
-          <span
-            key={s}
-            className="text-[12.5px] font-bold rounded-full px-3.5 py-1.5"
-            style={station === i ? { background: "var(--rah-callout-hover)", color: "var(--ink)", border: "1px solid rgba(255, 255, 255, 0.18)" } : station > i ? { background: "var(--rah-field)", color: "var(--text-soft)", border: "1px solid var(--line)" } : { background: "var(--rah-field)", color: "var(--muted)", border: "1px solid var(--line)" }}
-          >
-            {i + 1}. {s}
-          </span>
-        ))}
-      </div>
-
+      <StationDots station={station} />
       {station === 0 && (
-        <div className="card-rah p-8">
-          <div className="display text-[20px] font-bold mb-1">Station 1: listening</div>
-          <p className="text-[13.5px] mb-5" style={{ color: "var(--muted)" }}>Played once, like real life. No transcript.</p>
-          <button
-            className="btn-primary mb-6"
-            disabled={played}
-            onClick={async () => {
-              setPlayed(true);
-              const ok = await speak(lText.text, 1);
-              if (!ok) setPlayed(false);
-            }}
-          >
-            {played ? "played (one pass only)" : "Play the passage"}
-          </button>
-          {lText.questions.map((q, i) => (
-            <div key={i} className="mb-5">
-              <div className="text-[14.5px] font-semibold mb-2">{i + 1}. {q.q}</div>
-              <div className="grid sm:grid-cols-2 gap-2">
-                {q.choices.map((c, ci) => (
-                  <button
-                    key={ci}
-                    onClick={() => setLAnswers((a) => ({ ...a, [i]: ci }))}
-                    className="rounded-xl border px-4 py-2.5 text-left text-[13.5px]"
-                    style={lAnswers[i] === ci ? { background: "var(--ink)", color: "#fff", borderColor: "transparent" } : { borderColor: "var(--line)" }}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-          <button className="btn-primary" disabled={Object.keys(lAnswers).length < 4} onClick={() => setStation(1)}>
-            Station 2: reading
-          </button>
-        </div>
+        <ListeningStation lText={lText} played={played} onPlay={() => void playListening()} lAnswers={lAnswers}
+          setLAnswers={setLAnswers} onNext={() => setStation(1)} />
       )}
-
-      {station === 1 && (
-        <div className="card-rah p-8">
-          <div className="display text-[20px] font-bold mb-1">Station 2: reading</div>
-          <p className="text-[13.5px] mb-5" style={{ color: "var(--muted)" }}>Unseen C1 text. Read once, no dictionary, then answer.</p>
-          <p className="text-[16px] leading-[1.85] rounded-2xl p-5 mb-5" style={{ background: "var(--rah-callout)" }}>{rText.text}</p>
-          {rText.questions.map((q, i) => (
-            <div key={i} className="mb-5">
-              <div className="text-[14.5px] font-semibold mb-2">{i + 1}. {q.q}</div>
-              <div className="grid sm:grid-cols-2 gap-2">
-                {q.choices.map((c, ci) => (
-                  <button
-                    key={ci}
-                    onClick={() => setRAnswers((a) => ({ ...a, [i]: ci }))}
-                    className="rounded-xl border px-4 py-2.5 text-left text-[13.5px]"
-                    style={rAnswers[i] === ci ? { background: "var(--ink)", color: "#fff", borderColor: "transparent" } : { borderColor: "var(--line)" }}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-          <button className="btn-primary" disabled={Object.keys(rAnswers).length < 4} onClick={() => setStation(2)}>
-            Station 3: speaking
-          </button>
-        </div>
-      )}
-
-      {station === 2 && (
-        <div className="card-rah p-8">
-          <div className="display text-[20px] font-bold mb-1">Station 3: speaking</div>
-          <p className="text-[13.5px] mb-5" style={{ color: "var(--muted)" }}>
-            Talk for five minutes on: <b>Should social media companies be treated like publishers and held legally responsible for what spreads there?</b> Record yourself if you can, then count honestly.
-          </p>
-          <Countdown seconds={300} onDone={() => undefined} paused={station !== 2} />
-          {([
-            ["pauses", "Long pauses over 3 seconds (count)"],
-            ["errors", "Obvious grammar errors you heard yourself make (count)"],
-            ["gaps", "Moments where the word you needed did not come (count)"],
-            ["abstract", "Could you explain an abstract idea, 1 to 10?"],
-          ] as const).map(([k, label]) => (
-            <div key={k} className="mb-3">
-              <label className="text-[12.5px] font-bold block mb-1">{label}</label>
-              <input
-                value={speaking[k]}
-                aria-label={label}
-                onChange={(e) => setSpeaking((x) => ({ ...x, [k]: e.target.value }))}
-                className="w-full rounded-xl border px-4 py-2.5 text-[14px]"
-                style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
-              />
-            </div>
-          ))}
-          <button className="btn-primary" onClick={() => setStation(3)}>Station 4: writing</button>
-        </div>
-      )}
-
-      {station === 3 && (
-        <div className="card-rah p-8">
-          <div className="display text-[20px] font-bold mb-1">Station 4: writing</div>
-          <p className="text-[13.5px] mb-5" style={{ color: "var(--muted)" }}>
-            300 to 500 words, no assistance: <b>Is it ethical to use algorithmic systems to rank citizens by their behavior? Defend a position.</b>
-          </p>
-          <textarea
-            value={writing}
-            aria-label="Writing sample"
-            onChange={(e) => setWriting(e.target.value)}
-            className="w-full rounded-2xl border p-5 min-h-[280px] text-[15px] leading-[1.8]"
-            style={{ borderColor: "var(--line)", background: "var(--rah-field)", outline: "none" }}
-          />
-          <div className="flex items-center justify-between mt-3">
-            <span className="text-[13px]" style={{ color: "var(--muted)" }}>{writing.split(/\s+/).filter(Boolean).length} words</span>
-            <button className="btn-primary" disabled={writing.split(/\s+/).filter(Boolean).length < 80} onClick={save}>
-              Finish checkpoint
-            </button>
-          </div>
-        </div>
-      )}
+      {station === 1 && <ReadingStation rText={rText} rAnswers={rAnswers} setRAnswers={setRAnswers} onNext={() => setStation(2)} />}
+      {station === 2 && <SpeakingStation speaking={speaking} setSpeaking={setSpeaking} onDone={() => setStation(3)} />}
+      {station === 3 && <WritingStation writing={writing} setWriting={setWriting} onSave={() => void save()} />}
     </div>
   );
 }

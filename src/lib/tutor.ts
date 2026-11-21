@@ -18,11 +18,8 @@ export interface ExamItem {
 
 // ---------- evidence for the deep scan ----------
 
-export async function collectEvidence() {
-  const learner = await getLearner();
-  const today = dayIndex();
-
-  // 1. Spaced repetition: accuracy per skill + lapse inventory.
+// 1. Spaced repetition: accuracy per skill + lapse inventory.
+async function srsEvidence(today: number) {
   const states = await db.cardState.findMany();
   const bySkill: Record<string, { reps: number; lapses: number }> = {};
   const lapseTraps: Record<string, number> = {};
@@ -37,8 +34,12 @@ export async function collectEvidence() {
     bySkill[c.skill].lapses += st.lapses;
     if (st.lapses > 0) for (const t of c.traps) lapseTraps[t] = (lapseTraps[t] ?? 0) + st.lapses;
   }
+  const dueNow = await db.cardState.count({ where: { state: { not: "new" }, due: { lte: today }, suspended: false } });
+  return { seenCards, dueNow, bySkill, lapseTraps };
+}
 
-  // 2. Coach corrections: trap-tag frequency from stored envelopes.
+// 2. Coach corrections: trap-tag frequency from stored envelopes.
+async function coachEvidence() {
   const coachMsgs = await db.chatMsg.findMany({ where: { role: "coach" }, orderBy: { id: "desc" }, take: 120 });
   const chatTraps: Record<string, number> = {};
   let correctionCount = 0;
@@ -57,8 +58,11 @@ export async function collectEvidence() {
       // legacy plain rows
     }
   }
+  return { chatTraps, correctionCount, sampleCorrections };
+}
 
-  // 3. Writing history: dimension scores + top error types.
+// 3. Writing history: dimension scores + top error types.
+async function writingEvidence(sampleCorrections: string[]) {
   const writes = await db.writingSub.findMany({ orderBy: { id: "desc" }, take: 12 });
   const writeScores: Record<string, number[]> = { task: [], organization: [], range: [], accuracy: [] };
   const writeLevels: string[] = [];
@@ -78,8 +82,11 @@ export async function collectEvidence() {
       // ignore malformed rows
     }
   }
+  return { count: writes.length, levels: writeLevels, scores: writeScores };
+}
 
-  // 4. Speaking history.
+// 4. Speaking history.
+async function speakingEvidence() {
   const speaks = await db.speakSession.findMany({ orderBy: { id: "desc" }, take: 12 });
   const speakScores: Record<string, number[]> = { fluency: [], range: [], accuracy: [], delivery: [] };
   for (const s of speaks) {
@@ -90,39 +97,56 @@ export async function collectEvidence() {
       // ignore
     }
   }
+  return { count: speaks.length, scores: speakScores };
+}
 
-  // 5. Placement + consistency + activity mix.
+// 5. Placement + consistency + activity mix.
+async function placementEvidence() {
   const placement = await db.placement.findFirst({ where: { id: "main" } });
   const days = await db.dailyStat.findMany({ orderBy: { day: "desc" }, take: 28 });
   const activeDays = days.filter((d) => d.reviews > 0 || d.written > 0 || d.spoken > 0 || d.listened > 0).length;
   const totalReviews = days.reduce((a, d) => a + d.reviews, 0);
   const totalCorrect = days.reduce((a, d) => a + d.correct, 0);
-  const dueNow = await db.cardState.count({ where: { state: { not: "new" }, due: { lte: today }, suspended: false } });
-
-  const avg = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
-
   return {
     placement: placement
       ? { level: placement.level, writingLevel: placement.writingLevel, phase: placement.phase }
       : null,
-    learner: { level: learner.level === "?" ? null : learner.level, streak: learner.streak, activeDays28: activeDays },
+    activeDays,
+    accuracy28: totalReviews ? totalCorrect / totalReviews : null,
+  };
+}
+
+export async function collectEvidence() {
+  const learner = await getLearner();
+
+  const srs = await srsEvidence(dayIndex());
+  const chat = await coachEvidence();
+  const writing = await writingEvidence(chat.sampleCorrections);
+  const speaking = await speakingEvidence();
+  const ctx = await placementEvidence();
+
+  const avg = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
+
+  return {
+    placement: ctx.placement,
+    learner: { level: learner.level === "?" ? null : learner.level, streak: learner.streak, activeDays28: ctx.activeDays },
     srs: {
-      seenCards,
-      dueNow,
-      bySkill: Object.fromEntries(Object.entries(bySkill).map(([k, v]) => [k, { reps: v.reps, lapseRate: v.reps ? v.lapses / v.reps : 0 }])),
-      accuracy28: totalReviews ? totalCorrect / totalReviews : null,
+      seenCards: srs.seenCards,
+      dueNow: srs.dueNow,
+      bySkill: Object.fromEntries(Object.entries(srs.bySkill).map(([k, v]) => [k, { reps: v.reps, lapseRate: v.reps ? v.lapses / v.reps : 0 }])),
+      accuracy28: ctx.accuracy28,
     },
-    traps: { chat: chatTraps, srs: lapseTraps, correctionCount },
+    traps: { chat: chat.chatTraps, srs: srs.lapseTraps, correctionCount: chat.correctionCount },
     writing: {
-      count: writes.length,
-      levels: writeLevels,
-      avgScores: Object.fromEntries(Object.entries(writeScores).map(([k, v]) => [k, avg(v)])),
+      count: writing.count,
+      levels: writing.levels,
+      avgScores: Object.fromEntries(Object.entries(writing.scores).map(([k, v]) => [k, avg(v)])),
     },
     speaking: {
-      count: speaks.length,
-      avgScores: Object.fromEntries(Object.entries(speakScores).map(([k, v]) => [k, avg(v)])),
+      count: speaking.count,
+      avgScores: Object.fromEntries(Object.entries(speaking.scores).map(([k, v]) => [k, avg(v)])),
     },
-    sampleCorrections,
+    sampleCorrections: chat.sampleCorrections,
   };
 }
 

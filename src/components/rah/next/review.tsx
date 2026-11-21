@@ -23,7 +23,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Boot } from "@/app/page";
 import { dayIndex, defaultState, preview as fsrsPreview } from "@/lib/fsrs";
 import type { QueueItem, ReviewPhase, SessionDone } from "./review/shared";
-import { judgeAnswer, keyJudge, mcqChoices, runGrade, runLoad, speak } from "./review/flow";
+import { judgeAnswer, keyJudge, runGrade, runLoad } from "./review/flow";
+import { mcqChoices, speak } from "./review/shared";
 import { DoneScreen, EmptyScreen, LoadErrorScreen, LoadingScreen } from "./review/screens";
 import { ReviewStage } from "./review/stage";
 

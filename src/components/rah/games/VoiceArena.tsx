@@ -54,6 +54,8 @@ interface SpeechRecognitionLike {
   stop: () => void;
 }
 
+type Setter<T> = (v: T | ((prev: T) => T)) => void;
+
 function speak(text: string, rate = 0.9) {
   try {
     window.speechSynthesis.cancel();
@@ -67,6 +69,227 @@ function speak(text: string, rate = 0.9) {
 }
 
 const REPS = 5;
+
+async function startVoiceSession(ctl: {
+  setPhase: (p: "idle" | "loading" | "drill" | "done") => void;
+  setError: (e: string | null) => void;
+  setDrills: (d: Drill[]) => void;
+  setRep: (n: number) => void;
+  setResults: (r: RepResult[]) => void;
+  setLast: (r: RepResult | null) => void;
+  setTranscript: (t: string) => void;
+}) {
+  ctl.setPhase("loading");
+  ctl.setError(null);
+  const r = await fetch("/api/arena/voice", { cache: "no-store" });
+  const j = await r.json();
+  ctl.setDrills(j.drills ?? []);
+  ctl.setRep(0);
+  ctl.setResults([]);
+  ctl.setLast(null);
+  ctl.setTranscript("");
+  ctl.setPhase("drill");
+}
+
+function startVoiceRecorder(o: {
+  hasSpeech: boolean;
+  hasDrill: boolean;
+  recRef: { current: SpeechRecognitionLike | null };
+  setListening: (v: boolean) => void;
+  setTranscript: Setter<string>;
+  setError: (e: string | null) => void;
+}) {
+  if (!o.hasSpeech || !o.hasDrill) return;
+  o.setError(null);
+  o.setTranscript("");
+  const Ctor = (window as unknown as { webkitSpeechRecognition?: new () => SpeechRecognitionLike; SpeechRecognition?: new () => SpeechRecognitionLike })
+    .webkitSpeechRecognition ?? (window as unknown as { SpeechRecognition: new () => SpeechRecognitionLike }).SpeechRecognition;
+  const rec = new Ctor();
+  o.recRef.current = rec;
+  rec.lang = "en-US";
+  rec.continuous = false;
+  rec.interimResults = false;
+  rec.onresult = (e) => {
+    let text = "";
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const r = e.results[i];
+      if (r.isFinal) text += r[0].transcript;
+    }
+    o.setTranscript((t) => (t + " " + text).trim());
+  };
+  rec.onend = () => o.setListening(false);
+  try {
+    rec.start();
+    o.setListening(true);
+  } catch {
+    o.setError("The microphone refused to start. Check browser permissions.");
+    o.setListening(false);
+  }
+}
+
+async function submitVoiceRep(o: {
+  hasDrill: boolean;
+  busy: boolean;
+  transcript: string;
+  drillEn: string;
+  setBusy: (v: boolean) => void;
+  setLast: (r: RepResult | null) => void;
+  setResults: (f: (rs: RepResult[]) => RepResult[]) => void;
+  setError: (e: string | null) => void;
+  onChange: () => void;
+}) {
+  if (!o.hasDrill || o.busy || !o.transcript.trim()) return;
+  o.setBusy(true);
+  try {
+    const r = await fetch("/api/arena/voice", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ target: o.drillEn, transcript: o.transcript }),
+    });
+    const j = await r.json();
+    if (!r.ok) {
+      o.setError(j.error ?? "Scoring failed.");
+      o.setBusy(false);
+      return;
+    }
+    const repResult: RepResult = { score: j.score, sound: j.sound, xpGain: j.xpGain };
+    o.setLast(repResult);
+    o.setResults((rs) => [...rs, repResult]);
+    o.onChange();
+  } catch {
+    o.setError("The scorer is unreachable. One more try usually lands it.");
+  }
+  o.setBusy(false);
+}
+
+function ArenaIntro({ phase, hasSpeech, onStart }: { phase: "idle" | "loading"; hasSpeech: boolean; onStart: () => void }) {
+  return (
+    <Card className="py-10 text-center">
+      {phase === "loading" ? (
+        <Spinner label="Pulling your shadowing drills" />
+      ) : (
+        <>
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--rah-accent)]/[0.14] text-[#9de6fb]">
+            <Mic className="h-8 w-8" />
+          </div>
+          <div className="mt-4 text-xl font-black tracking-tight text-[#f2f5fa]">Voice Arena</div>
+          <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-[#a9b4c6]">
+            Five reps. The coach speaks a sentence aimed at your weak constructions, you shadow it back, the word-diff scores your mouth. 30 XP per clean rep.
+          </p>
+          {!hasSpeech && (
+            <p className="mx-auto mt-3 max-w-sm text-xs font-semibold text-[#ffa3b1]">
+              No speech recognition here - you can still train by typing what you said after each line.
+            </p>
+          )}
+          <Btn variant="primary" onClick={onStart} className="mt-6">
+            <Mic className="h-4 w-4" /> Enter the arena
+          </Btn>
+        </>
+      )}
+    </Card>
+  );
+}
+
+function ArenaDone({ results, onRestart }: { results: RepResult[]; onRestart: () => void }) {
+  const avg = results.length ? Math.round(results.reduce((s, r) => s + r.score.accuracy, 0) / results.length) : 0;
+  const best = results.reduce((b, r) => Math.max(b, r.score.accuracy), 0);
+  const totalXp = results.reduce((s, r) => s + r.xpGain, 0);
+  return (
+    <Card className="rah-pop py-10 text-center">
+      <div className="text-[11px] font-black uppercase tracking-[0.14em] text-[#9de6fb]">Session over</div>
+      <div className="mt-1 text-5xl font-black tracking-tight text-[#f2f5fa]">{avg}%</div>
+      <div className="mt-2 text-sm font-bold text-[#8b96a9]">average shadow accuracy</div>
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+        <Chip tone="amber">best rep {best}%</Chip>
+        <Chip tone="cyan">+{totalXp} XP</Chip>
+        <Chip tone="slate">{results.length} reps</Chip>
+      </div>
+      <p className="mx-auto mt-4 max-w-sm text-sm leading-relaxed text-[#a9b4c6]">
+        {avg >= 85
+          ? "Your mouth is ahead of your pen. The sentences got harder next session."
+          : avg >= 65
+            ? "Respectable shadowing. The endings are where accuracy dies - exaggerate them."
+            : "Slow the playback to 0.8x mentally and over-pronounce the word endings for a few sessions."}
+      </p>
+      <Btn variant="primary" onClick={onRestart} className="mt-6">
+        <Mic className="h-4 w-4" /> Five fresh reps
+      </Btn>
+    </Card>
+  );
+}
+
+function CapturePanel({ listening, busy, transcript, setTranscript, hasSpeech, stopRec, onRecord, onSubmit }: {
+  listening: boolean;
+  busy: boolean;
+  transcript: string;
+  setTranscript: Setter<string>;
+  hasSpeech: boolean;
+  stopRec: () => void;
+  onRecord: () => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <div className="mt-6 border-t border-white/[0.06] pt-5 text-center">
+      {listening ? (
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex items-center gap-2 text-sm font-bold text-[#ff8ba0]">
+            <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#ff6b81]" /> Listening… say it back
+          </div>
+          <Btn variant="danger" onClick={stopRec}>
+            <Square className="h-4 w-4" /> Stop
+          </Btn>
+        </div>
+      ) : (
+        <Btn variant="danger" onClick={onRecord} disabled={busy}>
+          <Mic className="h-4 w-4" /> {transcript ? "Re-record" : "Say it back"}
+        </Btn>
+      )}
+      <div className="mt-4">
+        <input
+          value={transcript}
+          onChange={(e) => setTranscript(e.target.value)}
+          placeholder={hasSpeech ? "Heard nothing? Fix what the mic caught, or type what you said" : "No mic - type what you said, the scorer takes it as the transcript"}
+          className="w-full rounded-xl border border-white/[0.08] bg-[#141924] px-4 py-3 text-sm text-[#dbe3f0] outline-none placeholder:text-[#5d6880] focus:border-[#5f8fe8]/60"
+          aria-label="Transcript (editable)"
+        />
+      </div>
+      <Btn variant="primary" onClick={onSubmit} disabled={busy || !transcript.trim() || listening} className="mt-4">
+        {busy ? "Scoring…" : "Score this rep"}
+      </Btn>
+    </div>
+  );
+}
+
+function ScorePanel({ last, onNext, isFinalRep }: { last: RepResult; onNext: () => void; isFinalRep: boolean }) {
+  return (
+    <div className="rah-pop mt-6 border-t border-white/[0.06] pt-5">
+      <div className="text-center">
+        <div className="text-4xl font-black tracking-tight text-[#f2f5fa]">{last.score.accuracy}%</div>
+        <div className="mt-1 text-sm font-bold text-[#9de6fb]">+{last.xpGain} XP</div>
+        <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-[#a9b4c6]">{last.score.verdict}</p>
+      </div>
+      {last.score.missed.length > 0 && (
+        <div className="mt-4 text-center">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-[#7d889c]">Words that did not come back</div>
+          <div className="mt-1.5 flex flex-wrap justify-center gap-1.5">
+            {last.score.missed.map((w, i) => (
+              <Chip key={i} tone="rose">
+                {w}
+              </Chip>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {last.sound && <SoundPanel sound={last.sound} />}
+      <div className="mt-5 text-center">
+        <Btn variant="primary" onClick={onNext}>
+          <Play className="h-4 w-4" /> {isFinalRep ? "Finish session" : "Next rep"}
+        </Btn>
+      </div>
+    </div>
+  );
+}
 
 export default function VoiceArena({ onChange }: { onChange: () => void }) {
   const [phase, setPhase] = useState<"idle" | "loading" | "drill" | "done">("idle");
@@ -83,18 +306,8 @@ export default function VoiceArena({ onChange }: { onChange: () => void }) {
 
   const drill = drills[rep] as Drill | undefined;
 
-  const startSession = async () => {
-    setPhase("loading");
-    setError(null);
-    const r = await fetch("/api/arena/voice", { cache: "no-store" });
-    const j = await r.json();
-    setDrills(j.drills ?? []);
-    setRep(0);
-    setResults([]);
-    setLast(null);
-    setTranscript("");
-    setPhase("drill");
-  };
+  const startSession = () =>
+    void startVoiceSession({ setPhase, setError, setDrills, setRep, setResults, setLast, setTranscript });
 
   const stopRec = useCallback(() => {
     try {
@@ -105,59 +318,11 @@ export default function VoiceArena({ onChange }: { onChange: () => void }) {
     setListening(false);
   }, []);
 
-  const record = () => {
-    if (!hasSpeech || !drill) return;
-    setError(null);
-    setTranscript("");
-    const Ctor = (window as unknown as { webkitSpeechRecognition?: new () => SpeechRecognitionLike; SpeechRecognition?: new () => SpeechRecognitionLike })
-      .webkitSpeechRecognition ?? (window as unknown as { SpeechRecognition: new () => SpeechRecognitionLike }).SpeechRecognition;
-    const rec = new Ctor();
-    recRef.current = rec;
-    rec.lang = "en-US";
-    rec.continuous = false;
-    rec.interimResults = false;
-    rec.onresult = (e) => {
-      let text = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const r = e.results[i];
-        if (r.isFinal) text += r[0].transcript;
-      }
-      setTranscript((t) => (t + " " + text).trim());
-    };
-    rec.onend = () => setListening(false);
-    try {
-      rec.start();
-      setListening(true);
-    } catch {
-      setError("The microphone refused to start. Check browser permissions.");
-      setListening(false);
-    }
-  };
+  const record = () =>
+    startVoiceRecorder({ hasSpeech, hasDrill: Boolean(drill), recRef, setListening, setTranscript, setError });
 
-  const submit = async () => {
-    if (!drill || busy || !transcript.trim()) return;
-    setBusy(true);
-    try {
-      const r = await fetch("/api/arena/voice", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target: drill.en, transcript }),
-      });
-      const j = await r.json();
-      if (!r.ok) {
-        setError(j.error ?? "Scoring failed.");
-        setBusy(false);
-        return;
-      }
-      const repResult: RepResult = { score: j.score, sound: j.sound, xpGain: j.xpGain };
-      setLast(repResult);
-      setResults((rs) => [...rs, repResult]);
-      onChange();
-    } catch {
-      setError("The scorer is unreachable. One more try usually lands it.");
-    }
-    setBusy(false);
-  };
+  const submit = () =>
+    void submitVoiceRep({ hasDrill: Boolean(drill), busy, transcript, drillEn: drill?.en ?? "", setBusy, setLast, setResults, setError, onChange });
 
   const next = () => {
     if (rep + 1 >= REPS || rep + 1 >= drills.length) {
@@ -173,59 +338,11 @@ export default function VoiceArena({ onChange }: { onChange: () => void }) {
   useEffect(() => stopRec, [stopRec]);
 
   if (phase === "idle" || phase === "loading") {
-    return (
-      <Card className="py-10 text-center">
-        {phase === "loading" ? (
-          <Spinner label="Pulling your shadowing drills" />
-        ) : (
-          <>
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--rah-accent)]/[0.14] text-[#9de6fb]">
-              <Mic className="h-8 w-8" />
-            </div>
-            <div className="mt-4 text-xl font-black tracking-tight text-[#f2f5fa]">Voice Arena</div>
-            <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-[#a9b4c6]">
-              Five reps. The coach speaks a sentence aimed at your weak constructions, you shadow it back, the word-diff scores your mouth. 30 XP per clean rep.
-            </p>
-            {!hasSpeech && (
-              <p className="mx-auto mt-3 max-w-sm text-xs font-semibold text-[#ffa3b1]">
-                No speech recognition here - you can still train by typing what you said after each line.
-              </p>
-            )}
-            <Btn variant="primary" onClick={startSession} className="mt-6">
-              <Mic className="h-4 w-4" /> Enter the arena
-            </Btn>
-          </>
-        )}
-      </Card>
-    );
+    return <ArenaIntro phase={phase} hasSpeech={hasSpeech} onStart={startSession} />;
   }
 
   if (phase === "done") {
-    const avg = results.length ? Math.round(results.reduce((s, r) => s + r.score.accuracy, 0) / results.length) : 0;
-    const best = results.reduce((b, r) => Math.max(b, r.score.accuracy), 0);
-    const totalXp = results.reduce((s, r) => s + r.xpGain, 0);
-    return (
-      <Card className="rah-pop py-10 text-center">
-        <div className="text-[11px] font-black uppercase tracking-[0.14em] text-[#9de6fb]">Session over</div>
-        <div className="mt-1 text-5xl font-black tracking-tight text-[#f2f5fa]">{avg}%</div>
-        <div className="mt-2 text-sm font-bold text-[#8b96a9]">average shadow accuracy</div>
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-          <Chip tone="amber">best rep {best}%</Chip>
-          <Chip tone="cyan">+{totalXp} XP</Chip>
-          <Chip tone="slate">{results.length} reps</Chip>
-        </div>
-        <p className="mx-auto mt-4 max-w-sm text-sm leading-relaxed text-[#a9b4c6]">
-          {avg >= 85
-            ? "Your mouth is ahead of your pen. The sentences got harder next session."
-            : avg >= 65
-              ? "Respectable shadowing. The endings are where accuracy dies - exaggerate them."
-              : "Slow the playback to 0.8x mentally and over-pronounce the word endings for a few sessions."}
-        </p>
-        <Btn variant="primary" onClick={startSession} className="mt-6">
-          <Mic className="h-4 w-4" /> Five fresh reps
-        </Btn>
-      </Card>
-    );
+    return <ArenaDone results={results} onRestart={startSession} />;
   }
 
   // drill
@@ -249,64 +366,11 @@ export default function VoiceArena({ onChange }: { onChange: () => void }) {
         </div>
 
         {!last && (
-          <div className="mt-6 border-t border-white/[0.06] pt-5 text-center">
-            {listening ? (
-              <div className="flex flex-col items-center gap-3">
-                <div className="flex items-center gap-2 text-sm font-bold text-[#ff8ba0]">
-                  <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#ff6b81]" /> Listening… say it back
-                </div>
-                <Btn variant="danger" onClick={stopRec}>
-                  <Square className="h-4 w-4" /> Stop
-                </Btn>
-              </div>
-            ) : (
-              <Btn variant="danger" onClick={record} disabled={busy}>
-                <Mic className="h-4 w-4" /> {transcript ? "Re-record" : "Say it back"}
-              </Btn>
-            )}
-            <div className="mt-4">
-              <input
-                value={transcript}
-                onChange={(e) => setTranscript(e.target.value)}
-                placeholder={hasSpeech ? "Heard nothing? Fix what the mic caught, or type what you said" : "No mic - type what you said, the scorer takes it as the transcript"}
-                className="w-full rounded-xl border border-white/[0.08] bg-[#141924] px-4 py-3 text-sm text-[#dbe3f0] outline-none placeholder:text-[#5d6880] focus:border-[#5f8fe8]/60"
-                aria-label="Transcript (editable)"
-              />
-            </div>
-            <Btn variant="primary" onClick={submit} disabled={busy || !transcript.trim() || listening} className="mt-4">
-              {busy ? "Scoring…" : "Score this rep"}
-            </Btn>
-          </div>
+          <CapturePanel listening={listening} busy={busy} transcript={transcript} setTranscript={setTranscript} hasSpeech={hasSpeech}
+            stopRec={stopRec} onRecord={record} onSubmit={submit} />
         )}
 
-        {last && (
-          <div className="rah-pop mt-6 border-t border-white/[0.06] pt-5">
-            <div className="text-center">
-              <div className="text-4xl font-black tracking-tight text-[#f2f5fa]">{last.score.accuracy}%</div>
-              <div className="mt-1 text-sm font-bold text-[#9de6fb]">+{last.xpGain} XP</div>
-              <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-[#a9b4c6]">{last.score.verdict}</p>
-            </div>
-            {last.score.missed.length > 0 && (
-              <div className="mt-4 text-center">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-[#7d889c]">Words that did not come back</div>
-                <div className="mt-1.5 flex flex-wrap justify-center gap-1.5">
-                  {last.score.missed.map((w, i) => (
-                    <Chip key={i} tone="rose">
-                      {w}
-                    </Chip>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {last.sound && <SoundPanel sound={last.sound} />}
-            <div className="mt-5 text-center">
-              <Btn variant="primary" onClick={next}>
-                <Play className="h-4 w-4" /> {rep + 1 >= Math.min(REPS, drills.length) ? "Finish session" : "Next rep"}
-              </Btn>
-            </div>
-          </div>
-        )}
+        {last && <ScorePanel last={last} onNext={next} isFinalRep={rep + 1 >= Math.min(REPS, drills.length)} />}
 
         {error && <div className="mt-4 text-center text-sm font-bold text-[#ffa3b1]">{error}</div>}
       </Card>

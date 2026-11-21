@@ -129,6 +129,42 @@ function safeDim(r: DimResult, fallback: string): SkillLevel {
   };
 }
 
+// One focused dimension pass: emit run/done around the AI call, fall back to
+// holding the current level when the pass does not complete.
+async function analyzeDim(o: {
+  ctx: AssessCtx;
+  label: string;
+  system: string;
+  user: string;
+  fallback: DimResult;
+}): Promise<DimResult> {
+  o.ctx.emit({ label: o.label, state: "run" });
+  const res = await aiJson<DimResult>(
+    o.system,
+    [{ role: "user", content: o.user }],
+    undefined,
+    { deep: true },
+  ).catch(() => o.fallback);
+  o.ctx.emit({ label: o.label, state: "done", detail: `band ${res.level}` });
+  return res;
+}
+
+// Persist: per-skill levels on the learner, overall becomes the working level.
+async function persistLevels(overall: string, skills: SkillLevel[]) {
+  const levelsJson: Record<string, string> = {};
+  for (const s of skills) levelsJson[s.skill] = s.level;
+  levelsJson.overall = overall;
+  levelsJson.measuredAt = new Date().toISOString();
+  await db.learner.update({
+    where: { id: "me" },
+    data: { level: overall === "?" ? undefined : overall, skillLevels: JSON.stringify(levelsJson) },
+  }).catch(() => db.learner.upsert({
+    where: { id: "me" },
+    update: { level: overall === "?" ? undefined : overall, skillLevels: JSON.stringify(levelsJson) },
+    create: { id: "me", level: overall, skillLevels: JSON.stringify(levelsJson) },
+  }));
+}
+
 export async function deepAssess(ctx: AssessCtx): Promise<Assessment> {
   ctx.emit({ label: "Gathering everything you have done here", state: "run" });
   const [grammar, vocab, production] = await Promise.all([grammarEvidence(), vocabEvidence(), productionEvidence()]);
@@ -139,34 +175,21 @@ export async function deepAssess(ctx: AssessCtx): Promise<Assessment> {
     detail: `${evd[0] + evd[1] + evd[2]} characters of real activity data`,
   });
 
-  ctx.emit({ label: "Analyzing grammar and accuracy", state: "run" });
-  const grammarRes = await aiJson<DimResult>(
-    grammarAssessSystem(ctx.profile, grammar),
-    [{ role: "user", content: "Assess now." }],
-    undefined,
-    { deep: true },
-  ).catch(() => ({ level: ctx.profile.level, score10: 5, note: "Analysis did not complete; level held." } as DimResult));
-  ctx.emit({ label: "Analyzing grammar and accuracy", state: "done", detail: `band ${grammarRes.level}` });
-
-  ctx.emit({ label: "Analyzing vocabulary and range", state: "run" });
-  const vocabRes = await aiJson<DimResult>(
-    vocabAssessSystem(ctx.profile, vocab),
-    [{ role: "user", content: "Assess now." }],
-    undefined,
-    { deep: true },
-  ).catch(() => ({ level: ctx.profile.level, score10: 5, note: "Analysis did not complete; level held." } as DimResult));
-  ctx.emit({ label: "Analyzing vocabulary and range", state: "done", detail: `band ${vocabRes.level}` });
-
-  ctx.emit({ label: "Analyzing writing and speaking", state: "run" });
-  const prodRes = await aiJson<DimResult>(
-    productionAssessSystem(ctx.profile, production),
-    [{ role: "user", content: production === "No writing or speaking submissions recorded yet."
-        ? "No production samples exist yet. Say so in the note and give the level you can infer from the other evidence, at lower confidence."
-        : "Assess now." }],
-    undefined,
-    { deep: true },
-  ).catch(() => ({ level: ctx.profile.level, score10: 4, note: "Analysis did not complete; level held." } as DimResult));
-  ctx.emit({ label: "Analyzing writing and speaking", state: "done", detail: `band ${prodRes.level}` });
+  const grammarRes = await analyzeDim({
+    ctx, label: "Analyzing grammar and accuracy", system: grammarAssessSystem(ctx.profile, grammar),
+    user: "Assess now.", fallback: { level: ctx.profile.level, score10: 5, note: "Analysis did not complete; level held." },
+  });
+  const vocabRes = await analyzeDim({
+    ctx, label: "Analyzing vocabulary and range", system: vocabAssessSystem(ctx.profile, vocab),
+    user: "Assess now.", fallback: { level: ctx.profile.level, score10: 5, note: "Analysis did not complete; level held." },
+  });
+  const prodRes = await analyzeDim({
+    ctx, label: "Analyzing writing and speaking", system: productionAssessSystem(ctx.profile, production),
+    user: production === "No writing or speaking submissions recorded yet."
+      ? "No production samples exist yet. Say so in the note and give the level you can infer from the other evidence, at lower confidence."
+      : "Assess now.",
+    fallback: { level: ctx.profile.level, score10: 4, note: "Analysis did not complete; level held." },
+  });
 
   ctx.emit({ label: "Setting your levels", state: "run" });
   const previous = ctx.profile.level;
@@ -201,19 +224,7 @@ export async function deepAssess(ctx: AssessCtx): Promise<Assessment> {
     fa_note: clean(String(synthesis.fa_note ?? "")).slice(0, 300),
   };
 
-  // Persist: per-skill levels on the learner, overall becomes the working level.
-  const levelsJson: Record<string, string> = {};
-  for (const s of skills) levelsJson[s.skill] = s.level;
-  levelsJson.overall = overall;
-  levelsJson.measuredAt = new Date().toISOString();
-  await db.learner.update({
-    where: { id: "me" },
-    data: { level: overall === "?" ? undefined : overall, skillLevels: JSON.stringify(levelsJson) },
-  }).catch(() => db.learner.upsert({
-    where: { id: "me" },
-    update: { level: overall === "?" ? undefined : overall, skillLevels: JSON.stringify(levelsJson) },
-    create: { id: "me", level: overall, skillLevels: JSON.stringify(levelsJson) },
-  }));
+  await persistLevels(overall, skills);
 
   ctx.emit({ label: "Setting your levels", state: "done", detail: `overall ${overall}` });
   return assessment;

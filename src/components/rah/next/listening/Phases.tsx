@@ -3,7 +3,8 @@
 import type { ReactNode } from "react";
 import { SectionTitle, Note, Fa } from "../bits";
 import { PASSAGES, MISS_TYPES } from "@/lib/content";
-import { speakSlow, overlapPct } from "../speech";
+import { overlapPct, speakSlow, stopSpeak } from "../speech";
+
 import type { ListenPassage } from "@/content/listening";
 
 // The pick screen: passage library grid.
@@ -173,10 +174,9 @@ export function R3(props: {
   passage: ListenPassage;
   addedVocab: Record<string, "loading" | "done" | "exists">;
   addVocab: (w: string, fa: string) => Promise<void>;
-  speakSlow: (text: string) => void;
   setPhase: (v: "r4") => void;
 }) {
-  const { header, passage, addedVocab, addVocab, speakSlow, setPhase } = props;
+  const { header, passage, addedVocab, addVocab, setPhase } = props;
   return (
     <div className="max-w-2xl mx-auto">
       {header}
@@ -297,6 +297,22 @@ export function R5(props: {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Shared chip header for the in-passage rounds (verbatim from the parent).
+export function ListeningHeader(props: { passage: ListenPassage; setPhase: (v: "pick") => void }) {
+  const { passage, setPhase } = props;
+  return (
+    <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center gap-2">
+        <span className="chip chip-accent">{passage.level}</span>
+        <span className="chip">{passage.title}</span>
+      </div>
+      <button className="text-[12.5px] font-semibold" style={{ color: "var(--muted)" }} onClick={() => { stopSpeak(); setPhase("pick"); }}>
+        change passage
+      </button>
     </div>
   );
 }

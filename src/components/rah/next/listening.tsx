@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { PASSAGES, splitSentences } from "@/lib/content";
-import { speak, stopSpeak } from "./speech";
+import { speak } from "./speech";
 import type { Phase } from "./listening/shared";
-import { PickPhase, R1, R2, R3, R4, R5 } from "./listening/Phases";
+import { PickPhase, ListeningHeader, R1, R2, R3, R4, R5 } from "./listening/Phases";
 import { QuizPhase, EndPhase } from "./listening/Quiz";
+import { makeListeningActions } from "./listening/flow";
 
 export default function ListeningView({ onDone }: { onDone: () => void }) {
   const [phase, setPhase] = useState<Phase>("pick");
@@ -32,6 +33,11 @@ export default function ListeningView({ onDone }: { onDone: () => void }) {
   const passage = PASSAGES.find((p) => p.id === pid);
   const segments = passage ? splitSentences(passage.transcript) : [];
 
+  const { log, addVocab, trackMinutes } = makeListeningActions({
+    pid, passage, segments, addedVocab, setAddedVocab,
+  });
+
+
   const play = async (rate = 1) => {
     setLastRate(rate);
     if (!passage) return;
@@ -39,14 +45,6 @@ export default function ListeningView({ onDone }: { onDone: () => void }) {
     const ok = await speak(passage.transcript, rate);
     setPlaying(false);
     if (!ok) setNoVoice(true);
-  };
-
-  const log = (round: number, missType = "", d = "") => {
-    fetch("/api/track", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ kind: "listening", passageId: pid, round, missType, detail: d }),
-    }).catch(() => undefined);
   };
 
   const playSegment = async (i: number, rate = 0.85) => {
@@ -57,35 +55,10 @@ export default function ListeningView({ onDone }: { onDone: () => void }) {
     if (!ok) setNoVoice(true);
   };
 
-  const addVocab = async (w: string, fa: string) => {
-    if (!passage || addedVocab[w]) return;
-    setAddedVocab((x) => ({ ...x, [w]: "loading" }));
-    // The exact passage sentence that carries the word rides onto the card.
-    const sentence = segments.find((s) => s.toLowerCase().includes(w.toLowerCase().split(" ")[0])) ?? "";
-    try {
-      const r = await fetch("/api/track", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind: "listenvocab", word: w, fa, passageId: passage.id, sentence }),
-      });
-      const j = await r.json();
-      setAddedVocab((x) => ({ ...x, [w]: j.created ? "done" : "exists" }));
-    } catch {
-      setAddedVocab((x) => {
-        const n = { ...x };
-        delete n[w];
-        return n;
-      });
-    }
-  };
-
   const finish = () => {
     const mins = Math.max(1, Math.round((Date.now() - startRef.current) / 60000));
-    fetch("/api/track", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ kind: "listening", minutes: mins, meta: { passageId: pid } }),
-    }).then(onDone).catch(() => undefined);
+    trackMinutes(mins);
+    onDone();
     setQIdx(0);
     setPicked(null);
     setPhase("quiz");
@@ -97,17 +70,7 @@ export default function ListeningView({ onDone }: { onDone: () => void }) {
 
   if (!passage) return null;
 
-  const header = (
-    <div className="flex items-center justify-between mb-4">
-      <div className="flex items-center gap-2">
-        <span className="chip chip-accent">{passage.level}</span>
-        <span className="chip">{passage.title}</span>
-      </div>
-      <button className="text-[12.5px] font-semibold" style={{ color: "var(--muted)" }} onClick={() => { stopSpeak(); setPhase("pick"); }}>
-        change passage
-      </button>
-    </div>
-  );
+  const header = <ListeningHeader passage={passage} setPhase={setPhase} />;
 
   if (phase === "r1") {
     return <R1 header={header} playing={playing} noVoice={noVoice} caught={caught} play={play} setCaught={setCaught} log={log} setPhase={setPhase} />;
@@ -116,7 +79,7 @@ export default function ListeningView({ onDone }: { onDone: () => void }) {
     return <R2 header={header} play={play} segments={segments} segPlaying={segPlaying} playSegment={playSegment} misses={misses} setMisses={setMisses} detail={detail} setDetail={setDetail} log={log} setPhase={setPhase} />;
   }
   if (phase === "r3") {
-    return <R3 header={header} passage={passage} addedVocab={addedVocab} addVocab={addVocab} speakSlow={speakSlow} setPhase={setPhase} />;
+    return <R3 header={header} passage={passage} addedVocab={addedVocab} addVocab={addVocab} setPhase={setPhase} />;
   }
   if (phase === "r4") {
     return <R4 header={header} playing={playing} lastRate={lastRate} play={play} setPhase={setPhase} />;

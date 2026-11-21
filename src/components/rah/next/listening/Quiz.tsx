@@ -33,29 +33,9 @@ export function QuizPhase(props: {
             </p>
             <p className="text-[16.5px] font-semibold leading-relaxed mb-5">{q.q}</p>
             <div className="grid gap-2">
-              {q.choices.map((c, i) => {
-                const isPicked = picked === i;
-                const reveal = picked !== null;
-                const isRight = i === q.correct;
-                return (
-                  <button
-                    key={i}
-                    disabled={reveal}
-                    onClick={() => setPicked(i)}
-                    className="rounded-2xl border px-4 py-3 text-left text-[14px]"
-                    style={
-                      reveal && isRight
-                        ? { background: "var(--accent-dim)", borderColor: "var(--accent)" }
-                        : reveal && isPicked && !isRight
-                          ? { background: "var(--danger-dim, rgba(220,38,38,0.12))", borderColor: "var(--danger)" }
-                          : { borderColor: "var(--line)" }
-                    }
-                  >
-                    {c}
-                    {reveal && isRight ? " ✓" : ""}
-                  </button>
-                );
-              })}
+              {q.choices.map((c, i) => (
+                <QuizChoice key={i} text={c} i={i} picked={picked} correct={q.correct} setPicked={setPicked} />
+              ))}
             </div>
             {picked !== null ? (
               <div className="mt-4">
@@ -126,5 +106,36 @@ export function EndPhase(props: {
         <button className="btn-primary" onClick={() => { setQuizScore(null); setPhase("pick"); }}>Another passage</button>
       </div>
     </div>
+  );
+}
+
+// One answer row of the comprehension check (verbatim from the quiz body).
+function QuizChoice(props: {
+  text: string;
+  i: number;
+  picked: number | null;
+  correct: number;
+  setPicked: (v: number | null) => void;
+}) {
+  const { text, i, picked, correct, setPicked } = props;
+  const isPicked = picked === i;
+  const reveal = picked !== null;
+  const isRight = i === correct;
+  return (
+    <button
+      disabled={reveal}
+      onClick={() => setPicked(i)}
+      className="rounded-2xl border px-4 py-3 text-left text-[14px]"
+      style={
+        reveal && isRight
+          ? { background: "var(--accent-dim)", borderColor: "var(--accent)" }
+          : reveal && isPicked && !isRight
+            ? { background: "var(--danger-dim, rgba(220,38,38,0.12))", borderColor: "var(--danger)" }
+            : { borderColor: "var(--line)" }
+      }
+    >
+      {text}
+      {reveal && isRight ? " ✓" : ""}
+    </button>
   );
 }

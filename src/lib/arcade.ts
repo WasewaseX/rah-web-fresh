@@ -15,22 +15,22 @@ export {
   getChain,
   registerHit,
   registerMiss,
-  XpResult,
+  type XpResult,
   awardXp,
   GAME_XP_CAPS,
   gameXpEarnedToday,
-  GameXpResult,
+  type GameXpResult,
   awardGameXp,
   QUEST_TEMPLATES,
   ensureQuests,
   progressQuest,
 } from "./arcade/rewards";
 export {
-  PerkDef,
+  type PerkDef,
   PERKS,
   hasPerk,
   learnerPerks,
-  PerksView,
+  type PerksView,
   getPerksView,
   buyPerk,
 } from "./arcade/talents";
@@ -38,20 +38,20 @@ export {
   xpToReach,
   levelFromXp,
   levelName,
-  LevelView,
+  type LevelView,
   levelView,
 } from "./arcade/levels";
 export {
-  AchievementDef,
+  type AchievementDef,
   ACHIEVEMENTS,
   evaluateAchievements,
 } from "./arcade/achievements";
 export {
   DIVISIONS,
-  LeagueStanding,
-  LeagueView,
+  type LeagueStanding,
+  type LeagueView,
   getLeagueView,
 } from "./arcade/league";
 export { bumpStat } from "./arcade/gamestat";
-export { RivalView, getRivalView } from "./arcade/rival";
-export { GameView, getGameView } from "./arcade/view";
+export { type RivalView, getRivalView } from "./arcade/rival";
+export { type GameView, getGameView } from "./arcade/view";

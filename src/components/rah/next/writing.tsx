@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import type { Boot } from "@/app/page";
 import { WRITE_PROMPTS } from "@/lib/content";
 import { wordCount } from "@/lib/fsrs";
-import { loadWriteDraft, saveWriteDraft, clearWriteDraft, resolveDrafts, type WriteDraft } from "@/lib/write-draft";
+import type { WriteDraft } from "@/lib/write-draft";
 import type { Feedback, Sample, WritingGoal } from "./writing/shared";
 import { PickStage, ModelStage } from "./writing/Stages";
 import { WriteStage } from "./writing/WriteStage";
 import { RepairStage } from "./writing/RepairStage";
+import { submitForFeedback } from "./writing/submit";
+import { syncDraftOnMount, autosaveDraft } from "./writing/draft";
 
 export default function WritingView({ onDone }: { boot: Boot; onDone: () => void }) {
   const [stage, setStage] = useState<"pick" | "write" | "repair" | "model">("pick");
@@ -36,37 +38,15 @@ export default function WritingView({ onDone }: { boot: Boot; onDone: () => void
       .catch(() => undefined);
   }, []);
 
+
+
   // Draft resolution on mount: server draft vs this device's localStorage,
   // last-write-wins on the save timestamp (pure seam, battery-pinned).
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const local = loadWriteDraft(window.localStorage);
-      let remote: WriteDraft | null = null;
-      try {
-        const r = await fetch("/api/write-draft", { cache: "no-store" });
-        const j = await r.json();
-        remote = j.draft ?? null;
-      } catch {
-        /* offline: the local draft stands on its own */
-      }
-      if (cancelled) return;
-      const { draft, source } = resolveDrafts(local, remote);
-      if (draft && source === "remote") {
-        setRestored(draft);
-        const when = draft.at ? new Date(draft.at).toLocaleString() : "an earlier session";
-        setDraftNote(`An unsent draft from ${when} is waiting - open any prompt and it loads there. It was newer than this device's copy.`);
-      } else if (draft && source === "local") {
-        // This device holds the newest copy: push it up so the server carries it too.
-        void fetch("/api/write-draft", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(draft),
-        }).catch(() => undefined);
-      }
-    })();
+    const cancelled = { v: false };
+    void syncDraftOnMount(cancelled, setRestored, setDraftNote);
     return () => {
-      cancelled = true;
+      cancelled.v = true;
     };
   }, []);
 
@@ -74,62 +54,22 @@ export default function WritingView({ onDone }: { boot: Boot; onDone: () => void
   // (same payload). Both are DRAFT caches - a submission clears both.
   useEffect(() => {
     if (stage !== "write" || !text.trim()) return;
-    const t = setTimeout(() => {
-      const draft: WriteDraft = { text, goalSel: goal, revisingId: null, at: Date.now() };
-      saveWriteDraft(draft, window.localStorage);
-      void fetch("/api/write-draft", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(draft),
-      }).catch(() => undefined);
-    }, 2500);
+    const t = setTimeout(() => autosaveDraft(text, goal), 2500);
     return () => clearTimeout(t);
   }, [text, goal, stage]);
+
+  // The examiner call. Body shape and the result wiring are battery-pinned
+  // (Task 108); a submission ends the draft's life on BOTH halves.
+  const submit = () => submitForFeedback({
+    prompt, text, goal, pid, setFbState, setFbMsg, setFeedback, setLastId, setDraftNote, setStage, onDone,
+  });
 
   const words = wordCount(text);
   const inRange = words >= (prompt?.minWords ?? 100) && words <= (prompt?.maxWords ?? 300) + 60;
 
   // The examiner call. Body shape and the result wiring are battery-pinned
   // (Task 108); a submission ends the draft's life on BOTH halves.
-  const submitForFeedback = async () => {
-    if (!prompt) return;
-    setFbState("busy");
-    setFbMsg("");
-    try {
-      const r = await fetch("/api/writing", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: prompt.prompt, text, goal }),
-      });
-      const j = await r.json();
-      if (r.ok && j && !j.error) {
-        setFeedback(j);
-        if (typeof j.id === "number") setLastId(j.id);
-        clearWriteDraft(window.localStorage);
-        void fetch("/api/write-draft", { method: "DELETE" }).catch(() => undefined);
-        setDraftNote("");
-        await fetch("/api/track", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ kind: "writing", minutes: 10, meta: { promptId: pid } }),
-        }).catch(() => undefined);
-        onDone();
-        setStage("repair");
-      } else {
-        setFbState("err");
-        setFbMsg(j.error ?? "no AI configured");
-        setStage("repair");
-      }
-    } catch {
-      setFbState("err");
-      setFbMsg("network error");
-      setStage("repair");
-    } finally {
-      setFbState("idle");
-    }
-  };
-
-  const setSelfCheckAt = (fn: (x: Record<string, boolean>) => Record<string, boolean>, k: string, v: boolean) => {
+  const setSelfCheckAt = (fn: (x: Record<string, boolean>) => Record<string, boolean>, _k: string, v: boolean) => {
     void v;
     setSelfCheck(fn);
   };
@@ -148,7 +88,7 @@ export default function WritingView({ onDone }: { boot: Boot; onDone: () => void
     return <PickStage draftNote={draftNote} history={history} restored={restored} setPid={setPid} setText={setText} setGoal={setGoal} setRestored={setRestored} setFeedback={setFeedback} setStage={setStage} />;
   }
   if (stage === "write" && prompt) {
-    return <WriteStage header={header} prompt={prompt} text={text} setText={setText} goal={goal} setGoal={setGoal} words={words} inRange={inRange} fbState={fbState} fbMsg={fbMsg} submit={submitForFeedback} selfCheck={selfCheck} setSelfCheck={setSelfCheckAt} />;
+    return <WriteStage header={header} prompt={prompt} text={text} setText={setText} goal={goal} setGoal={setGoal} words={words} inRange={inRange} fbState={fbState} fbMsg={fbMsg} submit={submit} selfCheck={selfCheck} setSelfCheck={setSelfCheckAt} />;
   }
   if (stage === "repair" && prompt) {
     return <RepairStage header={header} feedback={feedback} prompt={prompt} repaired={repaired} setRepaired={setRepaired} reuse={reuse} setReuse={setReuse} lastId={lastId} setStage={setStage} />;

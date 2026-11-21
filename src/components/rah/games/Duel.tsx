@@ -86,13 +86,7 @@ export default function Duel({ onChange }: { onChange: () => void }) {
     setIdx(0);
     setLeft(data.timer * 1000);
     setPhase("running");
-    const t0 = Date.now();
-    timerRef.current = setInterval(() => {
-      const ms = data.timer * 1000 - (Date.now() - t0);
-      if (ms <= 0) {
-        void finish(corRef.current, data.timer * 1000);
-      } else setLeft(ms);
-    }, 250);
+    timerRef.current = startDuelTimer(data.timer * 1000, setLeft, () => void finish(corRef.current, data.timer * 1000));
   };
 
   const hit = (ok: boolean) => {
@@ -139,6 +133,19 @@ function fetchDuelData(onData: (d: DuelData) => void) {
     .then((r) => r.json())
     .then((d: DuelData) => onData(d))
     .catch(() => undefined);
+}
+
+function startDuelTimer(
+  timerMs: number,
+  setLeft: (ms: number) => void,
+  onTimeUp: () => void,
+): ReturnType<typeof setInterval> {
+  const t0 = Date.now();
+  return setInterval(() => {
+    const ms = timerMs - (Date.now() - t0);
+    if (ms <= 0) onTimeUp();
+    else setLeft(ms);
+  }, 250);
 }
 
 function applyDuelResult(

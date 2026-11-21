@@ -6,7 +6,7 @@
 // arrives via props from CoachSidebar.
 
 import { ArrowRight, BrainCircuit, Eye, FileDown, FileText, FolderOpen, GraduationCap, LogOut, Send, Square, Trash2, Wrench, X } from "lucide-react";
-import { Btn, Chip } from "./ui";
+import { Btn, Chip } from "../ui";
 import { clearRahToken } from "@/lib/rah-fetch";
 import type { AgentCommand, CoachMessage, LiveStep, WorkspaceFile } from "./shared";
 import { fmtSize, SUGGESTIONS } from "./shared";

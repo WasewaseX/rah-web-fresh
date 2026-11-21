@@ -13,19 +13,87 @@ const TIPS = [
   "Speak the same task three times. The third version is the one that sticks.",
 ];
 
+const WEAKEST_LABEL: Record<string, string> = {
+  review: "spaced retrieval (grammar + vocabulary accuracy)",
+  listening: "listening",
+  reading: "reading",
+  speaking: "speaking",
+  writing: "writing",
+  sound: "pronunciation perception",
+};
+
+function StartBanner({ go }: { go: (v: string) => void }) {
+  return (
+    <div className="card-rah p-8 mb-5 text-center">
+      <div className="display text-[22px] font-bold mb-2">Start with measurement, not lessons</div>
+      <p className="text-[14px] max-w-xl mx-auto leading-relaxed mb-5" style={{ color: "var(--muted)" }}>
+        Fifteen minutes: 25 multiple choice questions and one short writing sample. Rah places you on the CEFR scale,
+        finds your weakest strand, and bends the daily plan toward it. You cannot study wrong if you measure first.
+      </p>
+      <button className="btn-primary" onClick={() => go("placement")}>
+        Take the placement test
+      </button>
+    </div>
+  );
+}
+
+function DiagnosisBlock({ weakest }: { weakest: [string, number] | undefined }) {
+  return weakest ? (
+    <Note tone="accent">
+      Your placement points to <b>{WEAKEST_LABEL[weakest[0]] ?? weakest[0]}</b> as the current bottleneck, so today&apos;s
+      plan gives it extra minutes. This rebalances every time you run a checkpoint.
+    </Note>
+  ) : (
+    <Note>
+      No diagnosis yet. Run a checkpoint from the Measure menu and the plan will start bending toward your weakest skill.
+    </Note>
+  );
+}
+
+function PlanCard({ p, done, go }: { p: Boot["plan"][number]; done: number; go: (v: string) => void }) {
+  const pctS = Math.min(100, Math.round((done / p.minutes) * 100));
+  return (
+    <button
+      key={p.strand}
+      onClick={() => go(p.view)}
+      className="card-rah p-5 text-left transition-shadow hover:shadow-md"
+    >
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[15px] font-bold">{p.label}</span>
+        <span className="chip" style={pctS >= 100 ? { background: "var(--accent-dim)", color: "var(--accent-deep)", borderColor: "transparent" } : undefined}>
+          {pctS >= 100 ? "done" : `${done}/${p.minutes} min`}
+        </span>
+      </div>
+      <p className="text-[13px] mb-3 leading-relaxed" style={{ color: "var(--muted)" }}>{p.note}</p>
+      <Bar pct={pctS} />
+    </button>
+  );
+}
+
+function CoachCard({ boot, go }: { boot: Boot; go: (v: string) => void }) {
+  return (
+    <div className="card-rah p-5 mt-5 flex items-center justify-between gap-4 flex-wrap">
+      <div>
+        <div className="font-bold text-[14.5px]">
+          Your AI coach is live {boot.ai.builtin ? "(built-in engine)" : `(${boot.ai.model})`}
+        </div>
+        <p className="text-[13px] mt-0.5" style={{ color: "var(--muted)" }}>
+          Talk to the tutor, get your writing graded against CEFR, turn any article into cards, record your voice and get
+          a repair plan. No key needed, it all just works.
+        </p>
+      </div>
+      <button className="btn-primary text-[13px]" onClick={() => go("tutor")}>
+        Talk to the coach
+      </button>
+    </div>
+  );
+}
+
 export default function TodayView({ boot, go }: { boot: Boot; go: (v: string) => void }) {
   const pct = boot.protocol.totalPlanned ? Math.round((boot.protocol.donePlanned / boot.protocol.totalPlanned) * 100) : 0;
   const tip = TIPS[new Date().getDate() % TIPS.length];
   const dx = boot.learner.diagnosis ?? {};
-  const weakest = Object.entries(dx).sort((a, b) => a[1] - b[1])[0];
-  const weakestLabel: Record<string, string> = {
-    review: "spaced retrieval (grammar + vocabulary accuracy)",
-    listening: "listening",
-    reading: "reading",
-    speaking: "speaking",
-    writing: "writing",
-    sound: "pronunciation perception",
-  };
+  const weakest = Object.entries(dx).sort((a, b) => a[1] - b[1])[0] as [string, number] | undefined;
 
   return (
     <div>
@@ -41,54 +109,13 @@ export default function TodayView({ boot, go }: { boot: Boot; go: (v: string) =>
         }
       />
 
-      {!boot.learner.onboarded ? (
-        <div className="card-rah p-8 mb-5 text-center">
-          <div className="display text-[22px] font-bold mb-2">Start with measurement, not lessons</div>
-          <p className="text-[14px] max-w-xl mx-auto leading-relaxed mb-5" style={{ color: "var(--muted)" }}>
-            Fifteen minutes: 25 multiple choice questions and one short writing sample. Rah places you on the CEFR scale,
-            finds your weakest strand, and bends the daily plan toward it. You cannot study wrong if you measure first.
-          </p>
-          <button className="btn-primary" onClick={() => go("placement")}>
-            Take the placement test
-          </button>
-        </div>
-      ) : (
-        <>
-          {weakest ? (
-            <Note tone="accent">
-              Your placement points to <b>{weakestLabel[weakest[0]] ?? weakest[0]}</b> as the current bottleneck, so today&apos;s
-              plan gives it extra minutes. This rebalances every time you run a checkpoint.
-            </Note>
-          ) : (
-            <Note>
-              No diagnosis yet. Run a checkpoint from the Measure menu and the plan will start bending toward your weakest skill.
-            </Note>
-          )}
-        </>
-      )}
+      {!boot.learner.onboarded ? <StartBanner go={go} /> : <DiagnosisBlock weakest={weakest} />}
 
       {/* protocol plan */}
       <div className="grid md:grid-cols-2 gap-4 mt-5">
-        {boot.plan.map((p) => {
-          const done = boot.protocol.minutesByStrand[p.strand] ?? 0;
-          const pctS = Math.min(100, Math.round((done / p.minutes) * 100));
-          return (
-            <button
-              key={p.strand}
-              onClick={() => go(p.view)}
-              className="card-rah p-5 text-left transition-shadow hover:shadow-md"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[15px] font-bold">{p.label}</span>
-                <span className="chip" style={pctS >= 100 ? { background: "var(--accent-dim)", color: "var(--accent-deep)", borderColor: "transparent" } : undefined}>
-                  {pctS >= 100 ? "done" : `${done}/${p.minutes} min`}
-                </span>
-              </div>
-              <p className="text-[13px] mb-3 leading-relaxed" style={{ color: "var(--muted)" }}>{p.note}</p>
-              <Bar pct={pctS} />
-            </button>
-          );
-        })}
+        {boot.plan.map((p) => (
+          <PlanCard key={p.strand} p={p} done={boot.protocol.minutesByStrand[p.strand] ?? 0} go={go} />
+        ))}
       </div>
 
       {/* quick stats */}
@@ -110,20 +137,7 @@ export default function TodayView({ boot, go }: { boot: Boot; go: (v: string) =>
         <Note tone="warn">{tip}</Note>
       </div>
 
-      <div className="card-rah p-5 mt-5 flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <div className="font-bold text-[14.5px]">
-            Your AI coach is live {boot.ai.builtin ? "(built-in engine)" : `(${boot.ai.model})`}
-          </div>
-          <p className="text-[13px] mt-0.5" style={{ color: "var(--muted)" }}>
-            Talk to the tutor, get your writing graded against CEFR, turn any article into cards, record your voice and get
-            a repair plan. No key needed, it all just works.
-          </p>
-        </div>
-        <button className="btn-primary text-[13px]" onClick={() => go("tutor")}>
-          Talk to the coach
-        </button>
-      </div>
+      <CoachCard boot={boot} go={go} />
     </div>
   );
 }

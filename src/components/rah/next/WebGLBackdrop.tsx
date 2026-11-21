@@ -55,98 +55,115 @@ void main(){
 }
 `;
 
+type GLBundle = {
+  gl: WebGLRenderingContext;
+  uRes: WebGLUniformLocation | null;
+  uTime: WebGLUniformLocation | null;
+  uCol: WebGLUniformLocation | null;
+  uMode: WebGLUniformLocation | null;
+};
+
+function initWebGLBackdropGL(canvas: HTMLCanvasElement): GLBundle | null {
+  const gl = canvas.getContext("webgl", { antialias: false, alpha: false, powerPreference: "low-power" });
+  if (!gl) return null; // CSS background carries the look
+
+  const compile = (type: number, src: string) => {
+    const sh = gl.createShader(type);
+    if (!sh) return null;
+    gl.shaderSource(sh, src);
+    gl.compileShader(sh);
+    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+      gl.deleteShader(sh);
+      return null;
+    }
+    return sh;
+  };
+  const vs = compile(gl.VERTEX_SHADER, VERT);
+  const fs = compile(gl.FRAGMENT_SHADER, FRAG);
+  if (!vs || !fs) return null;
+  const prog = gl.createProgram();
+  if (!prog) return null;
+  gl.attachShader(prog, vs);
+  gl.attachShader(prog, fs);
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return null;
+  gl.useProgram(prog);
+
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(prog, "p");
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+  const uRes = gl.getUniformLocation(prog, "u_res");
+  const uTime = gl.getUniformLocation(prog, "u_time");
+  const uCol = gl.getUniformLocation(prog, "u_col");
+  const uMode = gl.getUniformLocation(prog, "u_mode");
+  return { gl, uRes, uTime, uCol, uMode };
+}
+
+function mountWebGLBackdrop(refCurrent: HTMLCanvasElement | null): (() => void) | undefined {
+    const canvas = refCurrent;
+    if (!canvas) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const bundle = initWebGLBackdropGL(canvas);
+    if (!bundle) return;
+    const { gl, uRes, uTime, uCol, uMode } = bundle;
+  let effect = localStorage.getItem("rah.effect") ?? "aurora";
+  let mode = effect === "waves" ? 1 : effect === "particles" ? 2 : effect === "none" ? 3 : 0;
+  const onEffect = (e: Event) => {
+    effect = (e as CustomEvent).detail as string;
+    mode = effect === "waves" ? 1 : effect === "particles" ? 2 : effect === "none" ? 3 : 0;
+  };
+  window.addEventListener("rah-effect", onEffect);
+
+  const readColor = () => {
+    const v = getComputedStyle(document.documentElement).getPropertyValue("--rah-primary").trim();
+    const m = v.match(/^#([0-9a-f]{6})$/i);
+    if (!m) return [0.31, 0.55, 1.0];
+    const n = parseInt(m[1], 16);
+    return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+  };
+
+  const resize = () => {
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    canvas.width = Math.max(1, Math.floor(window.innerWidth * dpr));
+    canvas.height = Math.max(1, Math.floor(window.innerHeight * dpr));
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.uniform2f(uRes, canvas.width, canvas.height);
+  };
+  resize();
+  window.addEventListener("resize", resize);
+
+  let raf = 0;
+  const t0 = performance.now();
+  const draw = () => {
+    const time = reduced ? 12.0 : (performance.now() - t0) / 1000;
+    gl.uniform1f(uTime, time);
+    gl.uniform1f(uMode, mode);
+    const c = readColor();
+    gl.uniform3f(uCol, c[0], c[1], c[2]);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    if (!reduced) raf = requestAnimationFrame(draw);
+  };
+  draw();
+  // Recolor once when the theme changes even under reduced motion.
+  window.addEventListener("rah-theme", () => { if (reduced) draw(); }, { passive: true });
+
+  return () => {
+    cancelAnimationFrame(raf);
+    window.removeEventListener("resize", resize);
+    window.removeEventListener("rah-effect", onEffect);
+    gl.getExtension("WEBGL_lose_context")?.loseContext();
+  };
+}
+
+
 export default function WebGLBackdrop() {
   const ref = useRef<HTMLCanvasElement>(null);
 
-  useEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return;
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const gl = canvas.getContext("webgl", { antialias: false, alpha: false, powerPreference: "low-power" });
-    if (!gl) return; // CSS background carries the look
-
-    const compile = (type: number, src: string) => {
-      const sh = gl.createShader(type);
-      if (!sh) return null;
-      gl.shaderSource(sh, src);
-      gl.compileShader(sh);
-      if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
-        gl.deleteShader(sh);
-        return null;
-      }
-      return sh;
-    };
-    const vs = compile(gl.VERTEX_SHADER, VERT);
-    const fs = compile(gl.FRAGMENT_SHADER, FRAG);
-    if (!vs || !fs) return;
-    const prog = gl.createProgram();
-    if (!prog) return;
-    gl.attachShader(prog, vs);
-    gl.attachShader(prog, fs);
-    gl.linkProgram(prog);
-    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return;
-    gl.useProgram(prog);
-
-    const buf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-    const loc = gl.getAttribLocation(prog, "p");
-    gl.enableVertexAttribArray(loc);
-    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-
-    const uRes = gl.getUniformLocation(prog, "u_res");
-    const uTime = gl.getUniformLocation(prog, "u_time");
-    const uCol = gl.getUniformLocation(prog, "u_col");
-    const uMode = gl.getUniformLocation(prog, "u_mode");
-
-    let effect = localStorage.getItem("rah.effect") ?? "aurora";
-    let mode = effect === "waves" ? 1 : effect === "particles" ? 2 : effect === "none" ? 3 : 0;
-    const onEffect = (e: Event) => {
-      effect = (e as CustomEvent).detail as string;
-      mode = effect === "waves" ? 1 : effect === "particles" ? 2 : effect === "none" ? 3 : 0;
-    };
-    window.addEventListener("rah-effect", onEffect);
-
-    const readColor = () => {
-      const v = getComputedStyle(document.documentElement).getPropertyValue("--rah-primary").trim();
-      const m = v.match(/^#([0-9a-f]{6})$/i);
-      if (!m) return [0.31, 0.55, 1.0];
-      const n = parseInt(m[1], 16);
-      return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
-    };
-
-    const resize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-      canvas.width = Math.max(1, Math.floor(window.innerWidth * dpr));
-      canvas.height = Math.max(1, Math.floor(window.innerHeight * dpr));
-      gl.viewport(0, 0, canvas.width, canvas.height);
-      gl.uniform2f(uRes, canvas.width, canvas.height);
-    };
-    resize();
-    window.addEventListener("resize", resize);
-
-    let raf = 0;
-    const t0 = performance.now();
-    const draw = () => {
-      const time = reduced ? 12.0 : (performance.now() - t0) / 1000;
-      gl.uniform1f(uTime, time);
-      gl.uniform1f(uMode, mode);
-      const c = readColor();
-      gl.uniform3f(uCol, c[0], c[1], c[2]);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
-      if (!reduced) raf = requestAnimationFrame(draw);
-    };
-    draw();
-    // Recolor once when the theme changes even under reduced motion.
-    window.addEventListener("rah-theme", () => { if (reduced) draw(); }, { passive: true });
-
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener("resize", resize);
-      window.removeEventListener("rah-effect", onEffect);
-      gl.getExtension("WEBGL_lose_context")?.loseContext();
-    };
-  }, []);
+  useEffect(() => mountWebGLBackdrop(ref.current), []);
 
   return (
     <canvas

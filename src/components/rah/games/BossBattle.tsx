@@ -79,23 +79,8 @@ export default function BossBattle({ onChange }: { onChange: () => void }) {
     [onChange],
   );
 
-  const start = async () => {
-    setPhase("loading");
-    settled.current = false;
-    const r = await fetch("/api/arcade/boss", { cache: "no-store" });
-    const j = await r.json();
-    setPhases(j.phases ?? []);
-    setP(0);
-    setI(0);
-    setHearts(3);
-    setTally({ correct: 0, total: 0 });
-    setResult(null);
-    setInput("");
-    setFlash(null);
-    setBanner(`Phase 1 · ${j.phases?.[0]?.name ?? ""}`);
-    setTimeout(() => setBanner(null), 1400);
-    setPhase("fight");
-  };
+  const start = () =>
+    void startBossFight({ settled, setPhase, setPhases, setP, setI, setHearts, setTally, setResult, setInput, setFlash, setBanner });
 
   const answer = (ok: boolean) => {
     if (!item || flash) return;
@@ -161,6 +146,38 @@ type BossControls = {
   setInput: (s: string) => void;
   setFlash: (f: "ok" | "miss" | null) => void;
 };
+
+type BossStart = {
+  settled: { current: boolean };
+  setPhase: (p: "idle" | "loading" | "fight" | "won" | "lost") => void;
+  setPhases: (p: Phase[]) => void;
+  setP: (n: number) => void;
+  setI: (n: number) => void;
+  setHearts: (n: number) => void;
+  setTally: (t: { correct: number; total: number }) => void;
+  setResult: (r: Result | null) => void;
+  setInput: (s: string) => void;
+  setFlash: (f: "ok" | "miss" | null) => void;
+  setBanner: (s: string | null) => void;
+};
+
+async function startBossFight(o: BossStart) {
+  o.setPhase("loading");
+  o.settled.current = false;
+  const r = await fetch("/api/arcade/boss", { cache: "no-store" });
+  const j = await r.json();
+  o.setPhases(j.phases ?? []);
+  o.setP(0);
+  o.setI(0);
+  o.setHearts(3);
+  o.setTally({ correct: 0, total: 0 });
+  o.setResult(null);
+  o.setInput("");
+  o.setFlash(null);
+  o.setBanner(`Phase 1 · ${j.phases?.[0]?.name ?? ""}`);
+  setTimeout(() => o.setBanner(null), 1400);
+  o.setPhase("fight");
+}
 
 function advanceBoss(a: BossControls, heartsLeft: number) {
   if (a.i + 1 >= a.phaseItems) {

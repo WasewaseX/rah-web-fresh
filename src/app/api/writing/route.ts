@@ -214,10 +214,3 @@ export function revisionChanges(
   return out;
 }
 
-function safeParse(s: string): WritingResult | null {
-  try {
-    return JSON.parse(s) as WritingResult;
-  } catch {
-    return null;
-  }
-}

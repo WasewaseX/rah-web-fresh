@@ -63,87 +63,96 @@ function readPrimary(): [number, number, number] {
   return [0.31, 0.55, 1];
 }
 
+// Build the GL program, start the draw loop, and return the cleanup fn.
+// Returns null when WebGL or shader compilation is unavailable (the CSS
+// gradients in globals.css carry the look in that case).
+function setupGL(canvas: HTMLCanvasElement): (() => void) | null {
+  const gl = canvas.getContext("webgl", { alpha: true, antialias: false, depth: false, stencil: false });
+  if (!gl) return null; // graceful fallback: the CSS gradients in globals.css carry the look
+
+  const vs = compile(gl, gl.VERTEX_SHADER, VERT);
+  const fs = compile(gl, gl.FRAGMENT_SHADER, FRAG);
+  if (!vs || !fs) return null;
+  const prog = gl.createProgram();
+  if (!prog) return null;
+  gl.attachShader(prog, vs);
+  gl.attachShader(prog, fs);
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return null;
+  gl.useProgram(prog);
+
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(prog, "a_pos");
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+  const uRes = gl.getUniformLocation(prog, "u_res");
+  const uTime = gl.getUniformLocation(prog, "u_time");
+  const uColor = gl.getUniformLocation(prog, "u_color");
+
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let raf = 0;
+  let start = performance.now();
+  let color = readPrimary();
+
+  const resize = () => {
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    const w = Math.floor(window.innerWidth * dpr);
+    const h = Math.floor(window.innerHeight * dpr);
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+      gl.viewport(0, 0, w, h);
+    }
+    gl.uniform2f(uRes, canvas.width, canvas.height);
+  };
+
+  const draw = (now: number) => {
+    resize();
+    gl.uniform1f(uTime, (now - start) / 1000);
+    gl.uniform3f(uColor, color[0], color[1], color[2]);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  };
+
+  const loop = (now: number) => {
+    if (!document.hidden) draw(now);
+    raf = requestAnimationFrame(loop);
+  };
+
+  resize();
+  draw(start);
+  if (!reduced) raf = requestAnimationFrame(loop);
+
+  const onTheme = () => {
+    color = readPrimary();
+    draw(performance.now()); // instant repaint in the new accent
+    start = performance.now() - 30000; // keep drift phase calm
+  };
+  window.addEventListener("rah-theme", onTheme);
+  window.addEventListener("resize", onTheme);
+
+  return () => {
+    cancelAnimationFrame(raf);
+    window.removeEventListener("rah-theme", onTheme);
+    window.removeEventListener("resize", onTheme);
+    gl.getExtension("WEBGL_lose_context")?.loseContext();
+  };
+}
+
+function mountAura(ref: { current: HTMLCanvasElement | null }): (() => void) | undefined {
+  const canvas = ref.current;
+  if (!canvas) return undefined;
+  return setupGL(canvas) ?? undefined;
+}
+
 export default function AuraCanvas() {
   const ref = useRef<HTMLCanvasElement>(null);
 
-  useEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return;
-    const gl = canvas.getContext("webgl", { alpha: true, antialias: false, depth: false, stencil: false });
-    if (!gl) return; // graceful fallback: the CSS gradients in globals.css carry the look
-
-    const vs = compile(gl, gl.VERTEX_SHADER, VERT);
-    const fs = compile(gl, gl.FRAGMENT_SHADER, FRAG);
-    if (!vs || !fs) return;
-    const prog = gl.createProgram();
-    if (!prog) return;
-    gl.attachShader(prog, vs);
-    gl.attachShader(prog, fs);
-    gl.linkProgram(prog);
-    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return;
-    gl.useProgram(prog);
-
-    const buf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-    const loc = gl.getAttribLocation(prog, "a_pos");
-    gl.enableVertexAttribArray(loc);
-    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-
-    const uRes = gl.getUniformLocation(prog, "u_res");
-    const uTime = gl.getUniformLocation(prog, "u_time");
-    const uColor = gl.getUniformLocation(prog, "u_color");
-
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    let raf = 0;
-    let start = performance.now();
-    let color = readPrimary();
-
-    const resize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-      const w = Math.floor(window.innerWidth * dpr);
-      const h = Math.floor(window.innerHeight * dpr);
-      if (canvas.width !== w || canvas.height !== h) {
-        canvas.width = w;
-        canvas.height = h;
-        gl.viewport(0, 0, w, h);
-      }
-      gl.uniform2f(uRes, canvas.width, canvas.height);
-    };
-
-    const draw = (now: number) => {
-      resize();
-      gl.uniform1f(uTime, (now - start) / 1000);
-      gl.uniform3f(uColor, color[0], color[1], color[2]);
-      gl.clearColor(0, 0, 0, 0);
-      gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
-    };
-
-    const loop = (now: number) => {
-      if (!document.hidden) draw(now);
-      raf = requestAnimationFrame(loop);
-    };
-
-    resize();
-    draw(start);
-    if (!reduced) raf = requestAnimationFrame(loop);
-
-    const onTheme = () => {
-      color = readPrimary();
-      draw(performance.now()); // instant repaint in the new accent
-      start = performance.now() - 30000; // keep drift phase calm
-    };
-    window.addEventListener("rah-theme", onTheme);
-    window.addEventListener("resize", onTheme);
-
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener("rah-theme", onTheme);
-      window.removeEventListener("resize", onTheme);
-      gl.getExtension("WEBGL_lose_context")?.loseContext();
-    };
-  }, []);
+  useEffect(() => mountAura(ref), []);
 
   return (
     <canvas
